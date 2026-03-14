@@ -1080,6 +1080,9 @@ tr.trans-selected td { background: transparent; }
 
 .inv-carteira-table th, .inv-carteira-table td { padding: 10px 14px; font-size: 13px; }
 .inv-carteira-table tbody tr:hover { background: var(--primary-light); }
+.val-positive { color: #00875A; font-weight: 700; font-family: 'DM Mono', monospace; }
+.val-negative { color: #D93025; font-weight: 700; font-family: 'DM Mono', monospace; }
+.val-neutral  { color: #1558B0; font-weight: 600; font-family: 'DM Mono', monospace; }
 .inv-upside   { color: #00875A; font-weight: 700; }
 .inv-downside { color: #D93025; font-weight: 700; }
 .inv-neutral  { color: var(--text-muted); font-weight: 600; }
@@ -5671,11 +5674,12 @@ function renderTransacoes() {
       <td><span class="badge badge-gray">${escHtml(t.status_compra)}</span></td>
       ${(()=>{
         const tn=(t.tipo_pagamento||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
-        const sn=(t.status_compra||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
-        const isNt=sn==='neutro'||sn==='30';
-        const valCls=isNt?'val-neutral':tn==='entrada'?'val-positive':tn==='saida'?'val-negative':'val-neutral';
-        const sinal=isNt?'':tn==='saida'?'- ':'+ ';
-        return `<td class="${valCls}">${sinal}R$ ${fmtValor(parseFloat(t.valor)||0)}</td>`;
+        const isNeutro = tn==='neutro' || tn==='';
+        const isEntrada= tn==='entrada';
+        const isSaida  = tn==='saida';
+        const valCls = isEntrada ? 'val-positive' : isSaida ? 'val-negative' : 'val-neutral';
+        const sinal  = isEntrada ? '+ ' : isSaida ? '- ' : '';
+        return `<td class="${valCls}">${sinal}R$ ${fmtValor(Math.abs(parseFloat(t.valor)||0))}</td>`;
       })()}
       <td><span class="badge ${t.parcelado === 'Sim' ? 'badge-blue' : 'badge-gray'}">${t.parcelado}</span></td>
       <td>${t.parcelas}</td>
@@ -6223,9 +6227,11 @@ function renderUltimas10() {
   }
 
   tb.innerHTML = trans.map(t => {
-    const isS = _isSaida(t);
-    const valClass = isS ? 'val-negative' : 'val-positive';
-    const sinal    = isS ? '- ' : '+ ';
+    const tn = (tiposD.find(x=>x.id===t.tipo_pagamento_id)?.nome||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+    const isEntN = tn==='entrada';
+    const isSaN  = tn==='saida';
+    const valClass = isEntN ? 'val-positive' : isSaN ? 'val-negative' : 'val-neutral';
+    const sinal    = isEntN ? '+ ' : isSaN ? '- ' : '';
     return `<tr>
       <td>${fmtDateStr(t.data_competencia||t.data_contabil||'')}</td>
       <td title="${escHtml(t.descricao_tratada||t.descricao||'')}">${escHtml(t.descricao_tratada||t.descricao||'—')}</td>
@@ -6233,7 +6239,7 @@ function renderUltimas10() {
       <td>${escHtml(t._forma)}</td>
       <td>${escHtml(t._cat)}</td>
       <td><span class="badge badge-gray">${escHtml(t._status)}</span></td>
-      <td class="${valClass}">${sinal}R$ ${fmtValor(parseFloat(t.valor)||0)}</td>
+      <td class="${valClass}">${sinal}R$ ${fmtValor(Math.abs(parseFloat(t.valor)||0))}</td>
     </tr>`;
   }).join('');
 }
@@ -6303,7 +6309,8 @@ function _agrupar(transacoes, colecao, id_field) {
   transacoes.forEach(t => {
     const id = t[id_field] || '__sem__';
     const nome = itens.find(x=>x.id===id)?.nome || '(Sem ' + colecao + ')';
-    mapa[nome] = (mapa[nome]||0) + (parseFloat(t.valor)||0);
+    // Math.abs: saídas já foram filtradas, sempre exibir positivo
+    mapa[nome] = (mapa[nome]||0) + Math.abs(parseFloat(t.valor)||0);
   });
   return Object.entries(mapa)
     .sort((a,b)=>b[1]-a[1])
@@ -6602,7 +6609,7 @@ function renderRelSemana() {
       plugins:{ legend:{display:false}, tooltip: _ttFmt },
       scales:{
         x:{ grid:{display:false}, ticks:{font:{size:12}} },
-        y:{ grid:{color:'#EAEEF3'}, ticks:{callback:v=>'R$ '+fmtValor(v),font:{size:11}} }
+        y:{ min:0, grid:{color:'#EAEEF3'}, ticks:{callback:v=>'R$ '+fmtValor(v),font:{size:11}} }
       }
     }
   });
@@ -6658,8 +6665,7 @@ function renderRelPerfil() {
       responsive:true, maintainAspectRatio:false,
       plugins:{ legend:{display:false}, tooltip: _ttFmt },
       scales:{
-        x:{ grid:{display:false}, ticks:{font:{size:12}} },
-        y:{ grid:{color:'#EAEEF3'}, ticks:{callback:v=>'R$ '+fmtValor(v),font:{size:11}} }
+        x:{ grid:{display:false}, ticks:{font:{size:12}} },y:{ min:0, grid:{color:'#EAEEF3'}, ticks:{callback:v=>'R$ '+fmtValor(v),font:{size:11}} }
       }
     }
   });
@@ -6704,7 +6710,7 @@ function renderRelStatus() {
       plugins:{ legend:{display:false}, tooltip: _ttFmt },
       scales:{
         x:{ grid:{display:false}, ticks:{font:{size:12}} },
-        y:{ grid:{color:'#EAEEF3'}, ticks:{callback:v=>'R$ '+fmtValor(v),font:{size:11}} }
+        y:{ min:0, grid:{color:'#EAEEF3'}, ticks:{callback:v=>'R$ '+fmtValor(v),font:{size:11}} }
       }
     }
   });
