@@ -5347,23 +5347,29 @@ function filtroMesAtual() {
 }
 
 function filtroMesAnterior() {
-  document.getElementById('btnMesAtual')?.classList.remove('ativo');
-  const btn = document.getElementById('btnMesAnterior');
-  const ativo = btn.classList.toggle('ativo');
+  const deEl  = document.getElementById('fil-data-de');
+  const ateEl = document.getElementById('fil-data-ate');
 
-  if (ativo) {
-    const hoje   = new Date();
-    const inicio = new Date(hoje.getFullYear(), hoje.getMonth() - 1, 1);
-    const fim    = new Date(hoje.getFullYear(), hoje.getMonth(), 0);
-    document.getElementById('fil-data-de').value  = inicio.toISOString().slice(0, 10);
-    document.getElementById('fil-data-ate').value = fim.toISOString().slice(0, 10);
-    if (!document.getElementById('filtrosPanel').classList.contains('aberto')) {
-      toggleFiltrosPanel();
-    }
+  // Descobrir o mês atualmente exibido
+  let baseAno, baseMes;
+  if (deEl?.value) {
+    const [y, m] = deEl.value.split('-').map(Number);
+    baseAno = y;
+    baseMes = m - 1; // 0-indexed
   } else {
-    document.getElementById('fil-data-de').value  = '';
-    document.getElementById('fil-data-ate').value = '';
+    const hoje = new Date();
+    baseAno = hoje.getFullYear();
+    baseMes = hoje.getMonth();
   }
+
+  // Voltar um mês
+  const inicio = new Date(baseAno, baseMes - 1, 1);
+  const fim    = new Date(baseAno, baseMes, 0);
+  if (deEl)  deEl.value  = inicio.toISOString().slice(0, 10);
+  if (ateEl) ateEl.value = fim.toISOString().slice(0, 10);
+
+  document.getElementById('btnMesAtual')?.classList.remove('ativo');
+  document.getElementById('btnMesAnterior')?.classList.add('ativo');
   renderTransacoes();
 }
 
@@ -6435,18 +6441,32 @@ function _relMesAtual(pfx, renderFn) {
 }
 
 function _relMesAnterior(pfx, renderFn) {
-  const btn = document.getElementById(pfx+'-btn-mes');
-  const ativo = btn.classList.toggle('ativo');
-  if (ativo) {
-    const hoje = new Date();
-    const ini  = new Date(hoje.getFullYear(), hoje.getMonth()-1, 1);
-    const fim  = new Date(hoje.getFullYear(), hoje.getMonth(), 0);
-    document.getElementById(pfx+'-data-de').value  = ini.toISOString().slice(0,10);
-    document.getElementById(pfx+'-data-ate').value = fim.toISOString().slice(0,10);
+  // Decrementar um mês a partir do mês atualmente exibido
+  const deEl  = document.getElementById(pfx+'-data-de');
+  const ateEl = document.getElementById(pfx+'-data-ate');
+
+  // Descobrir o mês atual exibido (data de início do filtro)
+  let baseAno, baseMes;
+  if (deEl?.value) {
+    const [y, m] = deEl.value.split('-').map(Number);
+    baseAno = y;
+    baseMes = m - 1; // 0-indexed
   } else {
-    document.getElementById(pfx+'-data-de').value  = '';
-    document.getElementById(pfx+'-data-ate').value = '';
+    // Sem filtro ativo: partir do mês atual
+    const hoje = new Date();
+    baseAno = hoje.getFullYear();
+    baseMes = hoje.getMonth();
   }
+
+  // Voltar um mês
+  const ini = new Date(baseAno, baseMes - 1, 1);
+  const fim = new Date(baseAno, baseMes, 0);
+  if (deEl)  deEl.value  = ini.toISOString().slice(0, 10);
+  if (ateEl) ateEl.value = fim.toISOString().slice(0, 10);
+
+  // Destacar botão Mês Anterior, desativar Mês Atual
+  document.getElementById(pfx+'-btn-mes')?.classList.add('ativo');
+  document.getElementById(pfx+'-btn-mes-atual')?.classList.remove('ativo');
   renderFn();
 }
 
