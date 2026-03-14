@@ -11550,9 +11550,11 @@ function impProcessarArquivo(file) {
   } else if (['xlsx','xls'].includes(ext)) {
     const reader = new FileReader();
     reader.onload = e => {
-      const wb  = XLSX.read(e.target.result, { type:'array', cellDates:true });
+      // raw:true preserva valores originais; cellDates:true converte datas para objetos JS
+      const wb  = XLSX.read(e.target.result, { type:'array', cellDates:true, dateNF:'yyyy-mm-dd' });
       const ws  = wb.Sheets[wb.SheetNames[0]];
-      const arr = XLSX.utils.sheet_to_json(ws, { defval:'', raw:false });
+      // raw:false + dateNF força datas no formato ISO YYYY-MM-DD — sem ambiguidade
+      const arr = XLSX.utils.sheet_to_json(ws, { defval:'', raw:false, dateNF:'yyyy-mm-dd' });
       const hdrs= arr.length ? Object.keys(arr[0]) : [];
       impCarregarDados(hdrs, arr, file.name);
     };
@@ -11742,36 +11744,32 @@ function impExecutar() {
    */
   const parseDataISO = (raw) => {
     if (!raw) return '';
-    // Se for número (serial do Excel/SheetJS), converter
+    // Objeto Date (SheetJS com cellDates:true)
+    if (raw instanceof Date) return raw.toISOString().slice(0, 10);
+    // Serial numérico do Excel
     if (typeof raw === 'number') {
       const date = new Date(Math.round((raw - 25569) * 86400 * 1000));
       return date.toISOString().slice(0, 10);
     }
     const s = String(raw).trim();
     if (!s || s === 'undefined' || s === 'null') return '';
-    // Já está em ISO YYYY-MM-DD
+    // ISO YYYY-MM-DD (formato garantido pelo dateNF do SheetJS)
     if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
-    // DD/MM/YYYY ou DD/MM/YY (formato brasileiro)
+    // DD/MM/YYYY ou DD/MM/YY — formato manual do usuário
     const mBR = s.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2,4})$/);
     if (mBR) {
-      let [, p1, p2, p3] = mBR;
-      p3 = p3.length === 2 ? '20' + p3 : p3;
-      // Se p1 <= 12 pode ser ambíguo — checar se p1 > 12 (certamente dia)
-      // ou se p3 tem 4 dígitos e parece ano
-      if (parseInt(p1) > 12) {
-        // p1 = dia, p2 = mês
-        return `${p3}-${p2.padStart(2,'0')}-${p1.padStart(2,'0')}`;
-      } else if (parseInt(p2) > 12) {
-        // p2 = dia, p1 = mês (formato MM/DD/YYYY americano)
-        return `${p3}-${p1.padStart(2,'0')}-${p2.padStart(2,'0')}`;
+      let [, d, m, y] = mBR;
+      y = y.length === 2 ? '20' + y : y;
+      // Se primeiro número > 12, certamente é dia; senão assumir DD/MM (padrão BR)
+      if (parseInt(d) > 12) {
+        return `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`;
       } else {
-        // Ambíguo: assumir DD/MM/YYYY (padrão BR)
-        return `${p3}-${p2.padStart(2,'0')}-${p1.padStart(2,'0')}`;
+        // Formato BR: DD/MM/YYYY
+        return `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`;
       }
     }
-    // Tentar Date.parse como fallback
-    const d = new Date(s);
-    if (!isNaN(d)) return d.toISOString().slice(0, 10);
+    const dt = new Date(s);
+    if (!isNaN(dt)) return dt.toISOString().slice(0, 10);
     return '';
   };
 
