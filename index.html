@@ -5504,7 +5504,10 @@ function renderTransacoes() {
   const hoje       = new Date();
   const anoMes     = `${hoje.getFullYear()}-${String(hoje.getMonth()+1).padStart(2,'0')}`;
   const transMe    = todasTrans.filter(t => (t.data_competencia || '').startsWith(anoMes));
-  const saldoMes   = transMe.reduce((s, t) => {
+  // Excluir transações com tipo de pagamento Neutro do saldo
+  const isTipoNeutro = t => nomeTipo(t) === 'neutro' || nomeTipo(t) === '';
+  const transMeSaldo = transMe.filter(t => !isTipoNeutro(t));
+  const saldoMes   = transMeSaldo.reduce((s, t) => {
     const v = parseFloat(t.valor) || 0;
     return isSaida(t) ? s - v : isEntrada(t) ? s + v : s;
   }, 0);
