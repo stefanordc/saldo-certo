@@ -2480,6 +2480,9 @@ tr.trans-selected td { background: transparent; }
           <button class="btn-filtros" id="btnFiltros" onclick="toggleFiltrosPanel()">
             ⚙ Filtros <span class="filtro-badge" id="filtrosBadge" style="display:none">0</span>
           </button>
+          <button class="btn-mes-anterior" id="btnMesAtual" onclick="filtroMesAtual()" style="margin-right:4px">
+            ● Mês Atual
+          </button>
           <button class="btn-mes-anterior" id="btnMesAnterior" onclick="filtroMesAnterior()">
             ◀ Mês Anterior
           </button>
@@ -5295,7 +5298,21 @@ function popularSelectsFiltro() {
 }
 
 /* Filtro rápido: mês anterior */
+function filtroMesAtual() {
+  const hoje   = new Date();
+  const inicio = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+  const fim    = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0);
+  const fmt    = d => d.toISOString().slice(0, 10);
+  document.getElementById('fil-data-de').value  = fmt(inicio);
+  document.getElementById('fil-data-ate').value = fmt(fim);
+  // Desativar Mês Anterior se estiver ativo
+  document.getElementById('btnMesAnterior')?.classList.remove('ativo');
+  document.getElementById('btnMesAtual')?.classList.add('ativo');
+  renderTransacoes();
+}
+
 function filtroMesAnterior() {
+  document.getElementById('btnMesAtual')?.classList.remove('ativo');
   const btn = document.getElementById('btnMesAnterior');
   const ativo = btn.classList.toggle('ativo');
 
@@ -5504,13 +5521,11 @@ function renderTransacoes() {
   const hoje       = new Date();
   const anoMes     = `${hoje.getFullYear()}-${String(hoje.getMonth()+1).padStart(2,'0')}`;
   const transMe    = todasTrans.filter(t => (t.data_competencia || '').startsWith(anoMes));
-  // Excluir transações com tipo de pagamento Neutro do saldo
-  const isTipoNeutro = t => nomeTipo(t) === 'neutro' || nomeTipo(t) === '';
-  const transMeSaldo = transMe.filter(t => !isTipoNeutro(t));
-  const saldoMes   = transMeSaldo.reduce((s, t) => {
-    const v = parseFloat(t.valor) || 0;
-    return isSaida(t) ? s - v : isEntrada(t) ? s + v : s;
-  }, 0);
+  // Card saldo: apenas Entradas no mês atual (excluindo Neutro e Saída)
+  const somaEntradaMes = transMe
+    .filter(t => isEntrada(t))
+    .reduce((s, t) => s + (parseFloat(t.valor) || 0), 0);
+  const saldoMes = somaEntradaMes;
 
   // 2) Patrimônio total — saldo acumulado de todas as transações da categoria Investimento
   const transInvest  = todasTrans.filter(t => isInvest(t));
@@ -11397,6 +11412,19 @@ function showPage(id) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.getElementById('page-' + id).classList.add('active');
   localStorage.setItem('sc_ultima_pagina', id);
+  // Ao abrir Transações, aplicar filtro do mês atual automaticamente
+  if (id === 'transacoes') {
+    const hoje   = new Date();
+    const inicio = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+    const fim    = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0);
+    const fmt    = d => d.toISOString().slice(0, 10);
+    const de  = document.getElementById('fil-data-de');
+    const ate = document.getElementById('fil-data-ate');
+    // Só aplicar se os campos estiverem vazios (não sobrescrever filtro manual)
+    if (de && !de.value) de.value = fmt(inicio);
+    if (ate && !ate.value) ate.value = fmt(fim);
+    document.getElementById('btnMesAtual')?.classList.add('ativo');
+  }
 
   // Atualiza botões do sidebar
   ['inicio','transacoes','orcamentos','metas','contas-receber','contas-pagar','simulacao','desejos','investimentos','calculadoras','analise','relatorios','configuracoes'].forEach(p => {
