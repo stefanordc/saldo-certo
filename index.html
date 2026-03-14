@@ -11581,11 +11581,11 @@ function impProcessarArquivo(file) {
   } else if (['xlsx','xls'].includes(ext)) {
     const reader = new FileReader();
     reader.onload = e => {
-      // raw:true preserva valores originais; cellDates:true converte datas para objetos JS
-      const wb  = XLSX.read(e.target.result, { type:'array', cellDates:true, dateNF:'yyyy-mm-dd' });
+      // cellDates:true faz SheetJS retornar Date objects para células de data
+      // raw:true preserva o tipo original — Date para datas, número para números, string para texto
+      const wb  = XLSX.read(e.target.result, { type:'array', cellDates:true });
       const ws  = wb.Sheets[wb.SheetNames[0]];
-      // raw:false + dateNF força datas no formato ISO YYYY-MM-DD — sem ambiguidade
-      const arr = XLSX.utils.sheet_to_json(ws, { defval:'', raw:false, dateNF:'yyyy-mm-dd' });
+      const arr = XLSX.utils.sheet_to_json(ws, { defval:'', raw:true });
       const hdrs= arr.length ? Object.keys(arr[0]) : [];
       impCarregarDados(hdrs, arr, file.name);
     };
@@ -11775,30 +11775,50 @@ function impExecutar() {
    */
   const parseDataISO = (raw) => {
     if (!raw) return '';
-    // Objeto Date (SheetJS com cellDates:true)
-    if (raw instanceof Date) return raw.toISOString().slice(0, 10);
-    // Serial numérico do Excel
-    if (typeof raw === 'number') {
-      const date = new Date(Math.round((raw - 25569) * 86400 * 1000));
-      return date.toISOString().slice(0, 10);
+
+    // ── Prioridade 1: objeto Date do JS (SheetJS com cellDates:true + raw:true)
+    //    Sem nenhuma ambiguidade de dia/mês — é a forma mais confiável
+    if (raw instanceof Date && !isNaN(raw)) {
+      // Usar partes locais para evitar problema de fuso horário (UTC vs local)
+      const y = raw.getFullYear();
+      const m = String(raw.getMonth() + 1).padStart(2, '0');
+      const d = String(raw.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
     }
+
+    // ── Prioridade 2: serial numérico do Excel (fallback)
+    if (typeof raw === 'number') {
+      // Ajuste de timezone: +0.5 para evitar erro de arredondamento
+      const date = new Date(Math.round((raw - 25569) * 86400 * 1000));
+      const y = date.getUTCFullYear();
+      const m = String(date.getUTCMonth() + 1).padStart(2, '0');
+      const d = String(date.getUTCDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    }
+
     const s = String(raw).trim();
     if (!s || s === 'undefined' || s === 'null') return '';
-    // ISO YYYY-MM-DD (formato garantido pelo dateNF do SheetJS)
+
+    // ── Prioridade 3: ISO YYYY-MM-DD
     if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
-    // DD/MM/YYYY ou DD/MM/YY — formato manual do usuário
+
+    // ── Prioridade 4: DD/MM/YYYY (formato BR digitado manualmente)
     const mBR = s.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2,4})$/);
     if (mBR) {
-      let [, d, m, y] = mBR;
+      let [, p1, p2, y] = mBR;
       y = y.length === 2 ? '20' + y : y;
-      // Se primeiro número > 12, certamente é dia; senão assumir DD/MM (padrão BR)
-      if (parseInt(d) > 12) {
-        return `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`;
+      // Se p1 > 12: certamente é dia → DD/MM/YYYY
+      // Se p2 > 12: certamente é mês → MM/DD/YYYY (americano)
+      // Se ambos ≤ 12: assumir DD/MM/YYYY (padrão brasileiro)
+      if (parseInt(p1) > 12) {
+        return `${y}-${p2.padStart(2,'0')}-${p1.padStart(2,'0')}`;
+      } else if (parseInt(p2) > 12) {
+        return `${y}-${p1.padStart(2,'0')}-${p2.padStart(2,'0')}`;
       } else {
-        // Formato BR: DD/MM/YYYY
-        return `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`;
+        return `${y}-${p2.padStart(2,'0')}-${p1.padStart(2,'0')}`;
       }
     }
+
     const dt = new Date(s);
     if (!isNaN(dt)) return dt.toISOString().slice(0, 10);
     return '';
