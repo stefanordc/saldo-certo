@@ -6335,7 +6335,7 @@ function _relTabela(containerId, rows, totalGeral) {
             const pct = totalGeral > 0 ? (r.total/totalGeral*100) : 0;
             return `<tr>
               <td><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${r.cor};margin-right:6px;vertical-align:middle"></span>${escHtml(r.nome)}</td>
-              <td class="val-negative" style="font-family:'DM Mono',monospace;font-weight:600">R$ ${fmtValor(r.total)}</td>
+              <td style="font-family:'DM Mono',monospace;font-weight:600;color:#D93025">R$ ${fmtValor(Math.abs(r.total))}</td>
               <td>
                 <div class="rel-bar-inline">
                   <div class="rel-bar-bg"><div class="rel-bar-fill" style="width:${pct.toFixed(1)}%;background:${r.cor}"></div></div>
@@ -6588,7 +6588,7 @@ function renderRelSemana() {
     // Parse date as local to avoid UTC offset shifting the day
     const [y,m,d] = dc.split('-').map(Number);
     const dia = new Date(y, m-1, d).getDay();
-    totais[dia]  += parseFloat(t.valor)||0;
+    totais[dia]  += Math.abs(parseFloat(t.valor)||0);
     contagens[dia]++;
   });
 
