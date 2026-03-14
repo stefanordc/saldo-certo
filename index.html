@@ -6389,7 +6389,10 @@ function _relTabela(containerId, rows, totalGeral) {
 }
 
 /* tooltip formatter */
+// Tooltip para gráficos verticais (indexAxis padrão — valor em .y)
 const _ttFmt = { callbacks: { label: ctx => ` R$ ${fmtValor(ctx.parsed.y ?? ctx.parsed ?? 0)}` } };
+// Tooltip para gráficos HORIZONTAIS (indexAxis:'y' — valor real está em .x)
+const _ttFmtH = { callbacks: { label: ctx => ` R$ ${fmtValor(ctx.parsed.x ?? ctx.raw ?? 0)}` } };
 const _ttFmtR = { callbacks: { label: ctx => ` R$ ${fmtValor(ctx.raw ?? 0)}` } };
 
 /* ─── FACTORY: filtros genéricos por aba ─────────────── */
@@ -6521,7 +6524,7 @@ function renderRelCat() {
     data: { labels, datasets: [{ label: 'Total R$', data: vals, backgroundColor: cores, borderRadius: 5, borderSkipped: false }] },
     options: {
       responsive:true, maintainAspectRatio:false, indexAxis:'y',
-      plugins: { legend:{display:false}, tooltip: _ttFmt },
+      plugins: { legend:{display:false}, tooltip: _ttFmtH },
       scales: {
         x: { grid:{color:'#EAEEF3'}, ticks:{callback:v=>'R$ '+fmtValor(v),font:{size:11}} },
         y: { grid:{display:false}, ticks:{font:{size:12}} }
@@ -6566,7 +6569,7 @@ function renderRelSubcat() {
     data: { labels, datasets: [{ label:'Total R$', data:vals, backgroundColor:cores, borderRadius:5, borderSkipped:false }] },
     options: {
       responsive:true, maintainAspectRatio:false, indexAxis:'y',
-      plugins: { legend:{display:false}, tooltip: _ttFmt },
+      plugins: { legend:{display:false}, tooltip: _ttFmtH },
       scales: {
         x: { grid:{color:'#EAEEF3'}, ticks:{callback:v=>'R$ '+fmtValor(v),font:{size:11}} },
         y: { grid:{display:false}, ticks:{font:{size:11}} }
