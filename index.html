@@ -4058,7 +4058,15 @@ tr.trans-selected td { background: transparent; }
             <input type="date" class="filtro-input" id="rc-data-ate" oninput="renderRelCat()">
           </div>
           <div class="filtro-group">
-            <button class="btn-mes-anterior" id="rc-btn-mes" onclick="rcMesAnterior()" style="margin-top:16px">◀ Mês anterior</button>
+            <label class="filtro-label">Tipo de Data</label>
+            <select class="filtro-select" id="rc-tipo-data" onchange="renderRelCat()">
+              <option value="competencia">Data de Competência</option>
+              <option value="contabil">Data Contábil</option>
+            </select>
+          </div>
+          <div class="filtro-group" style="display:flex;gap:6px;align-items:flex-end">
+            <button class="btn-mes-anterior" id="rc-btn-mes-atual" onclick="_relMesAtual('rc',renderRelCat)" style="margin-top:16px">● Mês Atual</button>
+            <button class="btn-mes-anterior" id="rc-btn-mes" onclick="rcMesAnterior()" style="margin-top:16px">◀ Mês Anterior</button>
           </div>
           <div class="filtro-group">
             <label class="filtro-label">Categoria</label>
@@ -4148,7 +4156,15 @@ tr.trans-selected td { background: transparent; }
             <input type="date" class="filtro-input" id="rs-data-ate" oninput="renderRelSemana()">
           </div>
           <div class="filtro-group">
-            <button class="btn-mes-anterior" id="rs-btn-mes" onclick="rsMesAnterior()" style="margin-top:16px">◀ Mês anterior</button>
+            <label class="filtro-label">Tipo de Data</label>
+            <select class="filtro-select" id="rs-tipo-data" onchange="renderRelSemana()">
+              <option value="competencia">Data de Competência</option>
+              <option value="contabil">Data Contábil</option>
+            </select>
+          </div>
+          <div class="filtro-group" style="display:flex;gap:6px;align-items:flex-end">
+            <button class="btn-mes-anterior" id="rs-btn-mes-atual" onclick="_relMesAtual('rs',renderRelSubcat)" style="margin-top:16px">● Mês Atual</button>
+            <button class="btn-mes-anterior" id="rs-btn-mes" onclick="rsMesAnterior()" style="margin-top:16px">◀ Mês Anterior</button>
           </div>
           <div class="filtro-group">
             <label class="filtro-label">Categoria</label>
@@ -4195,7 +4211,15 @@ tr.trans-selected td { background: transparent; }
             <input type="date" class="filtro-input" id="rp-data-ate" oninput="renderRelPerfil()">
           </div>
           <div class="filtro-group">
-            <button class="btn-mes-anterior" id="rp-btn-mes" onclick="rpMesAnterior()" style="margin-top:16px">◀ Mês anterior</button>
+            <label class="filtro-label">Tipo de Data</label>
+            <select class="filtro-select" id="rp-tipo-data" onchange="renderRelPerfil()">
+              <option value="competencia">Data de Competência</option>
+              <option value="contabil">Data Contábil</option>
+            </select>
+          </div>
+          <div class="filtro-group" style="display:flex;gap:6px;align-items:flex-end">
+            <button class="btn-mes-anterior" id="rp-btn-mes-atual" onclick="_relMesAtual('rp',renderRelPerfil)" style="margin-top:16px">● Mês Atual</button>
+            <button class="btn-mes-anterior" id="rp-btn-mes" onclick="rpMesAnterior()" style="margin-top:16px">◀ Mês Anterior</button>
           </div>
           <div class="filtro-group">
             <label class="filtro-label">Categoria</label>
@@ -4241,7 +4265,15 @@ tr.trans-selected td { background: transparent; }
             <input type="date" class="filtro-input" id="rst-data-ate" oninput="renderRelStatus()">
           </div>
           <div class="filtro-group">
-            <button class="btn-mes-anterior" id="rst-btn-mes" onclick="rstMesAnterior()" style="margin-top:16px">◀ Mês anterior</button>
+            <label class="filtro-label">Tipo de Data</label>
+            <select class="filtro-select" id="rst-tipo-data" onchange="renderRelStatus()">
+              <option value="competencia">Data de Competência</option>
+              <option value="contabil">Data Contábil</option>
+            </select>
+          </div>
+          <div class="filtro-group" style="display:flex;gap:6px;align-items:flex-end">
+            <button class="btn-mes-anterior" id="rst-btn-mes-atual" onclick="_relMesAtual('rst',renderRelStatus)" style="margin-top:16px">● Mês Atual</button>
+            <button class="btn-mes-anterior" id="rst-btn-mes" onclick="rstMesAnterior()" style="margin-top:16px">◀ Mês Anterior</button>
           </div>
           <div class="filtro-group">
             <label class="filtro-label">Categoria</label>
@@ -6357,12 +6389,13 @@ const _ttFmtR = { callbacks: { label: ctx => ` R$ ${fmtValor(ctx.raw ?? 0)}` } }
 /* ─── FACTORY: filtros genéricos por aba ─────────────── */
 function _relGetFiltros(pfx) {
   return {
-    dataDe:  document.getElementById(pfx+'-data-de')?.value  || '',
-    dataAte: document.getElementById(pfx+'-data-ate')?.value || '',
-    cat:     document.getElementById(pfx+'-cat')?.value      || '',
-    subcat:  document.getElementById(pfx+'-subcat')?.value   || '',
-    perfil:  document.getElementById(pfx+'-perfil')?.value   || '',
-    status:  document.getElementById(pfx+'-status')?.value   || '',
+    dataDe:    document.getElementById(pfx+'-data-de')?.value    || '',
+    dataAte:   document.getElementById(pfx+'-data-ate')?.value   || '',
+    tipoData:  document.getElementById(pfx+'-tipo-data')?.value  || 'competencia',
+    cat:       document.getElementById(pfx+'-cat')?.value        || '',
+    subcat:    document.getElementById(pfx+'-subcat')?.value     || '',
+    perfil:    document.getElementById(pfx+'-perfil')?.value     || '',
+    status:    document.getElementById(pfx+'-status')?.value     || '',
   };
 }
 
@@ -6386,6 +6419,19 @@ function _relPopularSelects(pfx, renderFn) {
       .forEach(it => sel.innerHTML += `<option value="${it.id}">${escHtml(it.nome)}</option>`);
     if (cur) sel.value = cur;
   });
+}
+
+function _relMesAtual(pfx, renderFn) {
+  const hoje = new Date();
+  const ini  = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+  const fim  = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0);
+  const fmt  = d => d.toISOString().slice(0, 10);
+  document.getElementById(pfx+'-data-de').value  = fmt(ini);
+  document.getElementById(pfx+'-data-ate').value = fmt(fim);
+  // Desativar botão mês anterior se ativo
+  document.getElementById(pfx+'-btn-mes')?.classList.remove('ativo');
+  document.getElementById(pfx+'-btn-mes-atual')?.classList.add('ativo');
+  renderFn();
 }
 
 function _relMesAnterior(pfx, renderFn) {
@@ -6412,8 +6458,10 @@ function _relLimpar(pfx, renderFn) {
 }
 
 function _relAplicarFiltros(trans, f) {
-  if (f.dataDe)  trans = trans.filter(t => (t.data_competencia||'') >= f.dataDe);
-  if (f.dataAte) trans = trans.filter(t => (t.data_competencia||'') <= f.dataAte);
+  // Campo de data baseado na seleção do usuário
+  const campoData = (f.tipoData === 'contabil') ? 'data_contabil' : 'data_competencia';
+  if (f.dataDe)  trans = trans.filter(t => (t[campoData]||'') >= f.dataDe);
+  if (f.dataAte) trans = trans.filter(t => (t[campoData]||'') <= f.dataAte);
   if (f.cat)     trans = trans.filter(t => t.categoria_id      === f.cat);
   if (f.subcat)  trans = trans.filter(t => t.subcategoria_id   === f.subcat);
   if (f.perfil)  trans = trans.filter(t => t.perfil_despesa_id === f.perfil);
@@ -6740,17 +6788,47 @@ const _relRenders = {
 };
 let _relTabAtiva = 'cat';
 
+/* Mapeamento de aba → prefixo de filtros */
+const _REL_PFX = { cat:'rc', subcat:'rs', semana:'rs', perfil:'rp', status:'rst' };
+
 function switchRelTab(chave, btn) {
   _relTabAtiva = chave;
   document.querySelectorAll('#relTabsBar .tab-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   document.querySelectorAll('.rel-tab').forEach(t => t.classList.remove('active'));
   document.getElementById('reltab-' + chave)?.classList.add('active');
-  // slight delay so canvas has dimensions
+
+  // Aplicar filtro mês atual ao abrir a aba (se ainda sem filtro)
+  const pfx = _REL_PFX[chave];
+  if (pfx) {
+    const deEl  = document.getElementById(pfx+'-data-de');
+    const ateEl = document.getElementById(pfx+'-data-ate');
+    if (deEl && !deEl.value) {
+      const hoje = new Date();
+      const ini  = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+      const fim  = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0);
+      deEl.value  = ini.toISOString().slice(0, 10);
+      ateEl.value = fim.toISOString().slice(0, 10);
+      document.getElementById(pfx+'-btn-mes-atual')?.classList.add('ativo');
+    }
+  }
+
   setTimeout(() => _relRenders[chave]?.(), 60);
 }
 
 function renderRelatorios() {
+  // Aplicar filtro mês atual na aba ativa ao abrir relatórios
+  const pfxAtivo = _REL_PFX[_relTabAtiva] || 'rc';
+  const deEl = document.getElementById(pfxAtivo+'-data-de');
+  if (deEl && !deEl.value) {
+    const hoje = new Date();
+    const ini  = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+    const fim  = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0);
+    deEl.value = ini.toISOString().slice(0, 10);
+    const ateEl = document.getElementById(pfxAtivo+'-data-ate');
+    if (ateEl) ateEl.value = fim.toISOString().slice(0, 10);
+    document.getElementById(pfxAtivo+'-btn-mes-atual')?.classList.add('ativo');
+  }
   // Render only the active tab
   setTimeout(() => _relRenders[_relTabAtiva]?.(), 60);
 }
