@@ -11519,6 +11519,10 @@ function showPage(id) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.getElementById('page-' + id).classList.add('active');
   localStorage.setItem('sc_ultima_pagina', id);
+  // Atualizar hash da URL sem recarregar a página
+  if (window.location.hash !== '#' + id) {
+    history.replaceState(null, '', '#' + id);
+  }
   // Ao abrir Transações, aplicar filtro do mês atual automaticamente
   if (id === 'transacoes') {
     const hoje   = new Date();
@@ -12484,10 +12488,9 @@ function limparTodosDados() {
 /* ── CONFIGURAÇÃO SUPABASE ──
    Anon key (pública): Dashboard → Settings → API → anon public   */
 const SALDO_CERTO_SUPABASE_URL  = 'https://qchzpcqsxecjisyzyfzt.supabase.co';
-// Anon Key: lida do localStorage (salva via modal de configuração)
-// ou pode ser definida diretamente aqui como fallback
-const _ANON_KEY_HARDCODED = 'COLE_SUA_ANON_KEY_AQUI'; // opcional: cole aqui se preferir
-const SALDO_CERTO_SUPABASE_KEY = localStorage.getItem('sc_supabase_anon_key') || _ANON_KEY_HARDCODED;
+// Anon Key embutida diretamente — funciona em qualquer dispositivo sem configuração
+const _ANON_KEY_HARDCODED = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFjaHpwY3FzeGVjamlzeXp5Znp0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMzNDYwMzcsImV4cCI6MjA4ODkyMjAzN30.f5UwunHanVcAj80XZnIbgblxwnak8SoUzXGzz4yGGlE';
+const SALDO_CERTO_SUPABASE_KEY = _ANON_KEY_HARDCODED;
 
 let _sbClient = null;
 
@@ -12506,9 +12509,8 @@ let _recOtpVerificado = false;
 /* ════════════ INICIALIZAÇÃO ════════════ */
 function authInit() {
   // Verificar se o Supabase está configurado
-  if (SALDO_CERTO_SUPABASE_KEY === 'COLE_SUA_ANON_KEY_AQUI' ||
-      !localStorage.getItem('sc_supabase_anon_key')) {
-    // Mostrar modal de configuração
+  // Anon Key embutida — modal só aparece se key foi removida manualmente
+  if (!SALDO_CERTO_SUPABASE_KEY || SALDO_CERTO_SUPABASE_KEY === 'COLE_SUA_ANON_KEY_AQUI') {
     _authMostrarTela();
     setTimeout(() => {
       const modal = document.getElementById('modalAnonKey');
@@ -12573,7 +12575,13 @@ function _authEntrarNoApp(session) {
     _sbFlushRetry();
     // Sincronizar dados do Supabase para cache local
     sbSyncDown().then(total => {
-      const ultimaPagina = localStorage.getItem('sc_ultima_pagina') || 'inicio';
+      // Restaurar página do hash da URL (prioridade) ou do localStorage
+      const hashPage = window.location.hash.replace('#', '').trim();
+      const _paginasValidas = ['inicio','transacoes','orcamentos','metas','contas-receber',
+        'contas-pagar','simulacao','desejos','investimentos','calculadoras','analise','relatorios','configuracoes'];
+      const ultimaPagina = (hashPage && _paginasValidas.includes(hashPage))
+        ? hashPage
+        : (localStorage.getItem('sc_ultima_pagina') || 'inicio');
       showPage(ultimaPagina);
       verificarSaudeFinanceira?.();
       // sync silencioso — sem notificação
