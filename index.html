@@ -2286,7 +2286,22 @@ tr.trans-selected td { background: transparent; }
     </button>
   </nav>
 
-  <div class="sidebar-footer">Saldo Certo v1.0</div>
+  <div class="sidebar-footer" id="sidebarFooterBox">
+  <div id="sidebarUserName" style="font-size:11px;color:rgba(255,255,255,0.5);margin-bottom:6px">
+    Saldo Certo v1.0
+  </div>
+  <button class="auth-logout-btn" onclick="authLogout()" style="
+    width:100%;padding:7px 10px;
+    background:rgba(255,255,255,0.08);
+    border:1px solid rgba(255,255,255,0.15);
+    border-radius:7px;
+    color:rgba(255,255,255,0.75);
+    font-size:12px;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;gap:6px;
+    transition:background 0.2s;font-family:inherit;">
+    🚪 Sair
+  </button>
+</div>
 </aside>
 
 <!-- Botão recolher/expandir sidebar -->
@@ -12593,23 +12608,13 @@ function _authEntrarNoApp(session) {
       sb.from('usuarios').select('nome_completo').eq('id', window._authUser.id).single()
         .then(({ data }) => {
           if (data?.nome_completo) {
-            const el = document.querySelector('.sidebar-footer');
+            const el = document.getElementById('sidebarUserName');
             if (el) el.textContent = data.nome_completo.split(' ')[0] + ' · Saldo Certo v1.0';
           }
         });
     }
 
-    // Adicionar botão logout na sidebar
-    const footer = document.querySelector('.sidebar-footer');
-    if (footer && !footer.querySelector('.auth-logout-btn')) {
-      const btn = document.createElement('button');
-      btn.textContent = '🚪 Sair';
-      btn.className = 'auth-logout-btn';
-      btn.style.cssText = 'margin-top:6px;width:100%;padding:6px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);border-radius:6px;color:rgba(255,255,255,0.7);font-size:11px;cursor:pointer;font-family:inherit';
-      btn.onclick = authLogout;
-      footer.appendChild(btn);
-    }
-  }
+    // Botão logout já está no HTML (sidebar-footer)  }
 }
 
 function _authSairDoApp() {
@@ -13548,12 +13553,8 @@ async function salvarPerfilDados() {
   }
 
   // Atualizar nome na sidebar
-  const footer = document.querySelector('.sidebar-footer');
-  if (footer) {
-    const btnLogout = footer.querySelector('.auth-logout-btn');
-    footer.textContent = nome.split(' ')[0] + ' · Saldo Certo v1.0';
-    if (btnLogout) footer.appendChild(btnLogout);
-  }
+  const nameEl = document.getElementById('sidebarUserName');
+  if (nameEl) nameEl.textContent = nome.split(' ')[0] + ' · Saldo Certo v1.0';
 
   perfilStatus('✅ Dados pessoais salvos com sucesso!', 'success');
 }
