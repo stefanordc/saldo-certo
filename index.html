@@ -13648,6 +13648,21 @@ function restaurarEstadoSidebar() {
   }
 }
 
+/* ── Segurança: fechar modal de Anon Key se a key já estiver embutida ── */
+document.addEventListener('DOMContentLoaded', () => {
+  // Se a key está hardcoded e é válida, nunca mostrar o modal
+  const _checkKey = localStorage.getItem('sc_supabase_anon_key') || _ANON_KEY_HARDCODED;
+  if (_checkKey && _checkKey !== 'COLE_SUA_ANON_KEY_AQUI' && _checkKey.startsWith('eyJ')) {
+    // Salvar no localStorage para garantir persistência em qualquer versão do app
+    if (!localStorage.getItem('sc_supabase_anon_key')) {
+      localStorage.setItem('sc_supabase_anon_key', _ANON_KEY_HARDCODED);
+    }
+    // Fechar modal se estiver aberto indevidamente
+    const m = document.getElementById('modalAnonKey');
+    if (m) m.classList.remove('open');
+  }
+});
+
 </script>
 
 </div><!-- /app-content -->
