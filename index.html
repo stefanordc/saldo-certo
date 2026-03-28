@@ -59,7 +59,7 @@ body {
   flex-direction: column;
   z-index: 200;
   box-shadow: 3px 0 20px rgba(0,0,0,0.32);
-  overflow-y: hidden;
+  overflow-y: auto;
   overflow-x: hidden;
 }
 
@@ -2211,6 +2211,140 @@ tr.trans-selected td { background: transparent; }
 .perfil-status.show { display: flex; }
 .perfil-status.success { background: #D1FAE5; color: #065F46; }
 .perfil-status.error   { background: #FEE2E2; color: #991B1B; }
+
+/* ================================================================
+   RESPONSIVIDADE MOBILE
+   Breakpoints: 768px (tablet) e 480px (celular)
+================================================================ */
+
+/* -- Tablet e celular: sidebar como overlay -- */
+@media (max-width: 768px) {
+  /* Sidebar oculto por padrão no mobile */
+  .sidebar {
+    transform: translateX(-230px);
+    z-index: 500;
+  }
+  /* Quando aberto (sem collapsed), mostrar como overlay */
+  #app-wrapper:not(.sidebar-collapsed) .sidebar {
+    transform: translateX(0);
+    box-shadow: 4px 0 24px rgba(0,0,0,0.4);
+  }
+  /* Conteúdo ocupa 100% sempre no mobile */
+  .app-content {
+    margin-left: 0 !important;
+  }
+  /* Overlay escuro quando sidebar aberto */
+  #app-wrapper:not(.sidebar-collapsed)::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.4);
+    z-index: 490;
+  }
+  /* Botão toggle visível à esquerda */
+  .sidebar-toggle-btn {
+    left: 12px !important;
+    top: 12px;
+  }
+  /* Padding do conteúdo principal */
+  main {
+    padding: 16px 14px 40px;
+  }
+  /* Cards de saúde financeira empilhados */
+  .inicio-saude-grid,
+  .saude-grid {
+    grid-template-columns: 1fr !important;
+  }
+  /* Tabela de transações com scroll horizontal */
+  .table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  /* Filtros empilhados */
+  .filtros-bar {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .filtro-group {
+    min-width: 140px;
+    flex: 1 1 140px;
+  }
+  /* Abas de relatório com scroll */
+  .tabs-bar {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    white-space: nowrap;
+    padding-bottom: 4px;
+  }
+  .tab-btn {
+    flex-shrink: 0;
+  }
+  /* Grids de cards → 1 coluna */
+  .stat-cards,
+  .metas-resumo,
+  .cta-cards-grid,
+  .inv-resumo-grid {
+    grid-template-columns: 1fr 1fr !important;
+  }
+  /* Page header */
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    padding-top: 48px;
+  }
+  .page-header-actions {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+  /* Modal auth */
+  .auth-card {
+    margin: 12px;
+    max-width: calc(100vw - 24px);
+  }
+  /* Botões lado a lado */
+  .btn-mes-anterior {
+    font-size: 11px;
+    padding: 7px 10px;
+  }
+}
+
+@media (max-width: 480px) {
+  /* Celular pequeno */
+  .stat-cards,
+  .metas-resumo,
+  .cta-cards-grid,
+  .inv-resumo-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .page-title {
+    font-size: 20px;
+  }
+  main {
+    padding: 12px 10px 32px;
+  }
+  .card {
+    padding: 14px 14px !important;
+  }
+  /* Esconder colunas menos importantes na tabela */
+  .hide-mobile {
+    display: none !important;
+  }
+  /* Formulários */
+  .form-row {
+    flex-direction: column;
+  }
+  /* Inline-add */
+  .inline-add {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+/* -- Fechar sidebar ao clicar no overlay (mobile) -- */
+#app-wrapper:not(.sidebar-collapsed)::before {
+  cursor: pointer;
+}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
@@ -11537,9 +11671,12 @@ function showPage(id) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.getElementById('page-' + id).classList.add('active');
   localStorage.setItem('sc_ultima_pagina', id);
-  // Atualizar hash da URL sem recarregar a página
   if (window.location.hash !== '#' + id) {
     history.replaceState(null, '', '#' + id);
+  }
+  // Fechar sidebar automaticamente no mobile após navegar
+  if (window.innerWidth <= 768) {
+    document.getElementById('app-wrapper')?.classList.add('sidebar-collapsed');
   }
   // Ao abrir Transações, aplicar filtro do mês atual automaticamente
   if (id === 'transacoes') {
@@ -13074,6 +13211,19 @@ async function authCriarConta() {
     authMostrarAlerta(msgs[error.message] || error.message,'error'); return;
   }
 
+  // Salvar perfil na tabela usuarios (garantia além do trigger)
+  if (data?.user) {
+    const sbClient = _getSB();
+    if (sbClient) {
+      await sbClient.from('usuarios').upsert({
+        id:              data.user.id,
+        nome_completo:   _authCadData.nome  || '',
+        whatsapp:        _authCadData.whatsapp ? '+55' + _authCadData.whatsapp.replace(/\D/g,'').replace(/^55/,'') : null,
+        data_nascimento: _authCadData.nasc  || null,
+      }, { onConflict: 'id' });
+    }
+  }
+
   authMostrarAlerta('🎉 Conta criada com sucesso! Entrando…','success');
   setTimeout(() => _authEntrarNoApp(data.session), 1200);
 }
@@ -13643,13 +13793,41 @@ function perfilStatus(msg, tipo) {
 /* -- Toggle Sidebar -- */
 function toggleSidebar() {
   const wrapper = document.getElementById('app-wrapper');
-  const collapsed = wrapper.classList.toggle('sidebar-collapsed');
-  localStorage.setItem('sc_sidebar_collapsed', collapsed ? '1' : '0');
+  const isMobile = window.innerWidth <= 768;
+
+  if (isMobile) {
+    // Mobile: toggle abre/fecha como overlay (sem sidebar-collapsed)
+    wrapper.classList.toggle('sidebar-collapsed');
+    // No mobile, o estado "colapsado" = sidebar fechado (comportamento inverso)
+  } else {
+    const collapsed = wrapper.classList.toggle('sidebar-collapsed');
+    localStorage.setItem('sc_sidebar_collapsed', collapsed ? '1' : '0');
+  }
 }
 
+// Fechar sidebar ao clicar no overlay (mobile)
+document.addEventListener('click', e => {
+  if (window.innerWidth > 768) return;
+  const wrapper = document.getElementById('app-wrapper');
+  if (!wrapper) return;
+  const isSidebarOpen = !wrapper.classList.contains('sidebar-collapsed');
+  if (isSidebarOpen) {
+    const sidebar = document.getElementById('sidebar');
+    const toggleBtn = document.getElementById('sidebarToggleBtn');
+    if (sidebar && !sidebar.contains(e.target) && !toggleBtn?.contains(e.target)) {
+      wrapper.classList.add('sidebar-collapsed');
+    }
+  }
+});
+
 function restaurarEstadoSidebar() {
-  if (localStorage.getItem('sc_sidebar_collapsed') === '1') {
-    document.getElementById('app-wrapper')?.classList.add('sidebar-collapsed');
+  const wrapper = document.getElementById('app-wrapper');
+  if (!wrapper) return;
+  if (window.innerWidth <= 768) {
+    // Mobile: sidebar sempre fechado ao iniciar
+    wrapper.classList.add('sidebar-collapsed');
+  } else if (localStorage.getItem('sc_sidebar_collapsed') === '1') {
+    wrapper.classList.add('sidebar-collapsed');
   }
 }
 
