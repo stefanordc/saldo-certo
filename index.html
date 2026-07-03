@@ -5854,10 +5854,18 @@ function saveEditConfig() {
 /* -- ESTADO -- */
 let editandoTransId = null;
 
-const transOrdenacao = { col: 'data_competencia', dir: 'desc' };
+const transOrdenacao = { col: 'data_contabil', dir: 'desc' };
+
+function _transDataContabil(t) {
+  return t.data_competencia || t.data_contabil || '';
+}
+
+function _transDataCompetencia(t) {
+  return t.data_contabil || t.data_competencia || '';
+}
 
 function _transDataReferencia(t) {
-  return t.data_competencia || t.data_contabil || '';
+  return _transDataCompetencia(t);
 }
 
 function _transMesReferenciaAtual(transacoes = dbLoad('transacoes')) {
@@ -5895,8 +5903,8 @@ function _transDentroPeriodo(t, dataDe, dataAte) {
 
 /* -- COLUNAS DA TABELA -- */
 const TRANS_COLUNAS = [
-  { chave: 'data_contabil',     label: 'Dt. Contábil',    w: 110 },
-  { chave: 'data_competencia',  label: 'Dt. Competência', w: 120 },
+  { chave: 'data_competencia',  label: 'Dt. Contábil',    w: 110 },
+  { chave: 'data_contabil',     label: 'Dt. Competência', w: 120 },
   { chave: 'cartao',            label: 'Cartão',          w: 120 },
   { chave: 'tipo_pagamento',    label: 'Tipo Pgto.',      w: 110 },
   { chave: 'forma_pagamento',   label: 'Forma Pgto.',     w: 110 },
@@ -6154,9 +6162,14 @@ function renderTransacoes() {
       const bv = parseFloat(b.valor) || 0;
       return ord.dir === 'asc' ? av - bv : bv - av;
     }
+    if (ord.col === 'data_contabil') {
+      const av = _transDataCompetencia(a);
+      const bv = _transDataCompetencia(b);
+      return ord.dir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
+    }
     if (ord.col === 'data_competencia') {
-      const av = _transDataReferencia(a);
-      const bv = _transDataReferencia(b);
+      const av = _transDataContabil(a);
+      const bv = _transDataContabil(b);
       return ord.dir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
     }
     const av = (a[ord.col] || '').toString().toLowerCase();
@@ -6319,8 +6332,8 @@ function renderTransacoes() {
       <td data-label="" style="text-align:center;padding:8px 4px;width:44px;min-width:44px">
         <input type="checkbox" class="trans-sel-chk" data-id="${t.id}" onclick="event.stopPropagation()" onchange="transBulkAtualizarBarra()" style="width:15px;height:15px;cursor:pointer;accent-color:var(--primary)">
       </td>
-      <td data-label="Dt. Contábil">${fmtDateStr(t.data_contabil)}</td>
-      <td data-label="Dt. Competência">${fmtDateStr(t.data_competencia)}</td>
+      <td data-label="Dt. Contábil">${fmtDateStr(_transDataContabil(t))}</td>
+      <td data-label="Dt. Competência">${fmtDateStr(_transDataCompetencia(t))}</td>
       <td data-label="Cartão">${escHtml(t.cartao)}</td>
       <td data-label="Tipo Pgto.">${escHtml(t.tipo_pagamento)}</td>
       <td data-label="Forma Pgto.">${escHtml(t.forma_pagamento)}</td>
@@ -6460,8 +6473,8 @@ function limparFormTransacao() {
    PREENCHE O FORMULÁRIO (modo edição)
 -------------------------------------------- */
 function preencherFormTransacao(t) {
-  document.getElementById('f-data-contabil').value     = t.data_contabil || '';
-  document.getElementById('f-data-competencia').value  = t.data_competencia || '';
+  document.getElementById('f-data-contabil').value     = _transDataContabil(t);
+  document.getElementById('f-data-competencia').value  = _transDataCompetencia(t);
   document.getElementById('f-cartao').value            = t.cartao_id || '';
   document.getElementById('f-tipo-pagamento').value    = t.tipo_pagamento_id || '';
   document.getElementById('f-forma-pagamento').value   = t.forma_pagamento_id || '';
@@ -6557,8 +6570,8 @@ function saveTransacao() {
   const valorRaw = document.getElementById('f-valor').value.replace(/\./g, '').replace(',', '.');
   const transacao = {
     id:                editandoTransId || uid(),
-    data_contabil:     document.getElementById('f-data-contabil').value,
-    data_competencia:  document.getElementById('f-data-competencia').value,
+    data_contabil:     document.getElementById('f-data-competencia').value,
+    data_competencia:  document.getElementById('f-data-contabil').value,
     cartao_id:         document.getElementById('f-cartao').value,
     tipo_pagamento_id: document.getElementById('f-tipo-pagamento').value,
     forma_pagamento_id:document.getElementById('f-forma-pagamento').value,
@@ -6684,7 +6697,7 @@ function _somaTrans(transacoes, filtro) {
 }
 
 function _dataCompetenciaT(t) {
-  return t.data_competencia || t.data_contabil || '';
+  return _transDataCompetencia(t);
 }
 
 function _rangeTransacoes(transacoes) {
@@ -6769,7 +6782,7 @@ function renderGraficoMensal() {
   const anoAtual = String(new Date().getFullYear());
 
   transacoes.forEach(t => {
-    const dc = t.data_competencia || '';
+    const dc = _transDataCompetencia(t);
     if (!dc) return;
     if (dc.slice(0, 4) !== anoAtual) return;
     if (_isNeutro(t)) return;                          // exclui neutro
@@ -7373,9 +7386,9 @@ function _relLimpar(pfx, renderFn) {
 
 function _relAplicarFiltros(trans, f) {
   // Campo de data baseado na seleção do usuário
-  const campoData = (f.tipoData === 'contabil') ? 'data_contabil' : 'data_competencia';
-  if (f.dataDe)  trans = trans.filter(t => (t[campoData]||'') >= f.dataDe);
-  if (f.dataAte) trans = trans.filter(t => (t[campoData]||'') <= f.dataAte);
+  const dataFn = (f.tipoData === 'contabil') ? _transDataContabil : _transDataCompetencia;
+  if (f.dataDe)  trans = trans.filter(t => dataFn(t) >= f.dataDe);
+  if (f.dataAte) trans = trans.filter(t => dataFn(t) <= f.dataAte);
   if (f.cat)     trans = trans.filter(t => t.categoria_id      === f.cat);
   if (f.subcat)  trans = trans.filter(t => t.subcategoria_id   === f.subcat);
   if (f.perfil)  trans = trans.filter(t => t.perfil_despesa_id === f.perfil);
@@ -7534,8 +7547,8 @@ function renderRelSemana() {
   const f = _rsGetFiltros();
   let trans = dbLoad('transacoes').filter(t => _relIsSaida(t) && !_relIsNeutro(t));
 
-  if (f.dataDe)  trans = trans.filter(t => (t.data_competencia||'') >= f.dataDe);
-  if (f.dataAte) trans = trans.filter(t => (t.data_competencia||'') <= f.dataAte);
+  if (f.dataDe)  trans = trans.filter(t => _transDataCompetencia(t) >= f.dataDe);
+  if (f.dataAte) trans = trans.filter(t => _transDataCompetencia(t) <= f.dataAte);
   if (f.cat)     trans = trans.filter(t => t.categoria_id       === f.cat);
   if (f.subcat)  trans = trans.filter(t => t.subcategoria_id    === f.subcat);
   if (f.perfil)  trans = trans.filter(t => t.perfil_despesa_id  === f.perfil);
@@ -7545,7 +7558,7 @@ function renderRelSemana() {
   const totais  = Array(7).fill(0);
   const contagens = Array(7).fill(0);
   trans.forEach(t => {
-    const dc = t.data_competencia;
+    const dc = _transDataCompetencia(t);
     if (!dc) return;
     // Parse date as local to avoid UTC offset shifting the day
     const [y,m,d] = dc.split('-').map(Number);
@@ -8008,8 +8021,8 @@ function renderAnaliseDiaria() {
 
   // Carregar e filtrar transações
   let todas = dbLoad('transacoes').filter(t => !_adIsNeutro(t));
-  if (dataDe)  todas = todas.filter(t => (t.data_competencia||'') >= dataDe);
-  if (dataAte) todas = todas.filter(t => (t.data_competencia||'') <= dataAte);
+  if (dataDe)  todas = todas.filter(t => _transDataCompetencia(t) >= dataDe);
+  if (dataAte) todas = todas.filter(t => _transDataCompetencia(t) <= dataAte);
 
   const entradas     = todas.filter(t => _adIsEntrada(t));
   const saidas       = todas.filter(t => _adIsSaida(t));
@@ -8243,8 +8256,8 @@ function renderOrcamentos() {
 
   // Transações reais no período
   let trans = dbLoad('transacoes').filter(t => !_orcIsNeutro(t));
-  if (dataDe)     trans = trans.filter(t => (t.data_competencia||'') >= dataDe);
-  if (dataAte)    trans = trans.filter(t => (t.data_competencia||'') <= dataAte);
+  if (dataDe)     trans = trans.filter(t => _transDataCompetencia(t) >= dataDe);
+  if (dataAte)    trans = trans.filter(t => _transDataCompetencia(t) <= dataAte);
   if (filCat)     trans = trans.filter(t => t.categoria_id      === filCat);
   if (filSubcat)  trans = trans.filter(t => t.subcategoria_id   === filSubcat);
   if (filPerfil)  trans = trans.filter(t => t.perfil_despesa_id === filPerfil);
@@ -9036,8 +9049,8 @@ function ctaAcao(id, modo) {
 
     const nova_trans = {
       id:                uid(),
-      data_contabil:     hoje,
-      data_competencia:  conta.vencimento || hoje,
+      data_contabil:     conta.vencimento || hoje,
+      data_competencia:  hoje,
       cartao_id:         conta.cartao_id  || '',
       tipo_pagamento_id: tipoObj?.id || '',
       forma_pagamento_id:conta.forma_id   || '',
@@ -9538,7 +9551,7 @@ function _simMediaMeses(filtroFn) {
   for (let i = 0; i <= 3; i++) {
     const d   = new Date(hoje.getFullYear(), hoje.getMonth() - i, 1);
     const ym  = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
-    const mes = trans.filter(t => (t.data_competencia||'').startsWith(ym) && filtroFn(t));
+    const mes = trans.filter(t => _transDataCompetencia(t).startsWith(ym) && filtroFn(t));
     total += mes.reduce((s,t)=>s+(parseFloat(t.valor)||0), 0);
   }
   return total / 4;
@@ -9551,7 +9564,7 @@ function _simMediaRecFixa() {
   for (let i = 0; i <= 3; i++) {
     const d  = new Date(hoje.getFullYear(), hoje.getMonth() - i, 1);
     const ym = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
-    const mes = trans.filter(t => (t.data_competencia||'').startsWith(ym) && _simIsRecFixa(t));
+    const mes = trans.filter(t => _transDataCompetencia(t).startsWith(ym) && _simIsRecFixa(t));
     total += mes.reduce((s,t)=>s+(parseFloat(t.valor)||0), 0);
   }
   return total / 4;
@@ -12439,8 +12452,8 @@ function verTransacao(id) {
       </div>
 
       ${[
-        ['Data Contábil',    fmtDateStr(t.data_contabil)],
-        ['Data Competência', fmtDateStr(t.data_competencia)],
+        ['Data Contábil',    fmtDateStr(_transDataContabil(t))],
+        ['Data Competência', fmtDateStr(_transDataCompetencia(t))],
         ['Tipo',             tipoNome],
         ['Forma',            formaNome],
         ['Conta / Cartão',   cartaoNome],
@@ -13054,8 +13067,8 @@ function impExecutar() {
       /* -- Campos de lookup — usar os nomes corretos do sistema -- */
       const nova = {
         id:                 uid(),
-        data_contabil:      dataContabil,
-        data_competencia:   dataCompetencia,
+        data_contabil:      dataCompetencia,
+        data_competencia:   dataContabil,
         cartao_id:          findId(cartoes,    get('cartao')),
         tipo_pagamento_id:  tipoId,
         forma_pagamento_id: findId(formas,     get('forma')),
@@ -13153,12 +13166,12 @@ function exportarTransacoesFormato(formato) {
   // Aplicar outros filtros visíveis
   const fDe  = document.getElementById('fil-data-de')?.value;
   const fAte = document.getElementById('fil-data-ate')?.value;
-  if (fDe)  trans = trans.filter(t => (t.data_competencia||t.data_contabil||'') >= fDe);
-  if (fAte) trans = trans.filter(t => (t.data_competencia||t.data_contabil||'') <= fAte);
+  if (fDe)  trans = trans.filter(t => _transDataCompetencia(t) >= fDe);
+  if (fAte) trans = trans.filter(t => _transDataCompetencia(t) <= fAte);
 
   const linhas = trans.map(t => ({
-    'Data Contábil':     fmtDateStr(t.data_contabil    || ''),
-    'Data Competência':  fmtDateStr(t.data_competencia || ''),
+    'Data Contábil':     fmtDateStr(_transDataContabil(t)),
+    'Data Competência':  fmtDateStr(_transDataCompetencia(t)),
     'Descrição':         t.descricao          || '',
     'Descrição Tratada': t.descricao_tratada  || '',
     'Tipo':              findNome(tipos,     t.tipo_pagamento_id),
@@ -13305,16 +13318,16 @@ function exportarTransacoesPDF() {
   );
   const fDe  = document.getElementById('fil-data-de')?.value;
   const fAte = document.getElementById('fil-data-ate')?.value;
-  if (fDe)  trans = trans.filter(t => (t.data_competencia||t.data_contabil||'') >= fDe);
-  if (fAte) trans = trans.filter(t => (t.data_competencia||t.data_contabil||'') <= fAte);
-  trans.sort((a,b) => (b.data_competencia||b.data_contabil||'').localeCompare(a.data_competencia||a.data_contabil||''));
+  if (fDe)  trans = trans.filter(t => _transDataCompetencia(t) >= fDe);
+  if (fAte) trans = trans.filter(t => _transDataCompetencia(t) <= fAte);
+  trans.sort((a,b) => _transDataCompetencia(b).localeCompare(_transDataCompetencia(a)));
 
   const { doc, startY } = exportarPDF('Transações', `${trans.length} registros exportados`);
 
   doc.autoTable({
     head: [['Data','Descrição','Tipo','Cartão','Categoria','Valor (R$)']],
     body: trans.map(t => [
-      fmtDateStr(t.data_competencia || t.data_contabil || ''),
+      fmtDateStr(_transDataCompetencia(t)),
       (t.descricao_tratada||t.descricao||'').slice(0,40),
       findNome(tipos,      t.tipo_pagamento_id),
       findNome(cartoes,    t.cartao_id),
@@ -13420,13 +13433,13 @@ function exportarAnaliseDiariaPDF() {
   const findNome = (lista, id) => lista.find(x=>x.id===id)?.nome||'';
 
   let trans = dbLoad('transacoes');
-  if (de)  trans = trans.filter(t=>(t.data_competencia||t.data_contabil||'')>=de);
-  if (ate) trans = trans.filter(t=>(t.data_competencia||t.data_contabil||'')<=ate);
+  if (de)  trans = trans.filter(t=>_transDataCompetencia(t)>=de);
+  if (ate) trans = trans.filter(t=>_transDataCompetencia(t)<=ate);
 
   // Agrupar por dia
   const porDia = {};
   trans.forEach(t => {
-    const dia = t.data_competencia||t.data_contabil||'';
+    const dia = _transDataCompetencia(t);
     if (!dia) return;
     if (!porDia[dia]) porDia[dia] = { entradas:0, saidas:0, n:0 };
     const tipo = findNome(tipos, t.tipo).toLowerCase();
@@ -13479,7 +13492,7 @@ function exportarOrcamentosPDF() {
   const linhas = orcamentos.map(o => {
     const catNome = findNome(categorias, o.categoria);
     const gasto = transacoes.filter(t => {
-      const d = t.data_competencia||t.data_contabil||'';
+      const d = _transDataCompetencia(t);
       if (!d.startsWith(`${anoAtual}-${String(mesAtual).padStart(2,'0')}`)) return false;
       if (t.categoria !== o.categoria) return false;
       const tipo = findNome(tipos, t.tipo).toLowerCase();
