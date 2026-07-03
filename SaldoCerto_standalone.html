@@ -316,6 +316,36 @@ main { padding: 28px 28px 48px; }
 
 table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 
+#transTable {
+  width: 100%;
+  min-width: 1880px;
+  table-layout: fixed;
+}
+
+#transTable th,
+#transTable td {
+  box-sizing: border-box;
+  vertical-align: middle;
+}
+
+#transTable th {
+  white-space: normal;
+  line-height: 1.2;
+  overflow: visible;
+  text-overflow: clip;
+}
+
+#transTable td {
+  min-width: 0;
+}
+
+#transTable th:nth-child(7),
+#transTable td:nth-child(7),
+#transTable th:nth-child(8),
+#transTable td:nth-child(8) {
+  width: 16%;
+}
+
 thead tr { background: #F8FAFD; border-bottom: 2px solid var(--border); }
 
 th {
@@ -5454,7 +5484,44 @@ function saveEditConfig() {
 /* -- ESTADO -- */
 let editandoTransId = null;
 
-const transOrdenacao = { col: 'data_contabil', dir: 'desc' };
+const transOrdenacao = { col: 'data_competencia', dir: 'desc' };
+
+function _transDataReferencia(t) {
+  return t.data_competencia || t.data_contabil || '';
+}
+
+function _transMesReferenciaAtual(transacoes = dbLoad('transacoes')) {
+  const meses = [...new Set((transacoes || [])
+    .map(t => _transDataReferencia(t).slice(0, 7))
+    .filter(m => /^\d{4}-\d{2}$/.test(m)))].sort();
+  const hoje = new Date();
+  const mesSistema = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}`;
+  return meses.includes(mesSistema) ? mesSistema : (meses[meses.length - 1] || mesSistema);
+}
+
+function _transPeriodoMes(anoMes) {
+  const ref = /^\d{4}-\d{2}$/.test(anoMes || '') ? anoMes : _transMesReferenciaAtual();
+  const [ano, mes] = ref.split('-').map(Number);
+  const ultimoDia = new Date(ano, mes, 0).getDate();
+  return {
+    de: `${ref}-01`,
+    ate: `${ref}-${String(ultimoDia).padStart(2, '0')}`
+  };
+}
+
+function _transMesLabel(anoMes) {
+  if (!/^\d{4}-\d{2}$/.test(anoMes || '')) return '';
+  const [ano, mes] = anoMes.split('-').map(Number);
+  return new Date(ano, mes - 1, 1).toLocaleString('pt-BR', { month: 'long', year: 'numeric' });
+}
+
+function _transDentroPeriodo(t, dataDe, dataAte) {
+  const data = _transDataReferencia(t);
+  if (!data) return false;
+  if (dataDe && data < dataDe) return false;
+  if (dataAte && data > dataAte) return false;
+  return true;
+}
 
 /* -- COLUNAS DA TABELA -- */
 const TRANS_COLUNAS = [
@@ -5514,12 +5581,9 @@ function popularSelectsFiltro() {
 
 /* Filtro rápido: mês anterior */
 function filtroMesAtual() {
-  const hoje   = new Date();
-  const inicio = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
-  const fim    = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0);
-  const fmt    = d => d.toISOString().slice(0, 10);
-  document.getElementById('fil-data-de').value  = fmt(inicio);
-  document.getElementById('fil-data-ate').value = fmt(fim);
+  const periodo = _transPeriodoMes(_transMesReferenciaAtual());
+  document.getElementById('fil-data-de').value  = periodo.de;
+  document.getElementById('fil-data-ate').value = periodo.ate;
   // Desativar Mês Anterior se estiver ativo
   document.getElementById('btnMesAnterior')?.classList.remove('ativo');
   document.getElementById('btnMesAtual')?.classList.add('ativo');
@@ -5537,9 +5601,9 @@ function filtroMesAnterior() {
     baseAno = y;
     baseMes = m - 1; // 0-indexed
   } else {
-    const hoje = new Date();
-    baseAno = hoje.getFullYear();
-    baseMes = hoje.getMonth();
+    const [y, m] = _transMesReferenciaAtual().split('-').map(Number);
+    baseAno = y;
+    baseMes = m - 1; // 0-indexed
   }
 
   // Voltar um mês
@@ -5684,8 +5748,9 @@ function renderTransacoes() {
   }
 
   // Filtro de data de competência
-  if (fil.dataDe)  dados = dados.filter(t => t.data_competencia >= fil.dataDe);
-  if (fil.dataAte) dados = dados.filter(t => t.data_competencia <= fil.dataAte);
+  if (fil.dataDe || fil.dataAte) {
+    dados = dados.filter(t => _transDentroPeriodo(t, fil.dataDe, fil.dataAte));
+  }
 
   // Filtros de selects (por ID)
   if (fil.cartao)       dados = dados.filter(t => t.cartao_id        === fil.cartao);
@@ -5719,6 +5784,11 @@ function renderTransacoes() {
       const bv = parseFloat(b.valor) || 0;
       return ord.dir === 'asc' ? av - bv : bv - av;
     }
+    if (ord.col === 'data_competencia') {
+      const av = _transDataReferencia(a);
+      const bv = _transDataReferencia(b);
+      return ord.dir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
+    }
     const av = (a[ord.col] || '').toString().toLowerCase();
     const bv = (b[ord.col] || '').toString().toLowerCase();
     return ord.dir === 'asc' ? av.localeCompare(bv, 'pt') : bv.localeCompare(av, 'pt');
@@ -5739,9 +5809,9 @@ function renderTransacoes() {
   const isInvest   = t => nomeCat(t) === 'investimento' || nomeCat(t) === 'investimentos';
 
   // 1) Saldo no mês atual — todas as transações do mês corrente (data competência)
-  const hoje       = new Date();
-  const anoMes     = `${hoje.getFullYear()}-${String(hoje.getMonth()+1).padStart(2,'0')}`;
-  const transMe    = todasTrans.filter(t => (t.data_competencia || '').startsWith(anoMes));
+  const anoMes     = _transMesReferenciaAtual(todasTrans);
+  const [anoRef, mesRef] = anoMes.split('-').map(Number);
+  const transMe    = todasTrans.filter(t => _transDataReferencia(t).startsWith(anoMes));
   // Card saldo: apenas Entradas no mês atual (excluindo Neutro e Saída)
   const somaEntradaMes = transMe
     .filter(t => isEntrada(t))
@@ -5768,14 +5838,14 @@ function renderTransacoes() {
     }
   } else {
     // mês atual
-    dtDe  = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
-    dtAte = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0);
+    dtDe  = new Date(anoRef, mesRef - 1, 1);
+    dtAte = new Date(anoRef, mesRef, 0);
     numDias = dtAte.getDate();
   }
 
   // Filtra transações no período selecionado (data competência)
   const dentroPeriodo = t => {
-    const dc = t.data_competencia || '';
+    const dc = _transDataReferencia(t);
     if (!dc) return false;
     if (dtDe  && dc < (dtDe.toISOString().slice(0,10)))  return false;
     if (dtAte && dc > (dtAte.toISOString().slice(0,10))) return false;
@@ -5794,13 +5864,13 @@ function renderTransacoes() {
 
   const periodoLabel = (fil2.dataDe || fil2.dataAte)
     ? `${fil2.dataDe ? fmtDateStr(fil2.dataDe) : '…'} → ${fil2.dataAte ? fmtDateStr(fil2.dataAte) : '…'}`
-    : `${hoje.toLocaleString('pt-BR',{month:'long'})}/${hoje.getFullYear()}`;
+    : _transMesLabel(anoMes);
 
   document.getElementById('statsRow').innerHTML = `
     <div class="stat-card">
       <div class="stat-label">Saldo no Mês Atual</div>
       <div class="stat-value ${saldoMes < 0 ? 'danger' : 'green'}">R$ ${fmtValor(saldoMes)}</div>
-      <div class="stat-sub">${hoje.toLocaleString('pt-BR',{month:'long',year:'numeric'})}</div>
+      <div class="stat-sub">${_transMesLabel(anoMes)}</div>
     </div>
     <div class="stat-card">
       <div class="stat-label">Patrimônio — Investimentos</div>
@@ -5826,7 +5896,7 @@ function renderTransacoes() {
 
   // Checkbox "selecionar todos" — PRIMEIRA coluna
   const thSelAll = document.createElement('th');
-  thSelAll.style.cssText = 'width:36px;text-align:center;padding:8px 4px;flex-shrink:0';
+  thSelAll.style.cssText = 'width:44px;min-width:44px;text-align:center;padding:8px 4px;flex-shrink:0';
   thSelAll.innerHTML = '<input type="checkbox" id="trans-chk-all" title="Selecionar todos" onchange="transToggleAll(this)">';
   th.appendChild(thSelAll);
 
@@ -5834,6 +5904,7 @@ function renderTransacoes() {
     const td = document.createElement('th');
     td.setAttribute('data-col', col.chave);
     td.style.minWidth  = col.w + 'px';
+    td.style.width     = col.w + 'px';
     td.style.position  = 'relative';
 
     const isAtiva = transOrdenacao.col === col.chave;
@@ -5857,8 +5928,7 @@ function renderTransacoes() {
 
   const thAcoes = document.createElement('th');
   thAcoes.textContent = 'Ações';
-  thAcoes.style.width = '120px';
-  thAcoes.style.textAlign = 'right';
+  thAcoes.style.cssText = 'width:120px;min-width:120px;text-align:right';
   th.appendChild(thAcoes);
 
   initResizable(th);
@@ -5876,7 +5946,7 @@ function renderTransacoes() {
 
   tb.innerHTML = dados.map(t => `
     <tr>
-      <td style="text-align:center;padding:8px 4px;width:36px">
+      <td style="text-align:center;padding:8px 4px;width:44px;min-width:44px">
         <input type="checkbox" class="trans-sel-chk" data-id="${t.id}" onclick="event.stopPropagation()" onchange="transBulkAtualizarBarra()" style="width:15px;height:15px;cursor:pointer;accent-color:var(--primary)">
       </td>
       <td>${fmtDateStr(t.data_contabil)}</td>
@@ -6693,8 +6763,8 @@ function renderUltimas10() {
 
   const trans = dbLoad('transacoes')
     .sort((a,b) => {
-      const da = (a.data_competencia||a.data_contabil||'');
-      const db2= (b.data_competencia||b.data_contabil||'');
+      const da = _transDataReferencia(a);
+      const db2= _transDataReferencia(b);
       return db2.localeCompare(da);
     })
     .slice(0, 10)
@@ -6725,7 +6795,7 @@ function renderUltimas10() {
     const valClass = isEntN ? 'val-positive' : isSaN ? 'val-negative' : 'val-neutral';
     const sinal    = isEntN ? '+ ' : isSaN ? '- ' : '';
     return `<tr>
-      <td>${fmtDateStr(t.data_competencia||t.data_contabil||'')}</td>
+      <td>${fmtDateStr(_transDataReferencia(t))}</td>
       <td title="${escHtml(t.descricao_tratada||t.descricao||'')}">${escHtml(t.descricao_tratada||t.descricao||'—')}</td>
       <td>${escHtml(t._tipo)}</td>
       <td>${escHtml(t._forma)}</td>
@@ -6745,12 +6815,12 @@ function renderInicio() {
   const todas = dbLoad('transacoes');
 
   // Score do mês atual
-  const hoje = new Date();
-  const anoMesAtual = `${hoje.getFullYear()}-${String(hoje.getMonth()+1).padStart(2,'0')}`;
-  const transMes = todas.filter(t => (t.data_competencia||'').startsWith(anoMesAtual));
+  const anoMesAtual = _transMesReferenciaAtual(todas);
+  const periodoAtual = _transPeriodoMes(anoMesAtual);
+  const transMes = todas.filter(t => _transDataReferencia(t).startsWith(anoMesAtual));
   renderScoreCard('scoreMes', 'Saúde Financeira — Mês Atual',
-    `${hoje.toLocaleString('pt-BR',{month:'long',year:'numeric'})}`,
-    calcularScore(transMes));
+    _transMesLabel(anoMesAtual),
+    calcularScore(transMes, { asOfDate: periodoAtual.ate, historico: todas }));
 
   // CLV bancário estimado pela árvore de segmentação do modelo financeiro.
   renderScoreCard('scoreGeral', 'Customer Lifetime Value — Bancário',
@@ -6885,12 +6955,9 @@ function _relPopularSelects(pfx, renderFn) {
 }
 
 function _relMesAtual(pfx, renderFn) {
-  const hoje = new Date();
-  const ini  = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
-  const fim  = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0);
-  const fmt  = d => d.toISOString().slice(0, 10);
-  document.getElementById(pfx+'-data-de').value  = fmt(ini);
-  document.getElementById(pfx+'-data-ate').value = fmt(fim);
+  const periodo = _transPeriodoMes(_transMesReferenciaAtual());
+  document.getElementById(pfx+'-data-de').value  = periodo.de;
+  document.getElementById(pfx+'-data-ate').value = periodo.ate;
   // Desativar botão mês anterior se ativo
   document.getElementById(pfx+'-btn-mes')?.classList.remove('ativo');
   document.getElementById(pfx+'-btn-mes-atual')?.classList.add('ativo');
@@ -6910,9 +6977,9 @@ function _relMesAnterior(pfx, renderFn) {
     baseMes = m - 1; // 0-indexed
   } else {
     // Sem filtro ativo: partir do mês atual
-    const hoje = new Date();
-    baseAno = hoje.getFullYear();
-    baseMes = hoje.getMonth();
+    const [y, m] = _transMesReferenciaAtual().split('-').map(Number);
+    baseAno = y;
+    baseMes = m - 1; // 0-indexed
   }
 
   // Voltar um mês
@@ -7260,7 +7327,7 @@ let _relScoreAnoSelecionado = new Date().getFullYear();
 const SCORE_MESES_LABELS = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
 
 function _relScoreData(t) {
-  return t.data_competencia || '';
+  return _transDataReferencia(t);
 }
 
 function _relScoreFaixa(score) {
@@ -7459,11 +7526,9 @@ function switchRelTab(chave, btn) {
     const deEl  = document.getElementById(pfx+'-data-de');
     const ateEl = document.getElementById(pfx+'-data-ate');
     if (deEl && !deEl.value) {
-      const hoje = new Date();
-      const ini  = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
-      const fim  = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0);
-      deEl.value  = ini.toISOString().slice(0, 10);
-      ateEl.value = fim.toISOString().slice(0, 10);
+      const periodo = _transPeriodoMes(_transMesReferenciaAtual());
+      deEl.value  = periodo.de;
+      ateEl.value = periodo.ate;
       document.getElementById(pfx+'-btn-mes-atual')?.classList.add('ativo');
     }
   }
@@ -7477,12 +7542,10 @@ function renderRelatorios() {
   if (pfxAtivo) {
     const deEl = document.getElementById(pfxAtivo+'-data-de');
     if (deEl && !deEl.value) {
-      const hoje = new Date();
-      const ini  = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
-      const fim  = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0);
-      deEl.value = ini.toISOString().slice(0, 10);
+      const periodo = _transPeriodoMes(_transMesReferenciaAtual());
+      deEl.value = periodo.de;
       const ateEl = document.getElementById(pfxAtivo+'-data-ate');
-      if (ateEl) ateEl.value = fim.toISOString().slice(0, 10);
+      if (ateEl) ateEl.value = periodo.ate;
       document.getElementById(pfxAtivo+'-btn-mes-atual')?.classList.add('ativo');
     }
   }
@@ -12048,12 +12111,13 @@ function verificarSaudeFinanceira() {
   const ultimaVez = localStorage.getItem('sc_saude_ultimo_aviso');
   if (ultimaVez === hojeISO) return;
 
-  const hoje      = new Date();
-  const anoMes    = `${hoje.getFullYear()}-${String(hoje.getMonth()+1).padStart(2,'0')}`;
-  const transMes  = dbLoad('transacoes').filter(t=>(t.data_competencia||'').startsWith(anoMes));
+  const todasTrans = dbLoad('transacoes');
+  const anoMes    = _transMesReferenciaAtual(todasTrans);
+  const periodoMes = _transPeriodoMes(anoMes);
+  const transMes  = todasTrans.filter(t=>_transDataReferencia(t).startsWith(anoMes));
   if (!transMes.length) return; // sem dados, não exibe
 
-  const result = calcularScore(transMes);
+  const result = calcularScore(transMes, { asOfDate: periodoMes.ate, historico: todasTrans });
   const score  = result.score;
 
   // Só exibe se score < 50 (comprometido)
@@ -12071,7 +12135,7 @@ function verificarSaudeFinanceira() {
     nivelMsg   = 'Sua saúde financeira este mês está <strong>moderada</strong>. Fique atento aos gastos para não comprometer o equilíbrio financeiro.';
   }
 
-  const mes = hoje.toLocaleString('pt-BR',{month:'long',year:'numeric'});
+  const mes = _transMesLabel(anoMes);
 
   document.getElementById('saudeAlertaBody').innerHTML = `
     <div class="saude-popup-body">
@@ -12162,15 +12226,12 @@ function showPage(id) {
   }
   // Ao abrir Transações, aplicar filtro do mês atual automaticamente
   if (id === 'transacoes') {
-    const hoje   = new Date();
-    const inicio = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
-    const fim    = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0);
-    const fmt    = d => d.toISOString().slice(0, 10);
+    const periodo = _transPeriodoMes(_transMesReferenciaAtual());
     const de  = document.getElementById('fil-data-de');
     const ate = document.getElementById('fil-data-ate');
     // Só aplicar se os campos estiverem vazios (não sobrescrever filtro manual)
-    if (de && !de.value) de.value = fmt(inicio);
-    if (ate && !ate.value) ate.value = fmt(fim);
+    if (de && !de.value) de.value = periodo.de;
+    if (ate && !ate.value) ate.value = periodo.ate;
     document.getElementById('btnMesAtual')?.classList.add('ativo');
   }
 
