@@ -4494,6 +4494,7 @@ main {
         <button class="tab-btn" onclick="switchRelTab('semana',this)">Por Dia da Semana</button>
         <button class="tab-btn" onclick="switchRelTab('perfil',this)">Por Perfil</button>
         <button class="tab-btn" onclick="switchRelTab('status',this)">Por Status</button>
+        <button class="tab-btn" onclick="switchRelTab('score',this)">Score</button>
       </div>
 
       <!-- -- ABA: POR CATEGORIA -- -->
@@ -4755,6 +4756,33 @@ main {
           <div class="rel-chart-box" style="height:320px"><canvas id="c-status-pie"></canvas></div>
         </div>
         <div class="rel-table-box" id="tbl-status"></div>
+      </div>
+
+      <!-- -- ABA: SCORE -- -->
+      <div class="rel-tab" id="reltab-score">
+        <div class="rel-header">
+          <div class="rel-title">Evolução do Score</div>
+          <div class="rel-sub">Score financeiro calculado por data de competência, com visão mensal e ano a ano</div>
+        </div>
+        <div class="rel-filtros">
+          <div class="filtro-group">
+            <label class="filtro-label">Ano da visão mensal</label>
+            <select class="filtro-select" id="rscore-ano" onchange="relScoreSelecionarAno(this.value)"></select>
+          </div>
+          <div class="filtro-group" style="align-self:flex-end">
+            <button class="btn-mes-anterior" onclick="relScoreAnoAtual()">● Ano Atual</button>
+          </div>
+          <div class="filtro-group" style="align-self:flex-end;color:var(--text-muted);font-size:12px">
+            Clique em uma barra anual para abrir os meses daquele ano.
+          </div>
+        </div>
+        <div class="rel-two-col">
+          <div>
+            <div class="rel-chart-box" style="height:320px"><canvas id="c-score-mensal"></canvas></div>
+            <div class="rel-table-box" id="tbl-score"></div>
+          </div>
+          <div class="rel-chart-box" style="height:320px"><canvas id="c-score-anual"></canvas></div>
+        </div>
       </div>
 
     </div>
@@ -6694,8 +6722,8 @@ function _valorContasPendentes(colecao, statusBaixa, filtroExtra) {
     .reduce((s,c) => s + (parseFloat(c.valor) || 0), 0);
 }
 
-function _mesesRecentes(qtd) {
-  const hoje = new Date();
+function _mesesRecentes(qtd, base = new Date()) {
+  const hoje = base instanceof Date ? base : new Date(base);
   return Array.from({length:qtd},(_,i)=>{
     const d = new Date(hoje.getFullYear(), hoje.getMonth()-i, 1);
     return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
@@ -6796,7 +6824,7 @@ function renderGraficoMensal() {
 /* --------------------------------------------
    CÁLCULO DO SCORE (0–100)
 -------------------------------------------- */
-function calcularScore(transacoes) {
+function calcularScore(transacoes, opts = {}) {
   if (!transacoes.length) return { score: 0, itens: [] };
 
   const range = _rangeTransacoes(transacoes);
@@ -6852,8 +6880,11 @@ function calcularScore(transacoes) {
   const p4 = Math.min(cats.size, 5) * 2;
 
   // 5. Consistência de renda (0–15): olha o histórico, não só o mês aberto.
-  const historico = dbLoad('transacoes');
-  const mesesRecentes = _mesesRecentes(6);
+  const historico = opts.historico || dbLoad('transacoes');
+  const baseConsistencia = opts.asOfDate
+    ? new Date(opts.asOfDate + 'T12:00:00')
+    : new Date();
+  const mesesRecentes = _mesesRecentes(6, baseConsistencia);
   const mesesComEntrada = mesesRecentes.filter(m =>
     historico.some(t =>
       _isEntrada(t) && !_isNeutro(t) && !_isEmprestimo(t) && !_isInvest(t) &&
@@ -7643,6 +7674,183 @@ function renderRelStatus() {
   _relTabela('tbl-status', rows, total);
 }
 
+/* --- ABA: SCORE --------------------------------------- */
+let _relScoreAnoSelecionado = new Date().getFullYear();
+const SCORE_MESES_LABELS = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+
+function _relScoreData(t) {
+  return t.data_competencia || '';
+}
+
+function _relScoreFaixa(score) {
+  if (score >= 80) return { label:'Excelente', cor:'#00875A', bg:'#E6F7F1' };
+  if (score >= 60) return { label:'Bom',       cor:'#1558B0', bg:'#E8F0FB' };
+  if (score >= 40) return { label:'Regular',   cor:'#B8860B', bg:'#FFF8E6' };
+  return { label:'Crítico', cor:'#D93025', bg:'#FDECEA' };
+}
+
+function _relScoreAnosDisponiveis() {
+  const anos = new Set([new Date().getFullYear()]);
+  dbLoad('transacoes').forEach(t => {
+    const d = _relScoreData(t);
+    if (d) anos.add(parseInt(d.slice(0,4), 10));
+  });
+  dbLoad('inv_movimentos').forEach(m => {
+    const d = m.data || '';
+    if (d) anos.add(parseInt(d.slice(0,4), 10));
+  });
+  return [...anos].filter(Number.isFinite).sort((a,b)=>a-b);
+}
+
+function _relScorePeriodo(de, ate, historico) {
+  const trans = historico.filter(t => {
+    const d = _relScoreData(t);
+    return d && d >= de && d <= ate;
+  });
+  const result = calcularScore(trans, { asOfDate: ate, historico });
+  return { score: result.score || 0, count: trans.length };
+}
+
+function _relScoreUltimoDiaMes(ano, mesIndex) {
+  return new Date(ano, mesIndex + 1, 0).getDate();
+}
+
+function _relScorePopularAnos(anos) {
+  const sel = document.getElementById('rscore-ano');
+  if (!sel) return;
+  const atual = String(_relScoreAnoSelecionado);
+  sel.innerHTML = anos.map(ano => `<option value="${ano}">${ano}</option>`).join('');
+  if (anos.includes(_relScoreAnoSelecionado)) sel.value = atual;
+}
+
+function relScoreSelecionarAno(ano) {
+  const n = parseInt(ano, 10);
+  if (!Number.isFinite(n)) return;
+  _relScoreAnoSelecionado = n;
+  renderRelScore();
+}
+
+function relScoreAnoAtual() {
+  _relScoreAnoSelecionado = new Date().getFullYear();
+  renderRelScore();
+}
+
+function renderRelScore() {
+  const historico = dbLoad('transacoes');
+  const anos = _relScoreAnosDisponiveis();
+  if (!anos.includes(_relScoreAnoSelecionado)) {
+    _relScoreAnoSelecionado = new Date().getFullYear();
+  }
+  _relScorePopularAnos(anos);
+
+  const hoje = new Date();
+  const anoAtual = hoje.getFullYear();
+  const hojeIso = hoje.toISOString().slice(0,10);
+  const mesesNoAno = _relScoreAnoSelecionado === anoAtual ? hoje.getMonth() + 1 : 12;
+  const meses = Array.from({length: mesesNoAno}, (_,i)=>i);
+
+  const dadosMensais = meses.map(i => {
+    const mes = String(i + 1).padStart(2,'0');
+    const de = `${_relScoreAnoSelecionado}-${mes}-01`;
+    const fimMes = `${_relScoreAnoSelecionado}-${mes}-${String(_relScoreUltimoDiaMes(_relScoreAnoSelecionado, i)).padStart(2,'0')}`;
+    const ate = (_relScoreAnoSelecionado === anoAtual && i === hoje.getMonth()) ? hojeIso : fimMes;
+    return { mes: SCORE_MESES_LABELS[i], ..._relScorePeriodo(de, ate, historico) };
+  });
+
+  const dadosAnuais = anos.map(ano => {
+    const de = `${ano}-01-01`;
+    const ate = ano === anoAtual ? hojeIso : `${ano}-12-31`;
+    return { ano, ..._relScorePeriodo(de, ate, historico) };
+  });
+
+  _rc('c-score-mensal', {
+    type: 'line',
+    data: {
+      labels: dadosMensais.map(d=>d.mes),
+      datasets: [{
+        label: `Score ${_relScoreAnoSelecionado}`,
+        data: dadosMensais.map(d=>d.score),
+        borderColor: '#1558B0',
+        backgroundColor: 'rgba(21,88,176,0.12)',
+        pointBackgroundColor: dadosMensais.map(d=>_relScoreFaixa(d.score).cor),
+        pointBorderColor: '#fff',
+        pointBorderWidth: 2,
+        pointRadius: 4,
+        tension: 0.35,
+        fill: true,
+      }]
+    },
+    options: {
+      responsive:true,
+      maintainAspectRatio:false,
+      plugins:{
+        legend:{display:false},
+        tooltip:{ callbacks:{ label: ctx => ` Score ${ctx.parsed.y}` } }
+      },
+      scales:{
+        x:{ grid:{display:false}, ticks:{font:{size:12}} },
+        y:{ min:0, max:100, grid:{color:'#EAEEF3'}, ticks:{stepSize:20,font:{size:11}} }
+      }
+    }
+  });
+
+  _rc('c-score-anual', {
+    type: 'bar',
+    data: {
+      labels: dadosAnuais.map(d=>String(d.ano)),
+      datasets: [{
+        label: 'Score anual',
+        data: dadosAnuais.map(d=>d.score),
+        backgroundColor: dadosAnuais.map(d => d.ano === _relScoreAnoSelecionado ? '#1558B0' : 'rgba(21,88,176,0.35)'),
+        borderRadius: 6,
+        borderSkipped: false,
+      }]
+    },
+    options: {
+      responsive:true,
+      maintainAspectRatio:false,
+      onClick: (_, elements) => {
+        if (!elements.length) return;
+        const ano = dadosAnuais[elements[0].index]?.ano;
+        if (ano) relScoreSelecionarAno(ano);
+      },
+      plugins:{
+        legend:{display:false},
+        tooltip:{ callbacks:{ label: ctx => ` Score ${ctx.parsed.y}` } }
+      },
+      scales:{
+        x:{ grid:{display:false}, ticks:{font:{size:12}} },
+        y:{ min:0, max:100, grid:{color:'#EAEEF3'}, ticks:{stepSize:20,font:{size:11}} }
+      }
+    }
+  });
+
+  const tbl = document.getElementById('tbl-score');
+  if (!tbl) return;
+  tbl.innerHTML = `
+    <div class="table-wrap">
+      <table class="rel-summary-table">
+        <thead><tr>
+          <th>Mês</th>
+          <th>Score</th>
+          <th>Faixa</th>
+          <th># Transações</th>
+        </tr></thead>
+        <tbody>
+          ${dadosMensais.map(d => {
+            const faixa = _relScoreFaixa(d.score);
+            return `<tr>
+              <td>${d.mes}/${String(_relScoreAnoSelecionado).slice(2)}</td>
+              <td style="font-family:'DM Mono',monospace;font-weight:800;color:${faixa.cor}">${d.score}</td>
+              <td><span class="score-label-band" style="background:${faixa.bg};color:${faixa.cor};margin:0">${faixa.label}</span></td>
+              <td style="color:var(--text-muted)">${d.count}</td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>`;
+}
+
 /* --- TROCA DE ABA -------------------------------------- */
 const _relRenders = {
   cat:    () => { _relPopularSelects('rc',  renderRelCat);    renderRelCat();    },
@@ -7650,11 +7858,12 @@ const _relRenders = {
   semana: () => { _rsPopularSelects(); renderRelSemana(); },
   perfil: () => { _relPopularSelects('rp',  renderRelPerfil); renderRelPerfil(); },
   status: () => { _relPopularSelects('rst', renderRelStatus); renderRelStatus(); },
+  score:  () => { renderRelScore(); },
 };
 let _relTabAtiva = 'cat';
 
 /* Mapeamento de aba → prefixo de filtros */
-const _REL_PFX = { cat:'rc', subcat:'rs', semana:'rs', perfil:'rp', status:'rst' };
+const _REL_PFX = { cat:'rc', subcat:'rsc', semana:'rs', perfil:'rp', status:'rst' };
 
 function switchRelTab(chave, btn) {
   _relTabAtiva = chave;
@@ -7683,16 +7892,18 @@ function switchRelTab(chave, btn) {
 
 function renderRelatorios() {
   // Aplicar filtro mês atual na aba ativa ao abrir relatórios
-  const pfxAtivo = _REL_PFX[_relTabAtiva] || 'rc';
-  const deEl = document.getElementById(pfxAtivo+'-data-de');
-  if (deEl && !deEl.value) {
-    const hoje = new Date();
-    const ini  = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
-    const fim  = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0);
-    deEl.value = ini.toISOString().slice(0, 10);
-    const ateEl = document.getElementById(pfxAtivo+'-data-ate');
-    if (ateEl) ateEl.value = fim.toISOString().slice(0, 10);
-    document.getElementById(pfxAtivo+'-btn-mes-atual')?.classList.add('ativo');
+  const pfxAtivo = _REL_PFX[_relTabAtiva];
+  if (pfxAtivo) {
+    const deEl = document.getElementById(pfxAtivo+'-data-de');
+    if (deEl && !deEl.value) {
+      const hoje = new Date();
+      const ini  = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+      const fim  = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0);
+      deEl.value = ini.toISOString().slice(0, 10);
+      const ateEl = document.getElementById(pfxAtivo+'-data-ate');
+      if (ateEl) ateEl.value = fim.toISOString().slice(0, 10);
+      document.getElementById(pfxAtivo+'-btn-mes-atual')?.classList.add('ativo');
+    }
   }
   // Render only the active tab
   setTimeout(() => _relRenders[_relTabAtiva]?.(), 60);
