@@ -5835,7 +5835,7 @@ let editandoTransId = null;
 const transOrdenacao = { col: 'data_contabil', dir: 'desc' };
 
 function _transDataReferencia(t) {
-  return t.data_contabil || t.data_competencia || '';
+  return t.data_competencia || t.data_contabil || '';
 }
 
 function _transDentroPeriodo(t, dataDe, dataAte) {
@@ -6576,15 +6576,131 @@ let _graficoMensal = null;
 function _tiposData()      { return dbLoad('tipos'); }
 function _statusData()     { return dbLoad('status'); }
 function _categoriasData() { return dbLoad('categorias'); }
+function _subcategoriasData() { return dbLoad('subcategorias'); }
+function _formasData()     { return dbLoad('formas'); }
+function _perfisData()     { return dbLoad('perfis'); }
+
+const FIN_KEYWORDS_EMPRESTIMO = [
+  'emprestimo','financiamento','divida','consignado','credito pessoal',
+  'credito consignado','cdc','amortizacao','renegociacao','refinanciamento'
+];
+const FIN_KEYWORDS_INVESTIMENTO = [
+  'investimento','investimentos','aplicacao','aplicacao financeira','reserva',
+  'poupanca','cdb','tesouro','renda fixa','corretora','fii','fundo imobiliario',
+  'etf','cripto','criptomoeda','dividendo','provento'
+];
 
 function _nomeTipoT(t)   { return (_tiposData().find(x=>x.id===t.tipo_pagamento_id)?.nome||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
 function _nomeStatusT(t) { return (_statusData().find(x=>x.id===t.status_compra_id)?.nome||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
 function _nomeCatT(t)    { return (_categoriasData().find(x=>x.id===t.categoria_id)?.nome||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
+function _nomeSubcatT(t) { return (_subcategoriasData().find(x=>x.id===t.subcategoria_id)?.nome||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
+function _nomeFormaT(t)  { return (_formasData().find(x=>x.id===t.forma_pagamento_id)?.nome||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
+function _nomePerfilT(t) { return (_perfisData().find(x=>x.id===t.perfil_despesa_id)?.nome||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
+
+function _normFin(v) {
+  return (v || '').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+}
+
+function _textoFinanceiroT(t) {
+  return [
+    _nomeTipoT(t), _nomeCatT(t), _nomeSubcatT(t), _nomeFormaT(t), _nomePerfilT(t), _nomeStatusT(t),
+    t.descricao, t.descricao_tratada, t.observacoes
+  ].map(_normFin).join(' ');
+}
+
+function _textoTemAlgum(texto, termos) {
+  return termos.some(term => texto.includes(term));
+}
 
 function _isEntrada(t) { const n=_nomeTipoT(t); return n==='entrada'; }
 function _isSaida(t)   { const n=_nomeTipoT(t); return n==='saida'; }
 function _isNeutro(t)  { const s=_nomeStatusT(t); return s==='neutro'||s==='30'; }
-function _isInvest(t)  { const c=_nomeCatT(t); return c==='investimento'||c==='investimentos'; }
+function _isEmprestimo(t) { return _textoTemAlgum(_textoFinanceiroT(t), FIN_KEYWORDS_EMPRESTIMO); }
+function _isInvest(t)  {
+  const tipo = _nomeTipoT(t);
+  const cat  = _nomeCatT(t);
+  const texto = _textoFinanceiroT(t);
+  return tipo === 'investimento' ||
+         cat === 'investimento' ||
+         cat === 'investimentos' ||
+         _textoTemAlgum(texto, FIN_KEYWORDS_INVESTIMENTO);
+}
+
+function _valorTrans(t) {
+  return Math.abs(parseFloat(t.valor) || 0);
+}
+
+function _somaTrans(transacoes, filtro) {
+  return transacoes.filter(filtro).reduce((s,t)=>s+_valorTrans(t),0);
+}
+
+function _dataCompetenciaT(t) {
+  return t.data_competencia || t.data_contabil || '';
+}
+
+function _rangeTransacoes(transacoes) {
+  const datas = transacoes.map(_dataCompetenciaT).filter(Boolean).sort();
+  return { de: datas[0] || '', ate: datas[datas.length - 1] || '' };
+}
+
+function _dataDentro(data, de, ate) {
+  if (!data) return false;
+  if (de && data < de) return false;
+  if (ate && data > ate) return false;
+  return true;
+}
+
+function _fluxoInvestimentosPeriodo(de, ate) {
+  return dbLoad('inv_movimentos')
+    .filter(m => _dataDentro(m.data || '', de, ate))
+    .reduce((s,m) => {
+      const v = parseFloat(m.valor_total) || 0;
+      return m.tipo === 'Venda' ? s - v : s + v;
+    }, 0);
+}
+
+function _investimentoCarteiraAtual() {
+  try {
+    if (typeof _invConsolidar === 'function') {
+      return Object.values(_invConsolidar())
+        .filter(p => (parseFloat(p.qtd) || 0) > 0.001)
+        .reduce((s,p) => s + (parseFloat(p.investimento) || 0), 0);
+    }
+  } catch (_) {}
+
+  return dbLoad('inv_movimentos').reduce((s,m) => {
+    const v = parseFloat(m.valor_total) || 0;
+    return m.tipo === 'Venda' ? s - v : s + v;
+  }, 0);
+}
+
+function _valorMetasAtual() {
+  return dbLoad('metas')
+    .filter(m => !['cancelada','pausada'].includes(_normFin(m.status)))
+    .reduce((s,m) => s + (parseFloat(m.valor_atual) || 0), 0);
+}
+
+function _textoConta(c) {
+  return [c.descricao, c.credor, c.devedor, c.status, c.observacoes].map(_normFin).join(' ');
+}
+
+function _isContaEmprestimo(c) {
+  return _textoTemAlgum(_textoConta(c), FIN_KEYWORDS_EMPRESTIMO);
+}
+
+function _valorContasPendentes(colecao, statusBaixa, filtroExtra) {
+  return dbLoad(colecao)
+    .filter(c => !statusBaixa.includes(_normFin(c.status)) && (!filtroExtra || filtroExtra(c)))
+    .reduce((s,c) => s + (parseFloat(c.valor) || 0), 0);
+}
+
+function _mesesRecentes(qtd) {
+  const hoje = new Date();
+  return Array.from({length:qtd},(_,i)=>{
+    const d = new Date(hoje.getFullYear(), hoje.getMonth()-i, 1);
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+  });
+}
 
 /* Filtra neutro, MAS inclui investimentos como positivo para o score */
 function _contaParaScore(t) {
@@ -6681,55 +6797,197 @@ function renderGraficoMensal() {
    CÁLCULO DO SCORE (0–100)
 -------------------------------------------- */
 function calcularScore(transacoes) {
-  /* Critérios:
-     1. Taxa poupança/investimento     (peso 30) — % da renda que entra em investimentos
-     2. Equilíbrio entradas/saídas     (peso 35) — entradas >= saídas
-     3. Diversificação de categorias   (peso 15) — qtd categorias de saída únicas
-     4. Consistência de entradas       (peso 20) — meses com pelo menos 1 entrada
-  */
   if (!transacoes.length) return { score: 0, itens: [] };
 
-  const totalEntrada  = transacoes.filter(t=>_isEntrada(t)&&!_isNeutro(t)).reduce((s,t)=>s+(parseFloat(t.valor)||0),0);
-  const totalSaida    = transacoes.filter(t=>_isSaida(t)&&!_isNeutro(t)).reduce((s,t)=>s+(parseFloat(t.valor)||0),0);
-  const totalInvest   = transacoes.filter(t=>_isInvest(t)).reduce((s,t)=>s+(parseFloat(t.valor)||0),0);
+  const range = _rangeTransacoes(transacoes);
+  const rendaOperacional = _somaTrans(transacoes, t =>
+    _isEntrada(t) && !_isNeutro(t) && !_isEmprestimo(t) && !_isInvest(t)
+  );
+  const entradaEmprestimos = _somaTrans(transacoes, t =>
+    _isEntrada(t) && !_isNeutro(t) && _isEmprestimo(t)
+  );
+  const saidaConsumo = _somaTrans(transacoes, t =>
+    _isSaida(t) && !_isNeutro(t) && !_isEmprestimo(t) && !_isInvest(t)
+  );
+  const servicoEmprestimos = _somaTrans(transacoes, t =>
+    _isSaida(t) && !_isNeutro(t) && _isEmprestimo(t)
+  );
+  const aportesTransacionais = _somaTrans(transacoes, t =>
+    !_isNeutro(t) && _isInvest(t) && !_isEntrada(t)
+  );
+  const fluxoInvestModulo = _fluxoInvestimentosPeriodo(range.de, range.ate);
+  const aportesInvest = aportesTransacionais > 0
+    ? aportesTransacionais
+    : Math.max(0, fluxoInvestModulo);
 
-  // 1. Taxa de investimento (0–30)
-  const taxaInvest    = totalEntrada > 0 ? Math.min(totalInvest / totalEntrada, 1) : 0;
-  const p1            = Math.round(taxaInvest * 30);
+  // 1. Aportes e investimentos (0–25): investimento não entra como gasto ruim.
+  const taxaInvest = rendaOperacional > 0 ? Math.min(aportesInvest / rendaOperacional, 1) : 0;
+  const p1 = Math.round(taxaInvest * 25);
 
-  // 2. Equilíbrio (0–35)
+  // 2. Equilíbrio operacional (0–30): gastos + serviço de dívida contra renda real.
+  const comprometido = saidaConsumo + servicoEmprestimos;
   let p2 = 0;
-  if (totalEntrada > 0 && totalSaida === 0) {
-    p2 = 35;
-  } else if (totalEntrada > 0) {
-    const ratio = totalEntrada / (totalEntrada + totalSaida); // 0.5 = neutro, 1 = ótimo
-    p2 = Math.round(Math.min(ratio * 2, 1) * 35);
+  if (rendaOperacional > 0 && comprometido === 0) {
+    p2 = 30;
+  } else if (rendaOperacional > 0) {
+    const ratio = rendaOperacional / (rendaOperacional + comprometido);
+    p2 = Math.round(Math.min(ratio * 2, 1) * 30);
   }
 
-  // 3. Diversificação — mais categorias distintas = melhor controle (0–15, cap em 5 cats)
-  const cats = new Set(transacoes.filter(t=>_isSaida(t)&&!_isNeutro(t)).map(t=>t.categoria_id).filter(Boolean));
-  const p3   = Math.min(cats.size, 5) * 3;
+  // 3. Pressão de empréstimos (0–20): empréstimo recebido não conta como renda.
+  const pressaoEmprestimos = rendaOperacional > 0
+    ? (servicoEmprestimos + entradaEmprestimos * 0.10) / rendaOperacional
+    : (servicoEmprestimos || entradaEmprestimos ? 1 : 0);
+  let p3 = 20;
+  if (pressaoEmprestimos > 0.35) p3 = 0;
+  else if (pressaoEmprestimos > 0.25) p3 = 6;
+  else if (pressaoEmprestimos > 0.15) p3 = 12;
+  else if (pressaoEmprestimos > 0.05) p3 = 17;
 
-  // 4. Consistência — % dos últimos 6 meses com entrada registrada (0–20)
-  const hoje6 = new Date();
-  const mesesRecentes = Array.from({length:6},(_,i)=>{
-    const d = new Date(hoje6.getFullYear(), hoje6.getMonth()-i, 1);
-    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
-  });
+  // 4. Diversificação de gastos (0–10, cap em 5 categorias)
+  const cats = new Set(transacoes
+    .filter(t=>_isSaida(t)&&!_isNeutro(t)&&!_isInvest(t)&&!_isEmprestimo(t))
+    .map(t=>t.categoria_id)
+    .filter(Boolean));
+  const p4 = Math.min(cats.size, 5) * 2;
+
+  // 5. Consistência de renda (0–15): olha o histórico, não só o mês aberto.
+  const historico = dbLoad('transacoes');
+  const mesesRecentes = _mesesRecentes(6);
   const mesesComEntrada = mesesRecentes.filter(m =>
-    transacoes.some(t => _isEntrada(t) && !_isNeutro(t) && _transDataReferencia(t).startsWith(m))
+    historico.some(t =>
+      _isEntrada(t) && !_isNeutro(t) && !_isEmprestimo(t) && !_isInvest(t) &&
+      _dataCompetenciaT(t).startsWith(m)
+    )
   ).length;
-  const p4 = Math.round((mesesComEntrada / 6) * 20);
+  const p5 = Math.round((mesesComEntrada / 6) * 15);
 
-  const score = Math.min(100, p1 + p2 + p3 + p4);
+  const score = Math.max(0, Math.min(100, p1 + p2 + p3 + p4 + p5));
+  const equilibrioPct = rendaOperacional > 0
+    ? (rendaOperacional / Math.max(rendaOperacional + comprometido, 1)) * 100
+    : 0;
+  const pressaoPct = pressaoEmprestimos * 100;
+  const totalEmprestimos = servicoEmprestimos + entradaEmprestimos;
 
   return {
     score,
     itens: [
-      { label: 'Taxa de investimento', valor: p1, max: 30, texto: totalEntrada>0 ? `${(taxaInvest*100).toFixed(1)}% da renda` : 'Sem entradas' },
-      { label: 'Equilíbrio financeiro', valor: p2, max: 35, texto: totalSaida>0 ? `${(totalEntrada/(totalEntrada+totalSaida)*100).toFixed(0)}% entrada vs saída` : totalEntrada>0 ? 'Apenas entradas' : 'Sem movimentações' },
-      { label: 'Diversificação de gastos', valor: p3, max: 15, texto: `${cats.size} categoria(s) de saída` },
-      { label: 'Consistência (últ. 6 meses)', valor: p4, max: 20, texto: `${mesesComEntrada}/6 meses com entrada` },
+      { label: 'Aportes e investimentos', valor: p1, max: 25, texto: rendaOperacional>0 ? `${(taxaInvest*100).toFixed(1)}% da renda` : 'Sem renda operacional' },
+      { label: 'Equilíbrio operacional', valor: p2, max: 30, texto: rendaOperacional>0 ? `${equilibrioPct.toFixed(0)}% renda vs gastos/dívida` : 'Sem renda operacional' },
+      { label: 'Pressão de empréstimos', valor: p3, max: 20, texto: totalEmprestimos>0 ? `${pressaoPct.toFixed(1)}% da renda` : 'Sem empréstimos no período' },
+      { label: 'Diversificação de gastos', valor: p4, max: 10, texto: `${cats.size} categoria(s) de saída` },
+      { label: 'Consistência de renda', valor: p5, max: 15, texto: `${mesesComEntrada}/6 meses com entrada` },
+    ]
+  };
+}
+
+function _fmtClv(v) {
+  const sinal = v < 0 ? '-' : '';
+  return `${sinal}R$ ${Math.round(Math.abs(v)).toLocaleString('pt-BR')}`;
+}
+
+function _usoIntensidade(transacoes) {
+  const meses = new Set(transacoes.map(t=>_dataCompetenciaT(t).slice(0,7)).filter(Boolean));
+  const media = meses.size ? transacoes.length / meses.size : 0;
+  if (media > 20) return 2;
+  if (media >= 5) return 1;
+  return 0;
+}
+
+function _clienteAtivo(transacoes) {
+  const corte = new Date();
+  corte.setDate(corte.getDate() - 90);
+  const iso = corte.toISOString().slice(0,10);
+  return transacoes.some(t => _dataCompetenciaT(t) >= iso) ||
+         dbLoad('inv_movimentos').some(m => (m.data || '') >= iso);
+}
+
+function calcularCLVBancario() {
+  const transacoes = dbLoad('transacoes').filter(t=>!_isNeutro(t));
+  const investimentosCarteira = Math.max(0, _investimentoCarteiraAtual());
+  const metasAtual = _valorMetasAtual();
+  const recebiveisEmprestimo = _valorContasPendentes('contas_receber', ['recebida','cancelada'], _isContaEmprestimo);
+  const contasPagarEmprestimo = _valorContasPendentes('contas_pagar', ['paga','cancelada'], _isContaEmprestimo);
+  const emprestimosTomados = _somaTrans(transacoes, t=>_isEntrada(t)&&_isEmprestimo(t));
+  const amortizacoes = _somaTrans(transacoes, t=>_isSaida(t)&&_isEmprestimo(t));
+  const passivoHistoricoEstimado = Math.max(0, emprestimosTomados - amortizacoes);
+
+  const totalSavings = investimentosCarteira + metasAtual + recebiveisEmprestimo;
+  const totalLiabilities = contasPagarEmprestimo + passivoHistoricoEstimado;
+  const cnw = totalSavings - totalLiabilities;
+  const usageIntensity = _usoIntensidade(transacoes);
+  const activeClient = _clienteAtivo(transacoes);
+  const tp08 = totalLiabilities > 0 ? 1 : 0;
+  const tp02 = totalSavings > 0 ? 1 : 0;
+  const ip06 = investimentosCarteira;
+
+  let segmento = 22;
+  let mean = -16;
+  let regra = 'CNW = 0';
+
+  if (cnw < 0) {
+    if (tp08 === 1) {
+      if (totalLiabilities <= 5250) { segmento = 1; mean = 105; regra = 'CNW < 0 · TP-08 = 1 · passivos <= 5.250'; }
+      else { segmento = 2; mean = 451; regra = 'CNW < 0 · TP-08 = 1 · passivos > 5.250'; }
+    } else {
+      segmento = 3; mean = 28; regra = 'CNW < 0 · TP-08 = 0';
+    }
+  } else if (cnw > 0 && cnw <= 350) {
+    if (usageIntensity === 0) { segmento = 4; mean = -19; regra = '0 < CNW <= 350 · uso = 0'; }
+    else if (usageIntensity === 1) { segmento = 5; mean = -12; regra = '0 < CNW <= 350 · uso = 1'; }
+    else { segmento = 6; mean = 51; regra = '0 < CNW <= 350 · uso > 1'; }
+  } else if (cnw > 350 && cnw <= 7500) {
+    if (tp08 === 1) {
+      segmento = 7; mean = 109; regra = '350 < CNW <= 7.500 · TP-08 = 1';
+    } else if (totalSavings <= 0) {
+      segmento = 15; mean = -14; regra = '350 < CNW <= 7.500 · poupança = 0';
+    } else if (totalSavings <= 2000) {
+      if (tp02 === 1) {
+        if (ip06 > 0 && ip06 <= 1500) { segmento = 8; mean = -95; regra = 'poupança <= 2.000 · TP-02 = 1 · 0 < IP-06 <= 1.500'; }
+        else if (ip06 > 1500) { segmento = 9; mean = 66; regra = 'poupança <= 2.000 · TP-02 = 1 · IP-06 > 1.500'; }
+        else { segmento = 10; mean = 2; regra = 'poupança <= 2.000 · TP-02 = 1 · IP-06 = 0'; }
+      } else if (usageIntensity === 1) {
+        segmento = 11; mean = 9; regra = 'poupança <= 2.000 · TP-02 <= 0 · uso = 1';
+      } else if (usageIntensity > 1) {
+        segmento = 12; mean = 38; regra = 'poupança <= 2.000 · TP-02 <= 0 · uso > 1';
+      } else {
+        segmento = 10; mean = 2; regra = 'poupança <= 2.000 · baixo uso';
+      }
+    } else if (activeClient) {
+      segmento = 14; mean = 96; regra = 'poupança > 2.000 · cliente ativo';
+    } else {
+      segmento = 13; mean = 31; regra = 'poupança > 2.000 · cliente inativo';
+    }
+  } else if (cnw > 7500 && cnw <= 22500) {
+    if (ip06 > 0 && ip06 <= 3000) { segmento = 16; mean = 54; regra = '7.500 < CNW <= 22.500 · 0 < IP-06 <= 3.000'; }
+    else if (ip06 > 3000) { segmento = 17; mean = 271; regra = '7.500 < CNW <= 22.500 · IP-06 > 3.000'; }
+    else { segmento = 18; mean = 144; regra = '7.500 < CNW <= 22.500 · IP-06 = 0'; }
+  } else if (cnw > 22500) {
+    if (ip06 > 0 && ip06 <= 4500) { segmento = 19; mean = 343; regra = 'CNW > 22.500 · 0 < IP-06 <= 4.500'; }
+    else if (ip06 > 4500) { segmento = 20; mean = 890; regra = 'CNW > 22.500 · IP-06 > 4.500'; }
+    else { segmento = 21; mean = 390; regra = 'CNW > 22.500 · IP-06 = 0'; }
+  }
+
+  const scoreVisual = Math.max(0, Math.min(100, Math.round(((mean + 100) / 990) * 100)));
+  let banda='CLV baixo', corBanda='#FDECEA', cor='#D93025';
+  if (mean >= 300)      { banda='CLV alto'; corBanda='#E6F7F1'; cor='#00875A'; }
+  else if (mean >= 100) { banda='CLV bom'; corBanda='#E8F0FB'; cor='#1558B0'; }
+  else if (mean >= 0)   { banda='CLV moderado'; corBanda='#FFF8E6'; cor='#B8860B'; }
+
+  const pctSavings = Math.min(100, Math.round((Math.max(totalSavings,0) / 22500) * 100));
+  const pctLiabilities = Math.min(100, Math.round((Math.max(totalLiabilities,0) / 5250) * 100));
+  const pctCnw = Math.min(100, Math.round((Math.max(cnw,0) / 22500) * 100));
+
+  return {
+    score: scoreVisual,
+    displayScore: _fmtClv(mean),
+    banda, corBanda, cor,
+    itens: [
+      { label: 'Segmento CLV', valor: scoreVisual, max: 100, texto: `Segmento ${segmento} · mean ${_fmtClv(mean)}`, detalhe: false },
+      { label: 'Patrimônio líquido (CNW)', valor: pctCnw, max: 100, texto: `CNW ${_fmtClv(cnw)}`, detalhe: false },
+      { label: 'Poupança e investimentos', valor: pctSavings, max: 100, texto: `Total ${_fmtClv(totalSavings)}`, detalhe: false },
+      { label: 'Passivos e empréstimos', valor: pctLiabilities, max: 100, texto: `Total ${_fmtClv(totalLiabilities)}`, detalhe: false },
+      { label: 'Regra aplicada', valor: activeClient ? 100 : 35, max: 100, texto: regra, detalhe: false },
     ]
   };
 }
@@ -6738,19 +6996,30 @@ function calcularScore(transacoes) {
    RENDERIZA UM CARD DE SCORE
 -------------------------------------------- */
 function renderScoreCard(containerId, titulo, subtitulo, scoreData) {
-  const { score, itens } = scoreData;
+  const { itens } = scoreData;
+  const score = Math.max(0, Math.min(100, Math.round(scoreData.score || 0)));
+  const displayScore = scoreData.displayScore || score;
 
   // Faixa
   let banda, corBanda, cor;
-  if (score >= 80)      { banda='Excelente'; corBanda='#E6F7F1'; cor='#00875A'; }
-  else if (score >= 60) { banda='Bom';       corBanda='#E8F0FB'; cor='#1558B0'; }
-  else if (score >= 40) { banda='Regular';   corBanda='#FFF8E6'; cor='#B8860B'; }
-  else                  { banda='Crítico';   corBanda='#FDECEA'; cor='#D93025'; }
+  if (scoreData.banda) {
+    banda = scoreData.banda;
+    corBanda = scoreData.corBanda || '#E8F0FB';
+    cor = scoreData.cor || '#1558B0';
+  } else if (score >= 80) { banda='Excelente'; corBanda='#E6F7F1'; cor='#00875A'; }
+  else if (score >= 60)   { banda='Bom';       corBanda='#E8F0FB'; cor='#1558B0'; }
+  else if (score >= 40)   { banda='Regular';   corBanda='#FFF8E6'; cor='#B8860B'; }
+  else                    { banda='Crítico';   corBanda='#FDECEA'; cor='#D93025'; }
 
   const container = document.getElementById(containerId);
   if (!container) return;
 
   const canvasId = containerId + '-canvas';
+  const itemPct = it => {
+    const max = parseFloat(it.max) || 0;
+    if (max <= 0) return 0;
+    return Math.max(0, Math.min(100, Math.round((parseFloat(it.valor)||0) / max * 100)));
+  };
   container.innerHTML = `
     <div class="score-title">${titulo}</div>
     <div class="score-subtitle">${subtitulo}</div>
@@ -6758,7 +7027,7 @@ function renderScoreCard(containerId, titulo, subtitulo, scoreData) {
       <div>
         <div class="score-dial">
           <canvas id="${canvasId}" width="130" height="80"></canvas>
-          <div class="score-number" style="color:${cor}">${score}</div>
+          <div class="score-number" style="color:${cor}">${displayScore}</div>
         </div>
         <div style="text-align:center;margin-top:10px">
           <span class="score-label-band" style="background:${corBanda};color:${cor}">${banda}</span>
@@ -6769,9 +7038,9 @@ function renderScoreCard(containerId, titulo, subtitulo, scoreData) {
           <div class="score-item">
             <div class="score-item-label">${it.label}</div>
             <div class="score-item-bar-wrap">
-              <div class="score-item-bar" style="width:${Math.round(it.valor/it.max*100)}%;background:${cor}"></div>
+              <div class="score-item-bar" style="width:${itemPct(it)}%;background:${cor}"></div>
             </div>
-            <div class="score-item-val">${it.texto} (${it.valor}/${it.max} pts)</div>
+            <div class="score-item-val">${it.texto}${it.detalhe === false ? '' : ` (${it.valor}/${it.max} pts)`}</div>
           </div>`).join('')}
       </div>
     </div>`;
@@ -6871,10 +7140,10 @@ function renderInicio() {
     `${hoje.toLocaleString('pt-BR',{month:'long',year:'numeric'})}`,
     calcularScore(transMes));
 
-  // Score geral
-  renderScoreCard('scoreGeral', 'Saúde Financeira — Geral',
-    'Baseado em todo o histórico de transações',
-    calcularScore(todas));
+  // CLV bancário estimado pela árvore de segmentação do modelo financeiro.
+  renderScoreCard('scoreGeral', 'Customer Lifetime Value — Bancário',
+    'CNW, investimentos, passivos e intensidade de uso',
+    calcularCLVBancario());
 
   renderUltimas10();
 }
