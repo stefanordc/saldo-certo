@@ -6615,12 +6615,14 @@ function calcularCLVBancario() {
   const tp08 = totalLiabilities > 0 ? 1 : 0;
   const tp02 = totalSavings > 0 ? 1 : 0;
   const ip06 = investimentosCarteira;
+  const semBasePatrimonial = totalSavings <= 0 && totalLiabilities <= 0;
 
   let segmento = 22;
-  let mean = -16;
-  let regra = 'CNW = 0';
+  let mean = semBasePatrimonial ? 0 : -16;
+  let regra = semBasePatrimonial ? 'Sem base patrimonial para estimar CLV' : 'CNW = 0';
+  let textoSegmento = semBasePatrimonial ? 'Sem base patrimonial' : '';
 
-  if (cnw < 0) {
+  if (!semBasePatrimonial && cnw < 0) {
     if (tp08 === 1) {
       if (totalLiabilities <= 5250) { segmento = 1; mean = 105; regra = 'CNW < 0 · TP-08 = 1 · passivos <= 5.250'; }
       else { segmento = 2; mean = 451; regra = 'CNW < 0 · TP-08 = 1 · passivos > 5.250'; }
@@ -6663,9 +6665,10 @@ function calcularCLVBancario() {
     else { segmento = 21; mean = 390; regra = 'CNW > 22.500 · IP-06 = 0'; }
   }
 
-  const scoreVisual = Math.max(0, Math.min(100, Math.round(((mean + 100) / 990) * 100)));
+  const scoreVisual = semBasePatrimonial ? 0 : Math.max(0, Math.min(100, Math.round(((mean + 100) / 990) * 100)));
   let banda='CLV baixo', corBanda='#FDECEA', cor='#D93025';
-  if (mean >= 300)      { banda='CLV alto'; corBanda='#E6F7F1'; cor='#00875A'; }
+  if (semBasePatrimonial) { banda='CLV sem base'; corBanda='#EEF2F6'; cor='#5F6B7A'; }
+  else if (mean >= 300) { banda='CLV alto'; corBanda='#E6F7F1'; cor='#00875A'; }
   else if (mean >= 100) { banda='CLV bom'; corBanda='#E8F0FB'; cor='#1558B0'; }
   else if (mean >= 0)   { banda='CLV moderado'; corBanda='#FFF8E6'; cor='#B8860B'; }
 
@@ -6678,7 +6681,7 @@ function calcularCLVBancario() {
     displayScore: _fmtClv(mean),
     banda, corBanda, cor,
     itens: [
-      { label: 'Segmento CLV', valor: scoreVisual, max: 100, texto: `Segmento ${segmento} · mean ${_fmtClv(mean)}`, detalhe: false },
+      { label: 'Segmento CLV', valor: scoreVisual, max: 100, texto: textoSegmento || `Segmento ${segmento} · mean ${_fmtClv(mean)}`, detalhe: false },
       { label: 'Patrimônio líquido (CNW)', valor: pctCnw, max: 100, texto: `CNW ${_fmtClv(cnw)}`, detalhe: false },
       { label: 'Poupança e investimentos', valor: pctSavings, max: 100, texto: `Total ${_fmtClv(totalSavings)}`, detalhe: false },
       { label: 'Passivos e empréstimos', valor: pctLiabilities, max: 100, texto: `Total ${_fmtClv(totalLiabilities)}`, detalhe: false },
