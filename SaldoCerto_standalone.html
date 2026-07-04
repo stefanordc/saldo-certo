@@ -4537,6 +4537,8 @@ tr.trans-selected td { background: transparent; }
         <button class="tab-btn" onclick="switchTab('formas',this)">Formas de Pagamento</button>
         <button class="tab-btn" onclick="switchTab('tipos',this)">Tipos de Pagamento</button>
         <button class="tab-btn" onclick="switchTab('perfis',this)">Perfis de Despesa</button>
+        <button class="tab-btn" onclick="switchTab('naturezas',this)">Naturezas</button>
+        <button class="tab-btn" onclick="switchTab('decisoes',this)">Decisões</button>
         <button class="tab-btn" onclick="switchTab('status',this)">Status da Compra</button>
         <button class="tab-btn" onclick="switchTab('perfil-usuario',this)">👤 Meu Perfil</button>
       </div>
@@ -4662,16 +4664,25 @@ tr.trans-selected td { background: transparent; }
 
         <div class="form-group">
           <label class="form-label">Natureza <span class="req">*</span></label>
-          <select class="form-select" id="f-tipo-pagamento">
+          <select class="form-select" id="f-natureza">
             <option value="">Selecione…</option>
           </select>
-          <span class="form-error" id="e-tipo-pagamento"></span>
+          <span class="form-error" id="e-natureza"></span>
         </div>
 
         <div class="form-group">
           <label class="form-label">Decisão <span class="req">*</span></label>
-          <input type="text" class="form-input" id="f-decisao" placeholder="Decisão">
+          <select class="form-select" id="f-decisao">
+            <option value="">Selecione…</option>
+          </select>
           <span class="form-error" id="e-decisao"></span>
+        </div>
+
+        <div class="form-group" style="display:none">
+          <select class="form-select" id="f-tipo-pagamento">
+            <option value="">Selecione…</option>
+          </select>
+          <span class="form-error" id="e-tipo-pagamento"></span>
         </div>
 
         <div class="form-group" style="display:none">
@@ -4920,6 +4931,8 @@ const STORAGE_KEYS = {
   formas:        'sc_formas',
   tipos:         'sc_tipos',
   perfis:        'sc_perfis',
+  naturezas:     'sc_naturezas',
+  decisoes:      'sc_decisoes',
   status:        'sc_status',
   transacoes:    'sc_transacoes',
   orcamentos:    'sc_orcamentos',
@@ -4950,6 +4963,8 @@ const SB_TABLE_MAP = {
   formas:         'formas_pagamento',
   tipos:          'tipos_pagamento',
   perfis:         'perfis_despesa',
+  naturezas:      'naturezas',
+  decisoes:       'decisoes',
   status:         'status_compra',
   transacoes:     'transacoes',
   orcamentos:     'orcamentos',
@@ -5153,15 +5168,17 @@ const _SB_COLS = {
   subcategorias:      ['nome','user_id'],
   cartoes:      ['nome','user_id'],
   formas_pagamento:      ['nome','user_id'],
-  tipos_pagamento:      ['nome','user_id'],
-  perfis_despesa:      ['nome','user_id'],
+  tipos_pagamento:      ['id','nome','user_id'],
+  perfis_despesa:      ['id','nome','user_id'],
+  naturezas:      ['id','nome','user_id'],
+  decisoes:       ['id','nome','user_id'],
   status_compra:      ['nome','user_id'],
   corretoras:      ['nome','user_id'],
   modalidades_inv:      ['nome','user_id'],
   transacoes: [
     'id','user_id','descricao','descricao_tratada','valor',
     'data_contabil','data_competencia','cartao_id','tipo_pagamento_id',
-    'forma_pagamento_id','perfil_despesa_id','categoria_id','subcategoria_id',
+    'forma_pagamento_id','perfil_despesa_id','natureza_id','decisao_id','categoria_id','subcategoria_id',
     'status_compra_id','parcelado','parcela_atual','parcela_maxima','observacoes',
     'importado'
   ],
@@ -5320,8 +5337,49 @@ const CONFIG_LABELS = {
   formas:        'Forma de Pagamento',
   tipos:         'Tipo de Pagamento',
   perfis:        'Perfil da Despesa',
+  naturezas:     'Natureza',
+  decisoes:      'Decisão',
   status:        'Status da Compra',
 };
+
+const CONFIG_PADRAO = {
+  naturezas: [
+    'Renda',
+    'Neutro',
+    'Transferência',
+    'Supérfluo',
+    'Conveniência',
+    'Recuperação',
+    'Essencial',
+    'Qualidade de vida',
+  ],
+  decisoes: [
+    'Eventual',
+    'Transferência',
+    'Impulsivo',
+    'Recorrente',
+  ],
+};
+
+function _configNorm(v) {
+  return (v || '').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+}
+
+function garantirConfigPadrao(chave = null) {
+  const alvos = chave ? [chave] : Object.keys(CONFIG_PADRAO);
+  alvos.forEach(col => {
+    const nomes = CONFIG_PADRAO[col];
+    if (!nomes) return;
+    const existentes = dbLoad(col);
+    const existentesNorm = new Set(existentes.map(item => _configNorm(item.nome)));
+    nomes.forEach(nome => {
+      if (!existentesNorm.has(_configNorm(nome))) {
+        dbInsert(col, { nome });
+        existentesNorm.add(_configNorm(nome));
+      }
+    });
+  });
+}
 
 /* --------------------------------------------
    TROCA DE ABA
@@ -5342,6 +5400,7 @@ function switchTab(chave, botao) {
    RENDERIZA A ABA ATIVA
 -------------------------------------------- */
 function renderizarAba(chave) {
+  garantirConfigPadrao(chave);
   const container = document.getElementById('tabContent');
 
   container.innerHTML = `
@@ -5591,7 +5650,7 @@ const TRANS_COLUNAS = [
   { chave: 'descricao_tratada', label: 'Descrição Tratada',w: 230 },
   { chave: 'categoria',         label: 'Categoria',        w: 140 },
   { chave: 'subcategoria',      label: 'Subcategoria',     w: 150 },
-  { chave: 'tipo_pagamento',    label: 'Natureza',         w: 120 },
+  { chave: 'natureza',          label: 'Natureza',         w: 120 },
   { chave: 'decisao',           label: 'Decisão',          w: 130 },
   { chave: 'valor',             label: 'Valor',            w: 120 },
 ];
@@ -5614,9 +5673,9 @@ function toggleFiltrosPanel() {
 function popularSelectsFiltro() {
   const mapa = {
     'fil-cartao':      'cartoes',
-    'fil-tipo':        'tipos',
+    'fil-tipo':        'naturezas',
     'fil-forma':       'formas',
-    'fil-perfil':      'perfis',
+    'fil-perfil':      'decisoes',
     'fil-categoria':   'categorias',
     'fil-subcategoria':'subcategorias',
     'fil-status':      'status',
@@ -5749,9 +5808,9 @@ function atualizarChips(f) {
     }});
   }
   if (f.cartao)       chips.push({ label: `Cartão: ${getNome('cartoes', f.cartao)}`, clear: () => { document.getElementById('fil-cartao').value=''; renderTransacoes(); }});
-  if (f.tipo)         chips.push({ label: `Natureza: ${getNome('tipos', f.tipo)}`, clear: () => { document.getElementById('fil-tipo').value=''; renderTransacoes(); }});
+  if (f.tipo)         chips.push({ label: `Natureza: ${getNome('naturezas', f.tipo)}`, clear: () => { document.getElementById('fil-tipo').value=''; renderTransacoes(); }});
   if (f.forma)        chips.push({ label: `Forma: ${getNome('formas', f.forma)}`, clear: () => { document.getElementById('fil-forma').value=''; renderTransacoes(); }});
-  if (f.perfil)       chips.push({ label: `Decisão: ${getNome('perfis', f.perfil)}`, clear: () => { document.getElementById('fil-perfil').value=''; renderTransacoes(); }});
+  if (f.perfil)       chips.push({ label: `Decisão: ${getNome('decisoes', f.perfil)}`, clear: () => { document.getElementById('fil-perfil').value=''; renderTransacoes(); }});
   if (f.categoria)    chips.push({ label: `Categoria: ${getNome('categorias', f.categoria)}`, clear: () => { document.getElementById('fil-categoria').value=''; renderTransacoes(); }});
   if (f.subcategoria) chips.push({ label: `Subcategoria: ${getNome('subcategorias', f.subcategoria)}`, clear: () => { document.getElementById('fil-subcategoria').value=''; renderTransacoes(); }});
   if (f.status)       chips.push({ label: `Status: ${getNome('status', f.status)}`, clear: () => { document.getElementById('fil-status').value=''; renderTransacoes(); }});
@@ -5786,7 +5845,8 @@ function renderTransacoes() {
     tipo_pagamento:  dbLoad('tipos').find(x => x.id === t.tipo_pagamento_id)?.nome || '',
     forma_pagamento: dbLoad('formas').find(x => x.id === t.forma_pagamento_id)?.nome || '',
     perfil_despesa:  dbLoad('perfis').find(x => x.id === t.perfil_despesa_id)?.nome || '',
-    decisao:         _transDecisao(t) || dbLoad('perfis').find(x => x.id === t.perfil_despesa_id)?.nome || '',
+    natureza:        _transNatureza(t),
+    decisao:         _transDecisao(t),
     categoria:       dbLoad('categorias').find(x => x.id === t.categoria_id)?.nome || '',
     subcategoria:    dbLoad('subcategorias').find(x => x.id === t.subcategoria_id)?.nome || '',
     status_compra:   dbLoad('status').find(x => x.id === t.status_compra_id)?.nome || '',
@@ -5810,9 +5870,9 @@ function renderTransacoes() {
 
   // Filtros de selects (por ID)
   if (fil.cartao)       dados = dados.filter(t => t.cartao_id        === fil.cartao);
-  if (fil.tipo)         dados = dados.filter(t => t.tipo_pagamento_id === fil.tipo);
+  if (fil.tipo)         dados = dados.filter(t => t.natureza_id       === fil.tipo);
   if (fil.forma)        dados = dados.filter(t => t.forma_pagamento_id=== fil.forma);
-  if (fil.perfil)       dados = dados.filter(t => t.perfil_despesa_id === fil.perfil);
+  if (fil.perfil)       dados = dados.filter(t => t.decisao_id        === fil.perfil);
   if (fil.categoria)    dados = dados.filter(t => t.categoria_id      === fil.categoria);
   if (fil.subcategoria) dados = dados.filter(t => t.subcategoria_id   === fil.subcategoria);
   if (fil.status)       dados = dados.filter(t => t.status_compra_id  === fil.status);
@@ -5859,14 +5919,16 @@ function renderTransacoes() {
   const tiposData     = dbLoad('tipos');
   const statusData    = dbLoad('status');
   const categoriasData= dbLoad('categorias');
+  const naturezasData = dbLoad('naturezas');
   const todasTrans    = dbLoad('transacoes');
 
   const nomeTipo   = t => (tiposData.find(x => x.id === t.tipo_pagamento_id)?.nome || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
   const nomeStatus = t => (statusData.find(x => x.id === t.status_compra_id)?.nome || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
   const nomeCat    = t => (categoriasData.find(x => x.id === t.categoria_id)?.nome || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  const nomeNatureza = t => (naturezasData.find(x => x.id === t.natureza_id)?.nome || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
   const isEntrada  = t => nomeTipo(t) === 'entrada';
   const isSaida    = t => nomeTipo(t) === 'saida';
-  const isNeutro   = t => { const s = nomeStatus(t); return s === 'neutro' || s === '30' || _transIsTransferenciaLancamento(t); };
+  const isNeutro   = t => { const s = nomeStatus(t); const n = nomeNatureza(t); return s === 'neutro' || s === '30' || n === 'neutro' || _transIsTransferenciaLancamento(t); };
   const isInvest   = t => nomeCat(t) === 'investimento' || nomeCat(t) === 'investimentos';
 
   // 1) Saldo no mês atual — todas as transações do mês corrente (data competência)
@@ -5875,7 +5937,7 @@ function renderTransacoes() {
   const transMe    = todasTrans.filter(t => _transDataReferencia(t).startsWith(anoMes));
   // Card saldo: apenas Entradas no mês atual (excluindo Neutro e Saída)
   const somaEntradaMes = transMe
-    .filter(t => isEntrada(t))
+    .filter(t => isEntrada(t) && !isNeutro(t))
     .reduce((s, t) => s + (parseFloat(t.valor) || 0), 0);
   const saldoMes = somaEntradaMes;
 
@@ -6015,15 +6077,16 @@ function renderTransacoes() {
       <td title="${escHtml(t.descricao_tratada || t.descricao)}">${escHtml(t.descricao_tratada || t.descricao)}</td>
       <td>${escHtml(t.categoria)}</td>
       <td>${escHtml(t.subcategoria)}</td>
-      <td>${escHtml(t.tipo_pagamento)}</td>
+      <td>${escHtml(t.natureza)}</td>
       <td>${escHtml(t.decisao)}</td>
       ${(()=>{
         const tn=(t.tipo_pagamento||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
-        const isNeutro = tn==='neutro' || tn==='';
+        const nn=(t.natureza||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+        const isNeutro = tn==='neutro' || nn==='neutro' || nn==='transferencia' || tn==='';
         const isEntrada= tn==='entrada';
         const isSaida  = tn==='saida';
-        const valCls = isEntrada ? 'val-positive' : isSaida ? 'val-negative' : 'val-neutral';
-        const sinal  = isEntrada ? '+ ' : isSaida ? '- ' : '';
+        const valCls = isNeutro ? 'val-neutral' : isEntrada ? 'val-positive' : isSaida ? 'val-negative' : 'val-neutral';
+        const sinal  = isNeutro ? '' : isEntrada ? '+ ' : isSaida ? '- ' : '';
         return `<td class="${valCls}">${sinal}R$ ${fmtValor(Math.abs(parseFloat(t.valor)||0))}</td>`;
       })()}
       <td class="actions">
@@ -6115,6 +6178,25 @@ function _transTipoSaidaId() {
   return _transEnsureConfigId('tipos', 'Saída', ['Saida','Despesa','Débito','Debito']);
 }
 
+function _transNaturezaIdTransferencia() {
+  return _transEnsureConfigId('naturezas', 'Transferência', TRANS_TRANSFERENCIA_ALIASES);
+}
+
+function _transDecisaoIdTransferencia() {
+  return _transEnsureConfigId('decisoes', 'Transferência', TRANS_TRANSFERENCIA_ALIASES);
+}
+
+function _transTipoOperacionalId(naturezaId, categoriaId = '') {
+  const naturezaNome = _transNomeColecao('naturezas', naturezaId);
+  const categoriaNome = _transNomeColecao('categorias', categoriaId);
+  const n = _transNormTexto(naturezaNome);
+  if (_transIsTransferenciaNome(naturezaNome) || _transIsTransferenciaNome(categoriaNome)) {
+    return _transTipoSaidaId();
+  }
+  if (n === 'renda' || n === 'recuperacao') return _transTipoEntradaId();
+  return _transTipoSaidaId();
+}
+
 function _transEnsureSubcategoriaTransferencia(categoriaId) {
   const itens = dbLoad('subcategorias').filter(item => _transIsTransferenciaNome(item.nome));
   const existente = itens.find(item => !categoriaId || item.categoria_id === categoriaId) || itens[0];
@@ -6156,12 +6238,13 @@ function onTransCategoriaChange() {
 
   const categoriaId = selCategoria.value;
   const subcatId = _transEnsureSubcategoriaTransferencia(categoriaId);
-  const naturezaId = _transEnsureConfigId('tipos', 'Transferência', TRANS_TRANSFERENCIA_ALIASES);
+  const naturezaId = _transNaturezaIdTransferencia();
+  const decisaoId = _transDecisaoIdTransferencia();
 
   _transSetSelectValue('f-subcategoria', 'subcategorias', subcatId);
-  _transSetSelectValue('f-tipo-pagamento', 'tipos', naturezaId);
-  const decisaoEl = document.getElementById('f-decisao');
-  if (decisaoEl) decisaoEl.value = 'Transferência';
+  _transSetSelectValue('f-natureza', 'naturezas', naturezaId);
+  _transSetSelectValue('f-decisao', 'decisoes', decisaoId);
+  _transSetSelectValue('f-tipo-pagamento', 'tipos', _transTipoSaidaId());
 }
 
 function _transStatusPagoId() {
@@ -6213,6 +6296,9 @@ function _transGerarDatasRecorrentes(inicio, fim, frequencia) {
 -------------------------------------------- */
 function preencherSelects() {
   _transGarantirStatusPadrao();
+  garantirConfigPadrao();
+  _transTipoEntradaId();
+  _transTipoSaidaId();
 
   const mapa = {
     'f-cartao':          'cartoes',
@@ -6220,6 +6306,8 @@ function preencherSelects() {
     'f-tipo-pagamento':  'tipos',
     'f-forma-pagamento': 'formas',
     'f-perfil-despesa':  'perfis',
+    'f-natureza':        'naturezas',
+    'f-decisao':         'decisoes',
     'f-categoria':       'categorias',
     'f-subcategoria':    'subcategorias',
     'f-status-compra':   'status',
@@ -6250,7 +6338,7 @@ function limparFormTransacao() {
     'f-data-contabil', 'f-data-competencia', 'f-cartao', 'f-conta-destino',
     'f-tipo-pagamento', 'f-forma-pagamento', 'f-descricao',
     'f-descricao-tratada', 'f-perfil-despesa', 'f-categoria',
-    'f-subcategoria', 'f-decisao', 'f-status-compra', 'f-valor',
+    'f-subcategoria', 'f-natureza', 'f-decisao', 'f-status-compra', 'f-valor',
     'f-parcelado', 'f-parcela-atual', 'f-parcela-maxima',
     'f-recorrencia-frequencia', 'f-recorrencia-fim', 'f-obs',
   ];
@@ -6274,11 +6362,7 @@ function limparFormTransacao() {
   document.getElementById('f-status-compra').value = _transStatusPagoId();
   // Default "Saída" para tipo de pagamento (apenas em novo registro)
   if (!editandoTransId) {
-    const selTipo = document.getElementById('f-tipo-pagamento');
-    const optSaida = Array.from(selTipo.options).find(
-      o => o.text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'') === 'saida'
-    );
-    if (optSaida) selTipo.value = optSaida.value;
+    _transSetSelectValue('f-tipo-pagamento', 'tipos', _transTipoSaidaId());
   }
 }
 
@@ -6296,13 +6380,14 @@ function preencherFormTransacao(t) {
   document.getElementById('f-perfil-despesa').value    = t.perfil_despesa_id || '';
   document.getElementById('f-categoria').value         = t.categoria_id || '';
   document.getElementById('f-subcategoria').value      = t.subcategoria_id || '';
+  document.getElementById('f-natureza').value           = t.natureza_id || _transFindConfigId('naturezas', [_transNatureza(t)]);
   document.getElementById('f-status-compra').value     = t.status_compra_id || '';
   document.getElementById('f-valor').value             = t.valor ? fmtValor(parseFloat(t.valor)) : '';
   document.getElementById('f-parcelado').value         = t.parcelado || '';
   document.getElementById('f-conta-destino').value      = '';
   toggleContaDestinoTransacao(false);
 
-  document.getElementById('f-decisao').value = _transDecisao(t);
+  document.getElementById('f-decisao').value = t.decisao_id || _transFindConfigId('decisoes', [_transDecisao(t)]);
   document.getElementById('f-obs').value = _transObservacoesTexto(t);
   if (t.parcelado === 'Sim') {
     document.getElementById('parcelasSection').classList.add('visible');
@@ -6355,13 +6440,13 @@ function saveTransacao() {
     'f-data-contabil':     { err: 'e-data-contabil',     label: 'Data da transação' },
     'f-data-competencia':  { err: 'e-data-competencia',  label: 'Data da baixa' },
     'f-cartao':            { err: 'e-cartao',            label: 'Conta' },
-    'f-tipo-pagamento':    { err: 'e-tipo-pagamento',    label: 'Natureza' },
     'f-forma-pagamento':   { err: 'e-forma-pagamento',   label: 'Forma de pagamento' },
     'f-descricao':         { err: 'e-descricao',         label: 'Descrição' },
     'f-descricao-tratada': { err: 'e-descricao-tratada', label: 'Descrição tratada' },
     'f-perfil-despesa':    { err: 'e-perfil-despesa',    label: 'Perfil da despesa' },
     'f-categoria':         { err: 'e-categoria',         label: 'Categoria' },
     'f-subcategoria':      { err: 'e-subcategoria',      label: 'Subcategoria' },
+    'f-natureza':          { err: 'e-natureza',          label: 'Natureza' },
     'f-decisao':           { err: 'e-decisao',           label: 'Decisão' },
     'f-valor':             { err: 'e-valor',             label: 'Valor' },
     'f-parcelado':         { err: 'e-parcelado',         label: 'Parcela' },
@@ -6430,26 +6515,30 @@ function saveTransacao() {
   const statusPendenteId = _transStatusPendenteId();
   const dataContabilBase = document.getElementById('f-data-contabil').value;
   const dataCompetenciaBase = document.getElementById('f-data-competencia').value;
-  const decisao = document.getElementById('f-decisao').value.trim();
+  const categoriaId = document.getElementById('f-categoria').value;
+  const naturezaId = document.getElementById('f-natureza').value;
+  const decisaoId = document.getElementById('f-decisao').value;
+  const tipoOperacionalId = _transTipoOperacionalId(naturezaId, categoriaId);
   const transacao = {
     id:                editandoTransId || uid(),
     data_contabil:     dataCompetenciaBase,
     data_competencia:  dataContabilBase,
     cartao_id:         contaOrigemId,
-    tipo_pagamento_id: document.getElementById('f-tipo-pagamento').value,
+    tipo_pagamento_id: tipoOperacionalId,
     forma_pagamento_id:document.getElementById('f-forma-pagamento').value,
     descricao:         document.getElementById('f-descricao').value.trim(),
     descricao_tratada: document.getElementById('f-descricao-tratada').value.trim(),
     perfil_despesa_id: document.getElementById('f-perfil-despesa').value,
-    categoria_id:      document.getElementById('f-categoria').value,
+    categoria_id:      categoriaId,
     subcategoria_id:   document.getElementById('f-subcategoria').value,
+    natureza_id:       naturezaId,
+    decisao_id:        decisaoId,
     status_compra_id:  document.getElementById('f-status-compra').value || statusPagoId,
     valor:             parseFloat(valorRaw),
     parcelado:         parcelado,
     parcela_atual:     parcelado === 'Sim' ? parseInt(document.getElementById('f-parcela-atual').value, 10) : null,
     parcela_maxima:    parcelado === 'Sim' ? parseInt(document.getElementById('f-parcela-maxima').value, 10) : null,
-    decisao:           decisao,
-    observacoes:       _transBuildObservacoes(document.getElementById('f-obs').value.trim(), { decisao }),
+    observacoes:       document.getElementById('f-obs').value.trim(),
   };
 
   // Insere ou atualiza
@@ -6563,10 +6652,6 @@ function _transBuildObservacoes(texto, meta = {}) {
   return base ? `${base}\n${marcador}` : marcador;
 }
 
-function _transDecisao(t) {
-  return (t?.decisao || _transSplitObservacoes(t?.observacoes).meta.decisao || '').toString();
-}
-
 function _transObservacoesTexto(t) {
   return _transSplitObservacoes(t?.observacoes).texto;
 }
@@ -6575,14 +6660,33 @@ function _transNomeColecao(colecao, id) {
   return dbLoad(colecao).find(x => x.id === id)?.nome || '';
 }
 
+function _transNatureza(t) {
+  const porId = _transNomeColecao('naturezas', t?.natureza_id);
+  if (porId) return porId;
+  const legado = (t?.natureza || '').toString();
+  return ['entrada','saida','saída'].includes(_transNormTexto(legado)) ? '' : legado;
+}
+
+function _transDecisao(t) {
+  return (
+    _transNomeColecao('decisoes', t?.decisao_id) ||
+    t?.decisao ||
+    _transSplitObservacoes(t?.observacoes).meta.decisao ||
+    ''
+  ).toString();
+}
+
 function _transIsTransferenciaLancamento(t) {
   return [
     t.tipo_pagamento,
     t.categoria,
     t.subcategoria,
+    _transNatureza(t),
     _transDecisao(t),
     t.perfil_despesa,
     _transNomeColecao('tipos', t.tipo_pagamento_id),
+    _transNomeColecao('naturezas', t.natureza_id),
+    _transNomeColecao('decisoes', t.decisao_id),
     _transNomeColecao('categorias', t.categoria_id),
     _transNomeColecao('subcategorias', t.subcategoria_id),
     _transNomeColecao('perfis', t.perfil_despesa_id),
@@ -6608,6 +6712,8 @@ function _categoriasData() { return dbLoad('categorias'); }
 function _subcategoriasData() { return dbLoad('subcategorias'); }
 function _formasData()     { return dbLoad('formas'); }
 function _perfisData()     { return dbLoad('perfis'); }
+function _naturezasData()  { return dbLoad('naturezas'); }
+function _decisoesData()   { return dbLoad('decisoes'); }
 
 const FIN_KEYWORDS_EMPRESTIMO = [
   'emprestimo','financiamento','divida','consignado','credito pessoal',
@@ -6625,6 +6731,8 @@ function _nomeCatT(t)    { return (_categoriasData().find(x=>x.id===t.categoria_
 function _nomeSubcatT(t) { return (_subcategoriasData().find(x=>x.id===t.subcategoria_id)?.nome||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
 function _nomeFormaT(t)  { return (_formasData().find(x=>x.id===t.forma_pagamento_id)?.nome||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
 function _nomePerfilT(t) { return (_perfisData().find(x=>x.id===t.perfil_despesa_id)?.nome||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
+function _nomeNaturezaT(t) { return (_naturezasData().find(x=>x.id===t.natureza_id)?.nome||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
+function _nomeDecisaoT(t) { return (_decisoesData().find(x=>x.id===t.decisao_id)?.nome||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
 
 function _normFin(v) {
   return (v || '').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
@@ -6632,7 +6740,7 @@ function _normFin(v) {
 
 function _textoFinanceiroT(t) {
   return [
-    _nomeTipoT(t), _nomeCatT(t), _nomeSubcatT(t), _nomeFormaT(t), _nomePerfilT(t), _nomeStatusT(t),
+    _nomeTipoT(t), _nomeCatT(t), _nomeSubcatT(t), _nomeFormaT(t), _nomePerfilT(t), _nomeNaturezaT(t), _nomeDecisaoT(t), _nomeStatusT(t),
     t.descricao, t.descricao_tratada, t.observacoes
   ].map(_normFin).join(' ');
 }
@@ -6643,7 +6751,7 @@ function _textoTemAlgum(texto, termos) {
 
 function _isEntrada(t) { const n=_nomeTipoT(t); return n==='entrada'; }
 function _isSaida(t)   { const n=_nomeTipoT(t); return n==='saida'; }
-function _isNeutro(t)  { const s=_nomeStatusT(t); return s==='neutro'||s==='30'||_transIsTransferenciaLancamento(t); }
+function _isNeutro(t)  { const s=_nomeStatusT(t); const n=_nomeNaturezaT(t); return s==='neutro'||s==='30'||n==='neutro'||_transIsTransferenciaLancamento(t); }
 function _isEmprestimo(t) { return _textoTemAlgum(_textoFinanceiroT(t), FIN_KEYWORDS_EMPRESTIMO); }
 function _isInvest(t)  {
   const tipo = _nomeTipoT(t);
@@ -12399,6 +12507,7 @@ function verTransacao(id) {
   const subcatNome = dbLoad('subcategorias').find(x=>x.id===t.subcategoria_id)?.nome || '—';
   const perfilNome = dbLoad('perfis').find(x=>x.id===t.perfil_despesa_id)?.nome   || '—';
   const statusNome = dbLoad('status').find(x=>x.id===t.status_compra_id)?.nome    || '—';
+  const naturezaNome = _transNatureza(t) || '—';
   const decisaoNome = _transDecisao(t) || '—';
   const obsTexto   = _transObservacoesTexto(t);
   const valor      = parseFloat(t.valor)||0;
@@ -12421,7 +12530,7 @@ function verTransacao(id) {
         ['Data da transação',fmtDateStr(_transDataContabil(t))],
         ['Perfil da despesa',perfilNome],
         ['Conta',            cartaoNome],
-        ['Natureza',         tipoNome],
+        ['Natureza',         naturezaNome],
         ['Decisão',          decisaoNome],
         ['Forma de pagamento', formaNome],
         ['Categoria',        catNome],
@@ -12669,16 +12778,19 @@ document.getElementById('confirmOverlay').addEventListener('click', function (e)
 
 /* -- Mapeamento canônico de nomes de coluna -- */
 const IMP_CAMPOS = {
-  data_contabil:   ['data contábil','data contabil','data_contabil','data lançamento','data lanc','date'],
-  data_competencia:['data competência','data competencia','data_competencia','data','competência','competencia'],
-  descricao:       ['descrição','descricao','description','histórico','historico','memo','lancamento','descrição tratada','descricao tratada'],
+  data_contabil:   ['data contábil','data contabil','data_contabil','data lançamento','data lanc','data transação','data transacao','data da transação','data da transacao','data_transacao','data','date'],
+  data_competencia:['data competência','data competencia','data_competencia','baixa','data baixa','data_baixa','data da baixa','competência','competencia'],
+  descricao:       ['descrição','descricao','description','histórico','historico','memo','lancamento'],
+  descricao_tratada:['descrição tratada','descricao tratada','descricaoTratada','descricaotratada','descrição_tratada','descricao_tratada'],
   valor:           ['valor','value','amount','montante','vlr'],
-  tipo:            ['tipo','type','natureza'],
+  tipo:            ['tipo','type'],
   cartao:          ['cartão','cartao','conta','card','banco'],
   categoria:       ['categoria','category','cat'],
   subcategoria:    ['subcategoria','subcategory','subcat'],
-  forma:           ['forma','forma pgto','forma de pagamento','payment method','pagamento'],
-  perfil:          ['perfil','perfil despesa','profile'],
+  forma:           ['forma','forma pgto','forma de pagamento','forma_pagamento','formaPagamento','payment method','pagamento'],
+  perfil:          ['perfil','perfil despesa','perfil_despesa','perfilDespesa','perfil da despesa','profile'],
+  natureza:        ['natureza','nature'],
+  decisao:         ['decisão','decisao','decision'],
   status:          ['status','situação','situacao','state','status financeiro'],
   parcela_atual:   ['parcela atual','parc atual','parcela','installment current'],
   parcelas:        ['parcelas','total parcelas','installments','num parcelas','parcela máxima','parcela maxima'],
@@ -12829,6 +12941,8 @@ function impVerificarObrigatorios() {
 
 /* --- EXECUTAR IMPORTAÇÃO --- */
 function impExecutar() {
+  garantirConfigPadrao();
+
   /* --- 1. Verificar campos obrigatórios sem mapeamento e sem valor padrão --- */
   const faltando = IMP_OBRIGATORIOS.filter(c => !_impMapa[c]);
   for (const c of faltando) {
@@ -12845,6 +12959,8 @@ function impExecutar() {
   const subcat     = dbLoad('subcategorias');
   const formas     = dbLoad('formas');
   const perfis     = dbLoad('perfis');
+  const naturezas  = dbLoad('naturezas');
+  const decisoes   = dbLoad('decisoes');
   const statuses   = dbLoad('status');
   // Garantir tipos padrão (Entrada / Saída) se não existirem
   let tipos = dbLoad('tipos');
@@ -12860,15 +12976,16 @@ function impExecutar() {
   /**
    * Busca o ID de um item pelo nome (case-insensitive, com fallback por inclusão)
    */
+  const normLookup = s => (s || '').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
   const findId = (lista, val) => {
     if (!val) return '';
-    const n = val.toLowerCase().trim();
+    const n = normLookup(val);
     // Tentativa 1: match exato
-    let found = lista.find(x => (x.nome||'').toLowerCase().trim() === n);
+    let found = lista.find(x => normLookup(x.nome) === n);
     if (found) return found.id;
     // Tentativa 2: um contém o outro
     found = lista.find(x =>
-      (x.nome||'').toLowerCase().includes(n) || n.includes((x.nome||'').toLowerCase())
+      normLookup(x.nome).includes(n) || n.includes(normLookup(x.nome))
     );
     return found ? found.id : '';
   };
@@ -13001,7 +13118,13 @@ function impExecutar() {
                               new Date().toISOString().slice(0, 10);
       const dataContabil    = parseDataISO(get('data_contabil'))    || dataCompetencia;
 
-      /* -- Tipo: detectar por nome OU por sinal do valor -- */
+      const categoriaId = findId(categorias, get('categoria'));
+      const categoriaNome = categorias.find(x => x.id === categoriaId)?.nome || get('categoria');
+      const categoriaTransferencia = _transIsTransferenciaNome(categoriaNome);
+      const naturezaId = findId(naturezas, get('natureza')) || (categoriaTransferencia ? _transNaturezaIdTransferencia() : '');
+      const decisaoId = findId(decisoes, get('decisao')) || (categoriaTransferencia ? _transDecisaoIdTransferencia() : '');
+
+      /* -- Tipo operacional: Entrada/Saída para saldo; Natureza é campo separado -- */
       const tipoRawOrig = get('tipo');
       // Normalizar acentos para comparação robusta
       const norm = s => (s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
@@ -13016,8 +13139,8 @@ function impExecutar() {
         return f ? f.id : '';
       };
 
-      let tipoId = findIdNorm(tipos, tipoRawOrig);
-      if (!tipoId) {
+      let tipoId = tipoRawOrig ? findIdNorm(tipos, tipoRawOrig) : '';
+      if (!tipoId && tipoRawOrig) {
         const isEntrada = tipoRaw.includes('entrada') || tipoRaw.includes('receita') || tipoRaw.includes('recebimento');
         const isSaida   = tipoRaw.includes('saida')   || tipoRaw.includes('despesa');
         // Se tipos cadastrados existem, buscar por nome parcial
@@ -13029,6 +13152,10 @@ function impExecutar() {
         else if (tipos.length > 1)          tipoId = tipos[1].id || tipos[0].id;
         else if (tipos.length)              tipoId = tipos[0].id;
       }
+      if (!tipoId) tipoId = _transTipoOperacionalId(naturezaId, categoriaId);
+
+      const descricao = get('descricao') || get('descricao_tratada') || 'Importado';
+      const descricaoTratada = get('descricao_tratada') || descricao;
 
       /* -- Campos de lookup — usar os nomes corretos do sistema -- */
       const nova = {
@@ -13038,11 +13165,13 @@ function impExecutar() {
         cartao_id:          findId(cartoes,    get('cartao')),
         tipo_pagamento_id:  tipoId,
         forma_pagamento_id: findId(formas,     get('forma')),
-        descricao:          get('descricao')   || 'Importado',
-        descricao_tratada:  get('descricao')   || 'Importado',
+        descricao:          descricao,
+        descricao_tratada:  descricaoTratada,
         perfil_despesa_id:  findId(perfis,     get('perfil')),
-        categoria_id:       findId(categorias, get('categoria')),
+        categoria_id:       categoriaId,
         subcategoria_id:    findId(subcat,      get('subcategoria')),
+        natureza_id:        naturezaId,
+        decisao_id:         decisaoId,
         status_compra_id:   findId(statuses,   get('status')),
         valor:              valor,
         parcelado:          'Não',
@@ -13116,6 +13245,8 @@ function exportarTransacoesFormato(formato) {
   const subcat     = dbLoad('subcategorias');
   const formas     = dbLoad('formas');
   const perfis     = dbLoad('perfis');
+  const naturezas  = dbLoad('naturezas');
+  const decisoes   = dbLoad('decisoes');
   const statuses   = dbLoad('status');
   const tipos      = dbLoad('tipos');
 
@@ -13144,7 +13275,8 @@ function exportarTransacoesFormato(formato) {
     'Cartão/Conta':      findNome(cartoes,   t.cartao_id),
     'Forma de Pagamento':findNome(formas,    t.forma_pagamento_id),
     'Perfil':            findNome(perfis,    t.perfil_despesa_id),
-    'Decisão':           _transDecisao(t),
+    'Natureza':          findNome(naturezas, t.natureza_id) || _transNatureza(t),
+    'Decisão':           findNome(decisoes,  t.decisao_id)  || _transDecisao(t),
     'Categoria':         findNome(categorias,t.categoria_id),
     'Subcategoria':      findNome(subcat,    t.subcategoria_id),
     'Status':            findNome(statuses,  t.status_compra_id),
@@ -13274,7 +13406,6 @@ function exportarRelatorioInvestPDF() {
 function exportarTransacoesPDF() {
   const cartoes    = dbLoad('cartoes');
   const categorias = dbLoad('categorias');
-  const tipos      = dbLoad('tipos');
   const findNome   = (lista, id) => lista.find(x=>x.id===id)?.nome || '';
 
   let trans = dbLoad('transacoes');
@@ -13292,11 +13423,12 @@ function exportarTransacoesPDF() {
   const { doc, startY } = exportarPDF('Transações', `${trans.length} registros exportados`);
 
   doc.autoTable({
-    head: [['Data','Descrição','Tipo','Cartão','Categoria','Valor (R$)']],
+    head: [['Data','Descrição','Natureza','Decisão','Conta','Categoria','Valor (R$)']],
     body: trans.map(t => [
       fmtDateStr(_transDataCompetencia(t)),
       (t.descricao_tratada||t.descricao||'').slice(0,40),
-      findNome(tipos,      t.tipo_pagamento_id),
+      _transNatureza(t),
+      _transDecisao(t),
       findNome(cartoes,    t.cartao_id),
       findNome(categorias, t.categoria_id),
       parseFloat(t.valor||0).toFixed(2).replace('.',','),
@@ -13306,7 +13438,7 @@ function exportarTransacoesPDF() {
     headStyles: { fillColor:[21,88,176], textColor:255, fontStyle:'bold' },
     alternateRowStyles: { fillColor:[242,245,249] },
     margin: { left:10, right:10 },
-    columnStyles: { 5: { halign:'right' } }
+    columnStyles: { 6: { halign:'right' } }
   });
 
   doc.save(`SaldoCerto_transacoes_${new Date().toISOString().slice(0,10)}.pdf`);

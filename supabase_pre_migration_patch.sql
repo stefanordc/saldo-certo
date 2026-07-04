@@ -5,6 +5,32 @@
 create extension if not exists "uuid-ossp";
 create extension if not exists "pgcrypto";
 
+create table if not exists public.naturezas (
+  id uuid primary key default uuid_generate_v4(),
+  nome text not null,
+  created_at timestamptz default now(),
+  user_id uuid references auth.users(id) on delete cascade
+);
+
+create table if not exists public.decisoes (
+  id uuid primary key default uuid_generate_v4(),
+  nome text not null,
+  created_at timestamptz default now(),
+  user_id uuid references auth.users(id) on delete cascade
+);
+
+alter table public.naturezas
+  add column if not exists created_at timestamptz default now(),
+  add column if not exists user_id uuid references auth.users(id) on delete cascade;
+
+alter table public.decisoes
+  add column if not exists created_at timestamptz default now(),
+  add column if not exists user_id uuid references auth.users(id) on delete cascade;
+
+alter table public.transacoes
+  add column if not exists natureza_id uuid references public.naturezas(id) on delete set null,
+  add column if not exists decisao_id uuid references public.decisoes(id) on delete set null;
+
 do $$
 begin
   if exists (
@@ -98,6 +124,8 @@ begin
     'formas_pagamento',
     'tipos_pagamento',
     'perfis_despesa',
+    'naturezas',
+    'decisoes',
     'status_compra',
     'transacoes',
     'orcamentos',
@@ -128,3 +156,39 @@ begin
     end if;
   end loop;
 end $$;
+
+insert into public.naturezas (nome, user_id)
+select v.nome, u.id
+from auth.users u
+cross join (values
+  ('Renda'),
+  ('Neutro'),
+  ('Transferência'),
+  ('Supérfluo'),
+  ('Conveniência'),
+  ('Recuperação'),
+  ('Essencial'),
+  ('Qualidade de vida')
+) as v(nome)
+where not exists (
+  select 1
+  from public.naturezas n
+  where n.user_id = u.id
+    and lower(n.nome) = lower(v.nome)
+);
+
+insert into public.decisoes (nome, user_id)
+select v.nome, u.id
+from auth.users u
+cross join (values
+  ('Eventual'),
+  ('Transferência'),
+  ('Impulsivo'),
+  ('Recorrente')
+) as v(nome)
+where not exists (
+  select 1
+  from public.decisoes d
+  where d.user_id = u.id
+    and lower(d.nome) = lower(v.nome)
+);

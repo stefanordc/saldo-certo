@@ -19,6 +19,22 @@ const dbName = process.env.SALDO_CERTO_DB_NAME || 'saldo_certo_codex';
 const IMPORT_USER_SQL = '(select id from auth.users order by created_at limit 1)';
 const USER_ID = { raw: IMPORT_USER_SQL };
 const UUID_NAMESPACE = 'b399a8d9-91dd-4b55-ae67-48fbd6d3501d';
+const NATUREZA_PADRAO = [
+  'Renda',
+  'Neutro',
+  'Transferência',
+  'Supérfluo',
+  'Conveniência',
+  'Recuperação',
+  'Essencial',
+  'Qualidade de vida',
+];
+const DECISAO_PADRAO = [
+  'Eventual',
+  'Transferência',
+  'Impulsivo',
+  'Recorrente',
+];
 
 function bytesFromUuid(uuid) {
   return Buffer.from(uuid.replace(/-/g, ''), 'hex');
@@ -35,6 +51,24 @@ function deterministicUuid(scope, id) {
 
 function cleanText(value) {
   return String(value == null ? '' : value).trim();
+}
+
+function normalizedKey(value) {
+  return cleanText(value)
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
+}
+
+function uniqueNamesByNormalizedKey(names) {
+  const map = new Map();
+  for (const name of names) {
+    const key = normalizedKey(name);
+    if (key && !map.has(key)) map.set(key, name);
+  }
+  return Array.from(map.values());
 }
 
 function sqlValue(value) {
@@ -203,6 +237,14 @@ async function main() {
   ]));
   const statusKeys = Array.from(new Set(transacoes.map((row) => cleanText(row.status) || 'pago')));
   const perfilDespesaKeys = Array.from(new Set(transacoes.map((row) => cleanText(row.perfil_despesa) || 'despesa_variavel')));
+  const naturezaNames = uniqueNamesByNormalizedKey([
+    ...NATUREZA_PADRAO,
+    ...transacoes.map((row) => cleanText(row.natureza)).filter(Boolean),
+  ]);
+  const decisaoNames = uniqueNamesByNormalizedKey([
+    ...DECISAO_PADRAO,
+    ...transacoes.map((row) => cleanText(row.decisao)).filter(Boolean),
+  ]);
   const corretoraNames = Array.from(new Set([
     ...ativosInvestimento.map((row) => cleanText(row.corretora)),
     ...lancamentosInvestimento.map((row) => cleanText(row.corretora)),
@@ -255,6 +297,20 @@ async function main() {
     USER_ID,
   ]);
 
+  const naturezaRows = naturezaNames.map((name) => [
+    deterministicUuid('naturezas', normalizedKey(name)),
+    name,
+    null,
+    USER_ID,
+  ]);
+
+  const decisaoRows = decisaoNames.map((name) => [
+    deterministicUuid('decisoes', normalizedKey(name)),
+    name,
+    null,
+    USER_ID,
+  ]);
+
   const statusRows = statusKeys.map((key) => [
     deterministicUuid('status_compra', key),
     titleFromKey(key),
@@ -280,6 +336,12 @@ async function main() {
     const tipoKey = typePaymentKey(row.tipo);
     const statusKey = cleanText(row.status) || 'pago';
     const perfilKey = cleanText(row.perfil_despesa) || 'despesa_variavel';
+    const naturezaKey = cleanText(row.natureza)
+      ? normalizedKey(row.natureza)
+      : (tipoKey === 'transferencia' ? 'transferencia' : null);
+    const decisaoKey = cleanText(row.decisao)
+      ? normalizedKey(row.decisao)
+      : (tipoKey === 'transferencia' ? 'transferencia' : null);
     const dataCompetencia = dateOnly(row.data) || dateOnly(row.data_baixa) || new Date().toISOString().slice(0, 10);
     const dataContabil = dateOnly(row.data_baixa) || dataCompetencia;
     return [
@@ -298,6 +360,8 @@ async function main() {
       deterministicUuid('tipos_pagamento', tipoKey),
       idMap('formas_pagamento', row.forma_pagamento, formaIds),
       deterministicUuid('perfis_despesa', perfilKey),
+      naturezaKey ? deterministicUuid('naturezas', naturezaKey) : null,
+      decisaoKey ? deterministicUuid('decisoes', decisaoKey) : null,
       idMap('categorias', row.categoria_id, categoriaIds),
       idMap('subcategorias', row.subcategoria_id, subcategoriaIds),
       deterministicUuid('status_compra', statusKey),
@@ -363,6 +427,8 @@ async function main() {
     insertSql('formas_pagamento', ['id', 'nome', 'created_at', 'user_id'], formaRows),
     insertSql('tipos_pagamento', ['id', 'nome', 'created_at', 'user_id'], tipoRows),
     insertSql('perfis_despesa', ['id', 'nome', 'created_at', 'user_id'], perfilRows),
+    insertSql('naturezas', ['id', 'nome', 'created_at', 'user_id'], naturezaRows),
+    insertSql('decisoes', ['id', 'nome', 'created_at', 'user_id'], decisaoRows),
     insertSql('status_compra', ['id', 'nome', 'created_at', 'user_id'], statusRows),
     insertSql('corretoras', ['id', 'nome', 'created_at', 'user_id'], corretoraRows),
     insertSql('modalidades_inv', ['id', 'nome', 'created_at', 'user_id'], modalidadeRows),
@@ -382,6 +448,8 @@ async function main() {
       'tipo_pagamento_id',
       'forma_pagamento_id',
       'perfil_despesa_id',
+      'natureza_id',
+      'decisao_id',
       'categoria_id',
       'subcategoria_id',
       'status_compra_id',
@@ -426,6 +494,8 @@ async function main() {
     "  (select count(*) from public.cartoes) as cartoes,",
     "  (select count(*) from public.categorias) as categorias,",
     "  (select count(*) from public.subcategorias) as subcategorias,",
+    "  (select count(*) from public.naturezas) as naturezas,",
+    "  (select count(*) from public.decisoes) as decisoes,",
     "  (select count(*) from public.transacoes) as transacoes,",
     "  (select count(*) from public.movimentos_inv) as movimentos_inv,",
     "  (select count(*) from public.dividendos) as dividendos;",
@@ -441,6 +511,8 @@ async function main() {
     { label: 'formas_pagamento', table: 'formas_pagamento', columns: ['id', 'nome', 'created_at', 'user_id'], rows: formaRows },
     { label: 'tipos_pagamento', table: 'tipos_pagamento', columns: ['id', 'nome', 'created_at', 'user_id'], rows: tipoRows },
     { label: 'perfis_despesa', table: 'perfis_despesa', columns: ['id', 'nome', 'created_at', 'user_id'], rows: perfilRows },
+    { label: 'naturezas', table: 'naturezas', columns: ['id', 'nome', 'created_at', 'user_id'], rows: naturezaRows },
+    { label: 'decisoes', table: 'decisoes', columns: ['id', 'nome', 'created_at', 'user_id'], rows: decisaoRows },
     { label: 'status_compra', table: 'status_compra', columns: ['id', 'nome', 'created_at', 'user_id'], rows: statusRows },
     { label: 'corretoras', table: 'corretoras', columns: ['id', 'nome', 'created_at', 'user_id'], rows: corretoraRows },
     { label: 'modalidades_inv', table: 'modalidades_inv', columns: ['id', 'nome', 'created_at', 'user_id'], rows: modalidadeRows },
@@ -464,6 +536,8 @@ async function main() {
         'tipo_pagamento_id',
         'forma_pagamento_id',
         'perfil_despesa_id',
+        'natureza_id',
+        'decisao_id',
         'categoria_id',
         'subcategoria_id',
         'status_compra_id',
@@ -544,6 +618,8 @@ async function main() {
     "  (select count(*) from public.formas_pagamento) as formas_pagamento,",
     "  (select count(*) from public.tipos_pagamento) as tipos_pagamento,",
     "  (select count(*) from public.perfis_despesa) as perfis_despesa,",
+    "  (select count(*) from public.naturezas) as naturezas,",
+    "  (select count(*) from public.decisoes) as decisoes,",
     "  (select count(*) from public.status_compra) as status_compra,",
     "  (select count(*) from public.corretoras) as corretoras,",
     "  (select count(*) from public.modalidades_inv) as modalidades_inv,",
@@ -563,6 +639,8 @@ async function main() {
   console.log(`formas_pagamento: ${formaRows.length}`);
   console.log(`tipos_pagamento: ${tipoRows.length}`);
   console.log(`perfis_despesa: ${perfilRows.length}`);
+  console.log(`naturezas: ${naturezaRows.length}`);
+  console.log(`decisoes: ${decisaoRows.length}`);
   console.log(`status_compra: ${statusRows.length}`);
   console.log(`corretoras: ${corretoraRows.length}`);
   console.log(`modalidades_inv: ${modalidadeRows.length}`);

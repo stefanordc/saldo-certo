@@ -47,6 +47,20 @@ create table if not exists perfis_despesa (
   created_at  timestamptz default now()
 );
 
+create table if not exists naturezas (
+  id          uuid primary key default uuid_generate_v4(),
+  nome        text not null,
+  user_id     uuid references auth.users(id) on delete cascade,
+  created_at  timestamptz default now()
+);
+
+create table if not exists decisoes (
+  id          uuid primary key default uuid_generate_v4(),
+  nome        text not null,
+  user_id     uuid references auth.users(id) on delete cascade,
+  created_at  timestamptz default now()
+);
+
 create table if not exists status_compra (
   id          uuid primary key default uuid_generate_v4(),
   nome        text not null,
@@ -74,6 +88,8 @@ create table if not exists transacoes (
   tipo_pagamento_id   uuid references tipos_pagamento(id)   on delete set null,
   forma_pagamento_id  uuid references formas_pagamento(id)  on delete set null,
   perfil_despesa_id   uuid references perfis_despesa(id)    on delete set null,
+  natureza_id         uuid references naturezas(id)          on delete set null,
+  decisao_id          uuid references decisoes(id)           on delete set null,
   categoria_id        uuid references categorias(id)        on delete set null,
   subcategoria_id     uuid references subcategorias(id)     on delete set null,
   status_compra_id    uuid references status_compra(id)     on delete set null,
@@ -243,6 +259,8 @@ alter table subcategorias     enable row level security;
 alter table formas_pagamento  enable row level security;
 alter table tipos_pagamento   enable row level security;
 alter table perfis_despesa    enable row level security;
+alter table naturezas         enable row level security;
+alter table decisoes          enable row level security;
 alter table status_compra     enable row level security;
 alter table transacoes        enable row level security;
 alter table orcamentos        enable row level security;
@@ -262,7 +280,7 @@ do $$ declare t text;
 begin
   foreach t in array array[
     'cartoes','categorias','subcategorias','formas_pagamento','tipos_pagamento',
-    'perfis_despesa','status_compra','transacoes','orcamentos','metas',
+    'perfis_despesa','naturezas','decisoes','status_compra','transacoes','orcamentos','metas',
     'contas_receber','contas_pagar','lista_desejos',
     'inv_corretoras','inv_modalidades','inv_movimentos','inv_dividendos'
   ] loop
@@ -280,11 +298,29 @@ insert into tipos_pagamento (nome) values
   ('Entrada'), ('Saída'), ('Investimento'), ('Transferência')
 on conflict do nothing;
 
+insert into naturezas (nome) values
+  ('Renda'),
+  ('Neutro'),
+  ('Transferência'),
+  ('Supérfluo'),
+  ('Conveniência'),
+  ('Recuperação'),
+  ('Essencial'),
+  ('Qualidade de vida')
+on conflict do nothing;
+
+insert into decisoes (nome) values
+  ('Eventual'),
+  ('Transferência'),
+  ('Impulsivo'),
+  ('Recorrente')
+on conflict do nothing;
+
 insert into inv_modalidades (nome) values
   ('Ação'), ('Fundo Imobiliário'), ('Criptomoeda'), ('ETF'), ('Renda Fixa')
 on conflict do nothing;
 
 -- ══════════════════════════════════════════
 -- Schema criado com sucesso! ✅
--- Tabelas: 17 | Índices: 8 | RLS: ativo
+-- Tabelas: 19 | Índices: 8 | RLS: ativo
 -- ══════════════════════════════════════════
