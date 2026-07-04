@@ -6085,7 +6085,6 @@ function _transDentroPeriodo(t, dataDe, dataAte) {
 const TRANS_COLUNAS = [
   { chave: 'data_competencia',  label: 'Data Competência', w: 135 },
   { chave: 'cartao',            label: 'Cartão',           w: 130 },
-  { chave: 'conta_destino',     label: 'Conta Destino',    w: 150 },
   { chave: 'descricao_tratada', label: 'Descrição Tratada',w: 230 },
   { chave: 'categoria',         label: 'Categoria',        w: 140 },
   { chave: 'subcategoria',      label: 'Subcategoria',     w: 150 },
@@ -6283,7 +6282,6 @@ function renderTransacoes() {
   let dados = dbLoad('transacoes').map(t => ({
     ...t,
     cartao:          dbLoad('cartoes').find(x => x.id === t.cartao_id)?.nome || '',
-    conta_destino:   _transContaDestinoNome(t),
     tipo_pagamento:  dbLoad('tipos').find(x => x.id === t.tipo_pagamento_id)?.nome || '',
     forma_pagamento: dbLoad('formas').find(x => x.id === t.forma_pagamento_id)?.nome || '',
     perfil_despesa:  dbLoad('perfis').find(x => x.id === t.perfil_despesa_id)?.nome || '',
@@ -6516,7 +6514,6 @@ function renderTransacoes() {
       </td>
       <td data-label="Data Competência">${fmtDateStr(_transDataCompetencia(t))}</td>
       <td data-label="Cartão">${escHtml(t.cartao)}</td>
-      <td data-label="Conta Destino">${escHtml(t.conta_destino || '—')}</td>
       <td data-label="Descrição Tratada" title="${escHtml(t.descricao_tratada || t.descricao)}">${escHtml(t.descricao_tratada || t.descricao)}</td>
       <td data-label="Categoria">${escHtml(t.categoria)}</td>
       <td data-label="Subcategoria">${escHtml(t.subcategoria)}</td>
