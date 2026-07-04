@@ -5491,6 +5491,18 @@ function _sbNormalizeRow(obj, tabela) {
     }
   });
 
+  if (tabela === 'transacoes') {
+    ['parcela_atual','parcela_maxima'].forEach(k => {
+      if (!(k in r)) return;
+      if (r.parcelado !== 'Sim' || r[k] === '' || r[k] === undefined || r[k] === null) {
+        r[k] = null;
+      } else {
+        const n = parseInt(r[k], 10);
+        r[k] = Number.isFinite(n) ? n : null;
+      }
+    });
+  }
+
   // Filtrar apenas colunas permitidas — DEVE ser o último passo
   const cols = tabela ? _SB_COLS[tabela] : null;
   if (cols) {
@@ -6744,8 +6756,8 @@ function saveTransacao() {
     status_compra_id:  document.getElementById('f-status-compra').value || statusPagoId,
     valor:             parseFloat(valorRaw),
     parcelado:         parcelado,
-    parcela_atual:     parcelado === 'Sim' ? document.getElementById('f-parcela-atual').value : '',
-    parcela_maxima:    parcelado === 'Sim' ? document.getElementById('f-parcela-maxima').value : '',
+    parcela_atual:     parcelado === 'Sim' ? parseInt(document.getElementById('f-parcela-atual').value, 10) : null,
+    parcela_maxima:    parcelado === 'Sim' ? parseInt(document.getElementById('f-parcela-maxima').value, 10) : null,
     observacoes:       document.getElementById('f-obs').value.trim(),
   };
 
@@ -9231,8 +9243,8 @@ function ctaAcao(id, modo) {
       status_compra_id:  conta.status_id       || '',
       valor:             parseFloat(conta.valor)||0,
       parcelado:         'Não',
-      parcela_atual:     '',
-      parcela_maxima:    '',
+      parcela_atual:     null,
+      parcela_maxima:    null,
       origem_conta_id:   id,
       createdAt:         new Date().toISOString(),
     };
