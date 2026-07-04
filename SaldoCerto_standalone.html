@@ -6786,20 +6786,53 @@ function _transTextoContem(ctx, palavras) {
   return palavras.some(p => ctx.includes(_transNormTexto(p)));
 }
 
+function _transConfigIdValido(colecao, id) {
+  return !!id && !!_transNomeColecao(colecao, id);
+}
+
+function _transInferirConfigIdPorHistorico(t, colecao, campoId) {
+  const chaveDescricao = _transChaveDescricaoPar(t);
+  const filtros = [
+    item => t.subcategoria_id && t.categoria_id &&
+      item.subcategoria_id === t.subcategoria_id &&
+      item.categoria_id === t.categoria_id,
+    item => t.subcategoria_id && item.subcategoria_id === t.subcategoria_id,
+    item => chaveDescricao && _transChaveDescricaoPar(item) === chaveDescricao,
+  ];
+
+  for (const filtro of filtros) {
+    const contagem = new Map();
+    dbLoad('transacoes')
+      .filter(item => item.id !== t.id && filtro(item) && _transConfigIdValido(colecao, item[campoId]))
+      .forEach(item => {
+        const id = item[campoId];
+        contagem.set(id, (contagem.get(id) || 0) + 1);
+      });
+    if (contagem.size) {
+      return Array.from(contagem.entries()).sort((a, b) => b[1] - a[1])[0][0];
+    }
+  }
+
+  return '';
+}
+
 function _transInferirNaturezaId(t) {
   const legado = _transFindConfigId('naturezas', [_transNatureza(t), t?.natureza]);
   if (legado) return legado;
   if (_transIsTransferenciaLancamento(t)) return _transNaturezaIdTransferencia();
+  const historico = _transInferirConfigIdPorHistorico(t, 'naturezas', 'natureza_id');
+  if (historico) return historico;
 
   const ctx = _transTextoContexto(t);
   const tipoNome = _transNormTexto(_transNomeColecao('tipos', t?.tipo_pagamento_id));
   const regras = [
     { nome: 'Recuperação', palavras: ['recuperacao','reembolso','estorno','devolucao','ressarcimento','cashback'] },
-    { nome: 'Renda', palavras: ['renda','receita','salario','provento','dividendo','bonus','decimo terceiro'] },
+    { nome: 'Renda', palavras: ['renda','receita','salario','valor a receber','receber','recebimento','provento','dividendo','bonus','decimo terceiro'] },
     { nome: 'Neutro', palavras: ['neutro','investimento','investimentos','reserva','aplicacao','aporte','corretora','tesouro','cdb','poupanca'] },
-    { nome: 'Essencial', palavras: ['essencial','moradia','aluguel','condominio','mercado','supermercado','saude','farmacia','educacao','transporte','passagem','energia','agua','luz','gas','internet'] },
+    { nome: 'Risco', palavras: ['risco','seguro','protecao','imprevisto','multa','juros','sinistro'] },
+    { nome: 'Essencial', palavras: ['essencial','moradia','aluguel','condominio','mercado','supermercado','padaria','feira','acougue','hortifruti','saude','farmacia','educacao','transporte','uber','99','passagem','energia','agua','luz','gas','internet'] },
     { nome: 'Qualidade de vida', palavras: ['qualidade de vida','lazer','futebol','academia','viagem','restaurante','terapia','hobby'] },
-    { nome: 'Conveniência', palavras: ['conveniencia','delivery','uber','99','assinatura','streaming','tv','telefone','app'] },
+    { nome: 'Conveniência', palavras: ['conveniencia','delivery','assinatura','streaming','tv','telefone','app'] },
     { nome: 'Supérfluo', palavras: ['superfluo','shopping','roupa','presente','bar','bebida','cosmetico','jogo'] },
   ];
   for (const regra of regras) {
@@ -6815,6 +6848,8 @@ function _transInferirDecisaoId(t) {
   const legado = _transFindConfigId('decisoes', [_transDecisao(t), t?.decisao]);
   if (legado) return legado;
   if (_transIsTransferenciaLancamento(t)) return _transDecisaoIdTransferencia();
+  const historico = _transInferirConfigIdPorHistorico(t, 'decisoes', 'decisao_id');
+  if (historico) return historico;
 
   const ctx = _transTextoContexto(t);
   if (_transTextoContem(ctx, ['recorrente','salario','aluguel','condominio','mensalidade','assinatura','internet','tv','telefone','financiamento','emprestimo','cartao de passagem'])) {
@@ -6835,13 +6870,13 @@ function _transBackfillNaturezaDecisao() {
   const atualizados = dados.map(t => {
     const novo = { ...t };
     let mudou = false;
-    if (!novo.natureza_id) {
+    if (!_transConfigIdValido('naturezas', novo.natureza_id)) {
       const naturezaId = _transInferirNaturezaId(novo);
-      if (naturezaId) { novo.natureza_id = naturezaId; mudou = true; }
+      if (naturezaId && naturezaId !== novo.natureza_id) { novo.natureza_id = naturezaId; mudou = true; }
     }
-    if (!novo.decisao_id) {
+    if (!_transConfigIdValido('decisoes', novo.decisao_id)) {
       const decisaoId = _transInferirDecisaoId(novo);
-      if (decisaoId) { novo.decisao_id = decisaoId; mudou = true; }
+      if (decisaoId && decisaoId !== novo.decisao_id) { novo.decisao_id = decisaoId; mudou = true; }
     }
     if (mudou) {
       alteradas++;
