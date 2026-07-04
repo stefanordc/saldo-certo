@@ -4624,7 +4624,7 @@ tr.trans-selected td { background: transparent; }
 
         <div class="form-group">
           <label class="form-label">Perfil da despesa <span class="req">*</span></label>
-          <select class="form-select" id="f-perfil-despesa">
+          <select class="form-select" id="f-perfil-despesa" onchange="onTransTransferenciaFieldChange('f-perfil-despesa')">
             <option value="">Selecione…</option>
           </select>
           <span class="form-error" id="e-perfil-despesa"></span>
@@ -4632,7 +4632,7 @@ tr.trans-selected td { background: transparent; }
 
         <div class="form-group">
           <label class="form-label">Conta <span class="req">*</span></label>
-          <select class="form-select" id="f-cartao">
+          <select class="form-select" id="f-cartao" onchange="onTransContaChange()">
             <option value="">Selecione…</option>
           </select>
           <span class="form-error" id="e-cartao"></span>
@@ -4640,7 +4640,7 @@ tr.trans-selected td { background: transparent; }
 
         <div class="form-group" id="grp-conta-destino" style="display:none">
           <label class="form-label">Conta de destino <span class="req">*</span></label>
-          <select class="form-select" id="f-conta-destino">
+          <select class="form-select" id="f-conta-destino" onchange="onTransContaDestinoChange()">
             <option value="">Selecione…</option>
           </select>
           <span class="form-error" id="e-conta-destino"></span>
@@ -4656,7 +4656,7 @@ tr.trans-selected td { background: transparent; }
 
         <div class="form-group">
           <label class="form-label">Subcategoria <span class="req">*</span></label>
-          <select class="form-select" id="f-subcategoria">
+          <select class="form-select" id="f-subcategoria" onchange="onTransTransferenciaFieldChange('f-subcategoria')">
             <option value="">Selecione…</option>
           </select>
           <span class="form-error" id="e-subcategoria"></span>
@@ -4664,7 +4664,7 @@ tr.trans-selected td { background: transparent; }
 
         <div class="form-group">
           <label class="form-label">Natureza <span class="req">*</span></label>
-          <select class="form-select" id="f-natureza">
+          <select class="form-select" id="f-natureza" onchange="onTransTransferenciaFieldChange('f-natureza')">
             <option value="">Selecione…</option>
           </select>
           <span class="form-error" id="e-natureza"></span>
@@ -4672,7 +4672,7 @@ tr.trans-selected td { background: transparent; }
 
         <div class="form-group">
           <label class="form-label">Decisão <span class="req">*</span></label>
-          <select class="form-select" id="f-decisao">
+          <select class="form-select" id="f-decisao" onchange="onTransTransferenciaFieldChange('f-decisao')">
             <option value="">Selecione…</option>
           </select>
           <span class="form-error" id="e-decisao"></span>
@@ -5834,6 +5834,8 @@ function atualizarChips(f) {
    RENDERIZA LISTA DE TRANSAÇÕES
 -------------------------------------------- */
 function renderTransacoes() {
+  _transBackfillNaturezaDecisao();
+
   // Resetar seleção ao re-renderizar
   document.getElementById('transBulkBar')?.classList.remove('visible');
   const busca = (document.getElementById('transSearch')?.value || '').toLowerCase();
@@ -6152,7 +6154,8 @@ function _transIsTransferenciaNome(v) {
 }
 
 function _transFindConfigId(colecao, nomes) {
-  const alvos = nomes.map(_transNormTexto);
+  const alvos = nomes.map(_transNormTexto).filter(Boolean);
+  if (!alvos.length) return '';
   const itens = dbLoad(colecao);
   const exato = itens.find(item => alvos.includes(_transNormTexto(item.nome)));
   if (exato) return exato.id;
@@ -6186,6 +6189,14 @@ function _transDecisaoIdTransferencia() {
   return _transEnsureConfigId('decisoes', 'Transferência', TRANS_TRANSFERENCIA_ALIASES);
 }
 
+function _transCategoriaIdTransferencia() {
+  return _transEnsureConfigId('categorias', 'Transferência', TRANS_TRANSFERENCIA_ALIASES);
+}
+
+function _transPerfilIdTransferencia() {
+  return _transEnsureConfigId('perfis', 'Transferência', TRANS_TRANSFERENCIA_ALIASES);
+}
+
 function _transTipoOperacionalId(naturezaId, categoriaId = '') {
   const naturezaNome = _transNomeColecao('naturezas', naturezaId);
   const categoriaNome = _transNomeColecao('categorias', categoriaId);
@@ -6195,6 +6206,26 @@ function _transTipoOperacionalId(naturezaId, categoriaId = '') {
   }
   if (n === 'renda' || n === 'recuperacao') return _transTipoEntradaId();
   return _transTipoSaidaId();
+}
+
+function _transTextoSelect(selectId) {
+  const sel = document.getElementById(selectId);
+  return sel?.selectedOptions?.[0]?.textContent || '';
+}
+
+function _transSelectEhTransferencia(selectId) {
+  return _transIsTransferenciaNome(_transTextoSelect(selectId));
+}
+
+function _transFormEhTransferencia() {
+  return [
+    'f-perfil-despesa',
+    'f-categoria',
+    'f-subcategoria',
+    'f-natureza',
+    'f-decisao',
+    'f-tipo-pagamento',
+  ].some(_transSelectEhTransferencia);
 }
 
 function _transEnsureSubcategoriaTransferencia(categoriaId) {
@@ -6215,10 +6246,23 @@ function _transSetSelectValue(selectId, colecao, id) {
   sel.value = id;
 }
 
+function _transAplicarTransferenciaNoForm() {
+  const categoriaId = _transCategoriaIdTransferencia();
+  const subcatId = _transEnsureSubcategoriaTransferencia(categoriaId);
+  const perfilId = _transPerfilIdTransferencia();
+  const naturezaId = _transNaturezaIdTransferencia();
+  const decisaoId = _transDecisaoIdTransferencia();
+
+  _transSetSelectValue('f-perfil-despesa', 'perfis', perfilId);
+  _transSetSelectValue('f-categoria', 'categorias', categoriaId);
+  _transSetSelectValue('f-subcategoria', 'subcategorias', subcatId);
+  _transSetSelectValue('f-natureza', 'naturezas', naturezaId);
+  _transSetSelectValue('f-decisao', 'decisoes', decisaoId);
+  _transSetSelectValue('f-tipo-pagamento', 'tipos', _transTipoSaidaId());
+}
+
 function _transCategoriaSelecionadaEhTransferencia() {
-  const selCategoria = document.getElementById('f-categoria');
-  const categoriaNome = selCategoria?.selectedOptions?.[0]?.textContent || '';
-  return _transIsTransferenciaNome(categoriaNome);
+  return _transFormEhTransferencia();
 }
 
 function toggleContaDestinoTransacao(isTransferencia = _transCategoriaSelecionadaEhTransferencia()) {
@@ -6227,24 +6271,134 @@ function toggleContaDestinoTransacao(isTransferencia = _transCategoriaSelecionad
   const exibir = !!isTransferencia && !editandoTransId;
   if (grupo) grupo.style.display = exibir ? '' : 'none';
   if (!exibir && selDestino) selDestino.value = '';
+  if (exibir) _transAtualizarOpcoesContaDestino();
+}
+
+function _transAtualizarOpcoesContaDestino() {
+  const origem = document.getElementById('f-cartao')?.value || '';
+  const destino = document.getElementById('f-conta-destino');
+  if (!destino) return;
+  Array.from(destino.options).forEach(opt => {
+    opt.disabled = !!origem && opt.value === origem;
+  });
+  if (origem && destino.value === origem) destino.value = '';
+}
+
+function onTransContaChange() {
+  _transAtualizarOpcoesContaDestino();
+}
+
+function onTransContaDestinoChange() {
+  const origem = document.getElementById('f-cartao')?.value || '';
+  const destino = document.getElementById('f-conta-destino')?.value || '';
+  if (origem && destino && origem === destino) {
+    document.getElementById('f-conta-destino').value = '';
+    mostrarErro('f-conta-destino', 'e-conta-destino', 'Conta destino deve ser diferente da conta de origem');
+    toast('Conta e conta de destino não podem ser iguais.', 'warn');
+  }
+}
+
+function onTransTransferenciaFieldChange(changedId = '') {
+  const isTransferencia = _transFormEhTransferencia();
+  if (changedId && _transSelectEhTransferencia(changedId)) {
+    _transAplicarTransferenciaNoForm();
+  }
+  toggleContaDestinoTransacao(isTransferencia);
 }
 
 function onTransCategoriaChange() {
-  const selCategoria = document.getElementById('f-categoria');
-  const categoriaNome = selCategoria?.selectedOptions?.[0]?.textContent || '';
-  const isTransferencia = _transIsTransferenciaNome(categoriaNome);
-  toggleContaDestinoTransacao(isTransferencia);
-  if (!isTransferencia) return;
+  onTransTransferenciaFieldChange('f-categoria');
+}
 
-  const categoriaId = selCategoria.value;
-  const subcatId = _transEnsureSubcategoriaTransferencia(categoriaId);
-  const naturezaId = _transNaturezaIdTransferencia();
-  const decisaoId = _transDecisaoIdTransferencia();
+function _transTextoContexto(t) {
+  return _transNormTexto([
+    t?.descricao,
+    t?.descricao_tratada,
+    t?.observacoes,
+    t?.tipo_pagamento,
+    t?.perfil_despesa,
+    t?.categoria,
+    t?.subcategoria,
+    _transNomeColecao('tipos', t?.tipo_pagamento_id),
+    _transNomeColecao('perfis', t?.perfil_despesa_id),
+    _transNomeColecao('categorias', t?.categoria_id),
+    _transNomeColecao('subcategorias', t?.subcategoria_id),
+  ].filter(Boolean).join(' '));
+}
 
-  _transSetSelectValue('f-subcategoria', 'subcategorias', subcatId);
-  _transSetSelectValue('f-natureza', 'naturezas', naturezaId);
-  _transSetSelectValue('f-decisao', 'decisoes', decisaoId);
-  _transSetSelectValue('f-tipo-pagamento', 'tipos', _transTipoSaidaId());
+function _transTextoContem(ctx, palavras) {
+  return palavras.some(p => ctx.includes(_transNormTexto(p)));
+}
+
+function _transInferirNaturezaId(t) {
+  const legado = _transFindConfigId('naturezas', [_transNatureza(t), t?.natureza]);
+  if (legado) return legado;
+  if (_transIsTransferenciaLancamento(t)) return _transNaturezaIdTransferencia();
+
+  const ctx = _transTextoContexto(t);
+  const tipoNome = _transNormTexto(_transNomeColecao('tipos', t?.tipo_pagamento_id));
+  const regras = [
+    { nome: 'Recuperação', palavras: ['recuperacao','reembolso','estorno','devolucao','ressarcimento','cashback'] },
+    { nome: 'Renda', palavras: ['renda','receita','salario','provento','dividendo','bonus','decimo terceiro'] },
+    { nome: 'Neutro', palavras: ['neutro','investimento','investimentos','reserva','aplicacao','aporte','corretora','tesouro','cdb','poupanca'] },
+    { nome: 'Essencial', palavras: ['essencial','moradia','aluguel','condominio','mercado','supermercado','saude','farmacia','educacao','transporte','passagem','energia','agua','luz','gas','internet'] },
+    { nome: 'Qualidade de vida', palavras: ['qualidade de vida','lazer','futebol','academia','viagem','restaurante','terapia','hobby'] },
+    { nome: 'Conveniência', palavras: ['conveniencia','delivery','uber','99','assinatura','streaming','tv','telefone','app'] },
+    { nome: 'Supérfluo', palavras: ['superfluo','shopping','roupa','presente','bar','bebida','cosmetico','jogo'] },
+  ];
+  for (const regra of regras) {
+    if (_transTextoContem(ctx, regra.palavras)) {
+      return _transEnsureConfigId('naturezas', regra.nome);
+    }
+  }
+  if (tipoNome === 'entrada') return _transEnsureConfigId('naturezas', 'Renda');
+  return '';
+}
+
+function _transInferirDecisaoId(t) {
+  const legado = _transFindConfigId('decisoes', [_transDecisao(t), t?.decisao]);
+  if (legado) return legado;
+  if (_transIsTransferenciaLancamento(t)) return _transDecisaoIdTransferencia();
+
+  const ctx = _transTextoContexto(t);
+  if (_transTextoContem(ctx, ['recorrente','salario','aluguel','condominio','mensalidade','assinatura','internet','tv','telefone','financiamento','emprestimo','cartao de passagem'])) {
+    return _transEnsureConfigId('decisoes', 'Recorrente');
+  }
+  if (_transTextoContem(ctx, ['impulsivo','impulso','ifood','delivery','shopping','bar','bebida','lanche'])) {
+    return _transEnsureConfigId('decisoes', 'Impulsivo');
+  }
+  return _transEnsureConfigId('decisoes', 'Eventual');
+}
+
+function _transBackfillNaturezaDecisao() {
+  garantirConfigPadrao();
+  const dados = dbLoad('transacoes');
+  if (!dados.length) return 0;
+
+  let alteradas = 0;
+  const atualizados = dados.map(t => {
+    const novo = { ...t };
+    let mudou = false;
+    if (!novo.natureza_id) {
+      const naturezaId = _transInferirNaturezaId(novo);
+      if (naturezaId) { novo.natureza_id = naturezaId; mudou = true; }
+    }
+    if (!novo.decisao_id) {
+      const decisaoId = _transInferirDecisaoId(novo);
+      if (decisaoId) { novo.decisao_id = decisaoId; mudou = true; }
+    }
+    if (mudou) {
+      alteradas++;
+      novo.updatedAt = new Date().toISOString();
+    }
+    return novo;
+  });
+
+  if (alteradas) {
+    dbSave('transacoes', atualizados);
+    console.log(`[Transações] natureza/decisão preenchidas em ${alteradas} registro(s) antigos`);
+  }
+  return alteradas;
 }
 
 function _transStatusPagoId() {
@@ -13750,6 +13904,7 @@ function _authEntrarNoApp(session) {
     _sbFlushRetry();
     // Sincronizar dados do Supabase para cache local
     sbSyncDown().then(total => {
+      _transBackfillNaturezaDecisao();
       // Restaurar página do hash da URL (prioridade) ou do localStorage
       const hashPage = window.location.hash.replace('#', '').trim();
       const _paginasValidas = ['inicio','transacoes','orcamentos','metas','contas-receber',
