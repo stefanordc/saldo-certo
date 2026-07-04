@@ -213,6 +213,8 @@ async function main() {
     contas,
     categorias,
     subcategorias,
+    naturezasOrigem,
+    decisoesOrigem,
     formasPagamento,
     transacoes,
     ativosInvestimento,
@@ -221,6 +223,8 @@ async function main() {
     readTable(connection, 'contas'),
     readTable(connection, 'categorias'),
     readTable(connection, 'subcategorias'),
+    readTable(connection, 'naturezas'),
+    readTable(connection, 'decisoes'),
     readTable(connection, 'formas_pagamento'),
     readTable(connection, 'transacoes'),
     readTable(connection, 'ativos_investimento'),
@@ -233,6 +237,10 @@ async function main() {
   const categoriaIds = new Set(categorias.map((row) => row.id));
   const subcategoriaIds = new Set(subcategorias.map((row) => row.id));
   const formaIds = new Set(formasPagamento.map((row) => row.id));
+  const naturezaById = new Map(naturezasOrigem.map((row) => [cleanText(row.id), cleanText(row.nome)]));
+  const decisaoById = new Map(decisoesOrigem.map((row) => [cleanText(row.id), cleanText(row.nome)]));
+  const naturezaNomeFromRow = (row) => firstValue(row.natureza, naturezaById.get(cleanText(row.natureza_id)));
+  const decisaoNomeFromRow = (row) => firstValue(row.decisao, decisaoById.get(cleanText(row.decisao_id)));
 
   const typeKeys = Array.from(new Set([
     'entrada',
@@ -244,11 +252,13 @@ async function main() {
   const perfilDespesaKeys = Array.from(new Set(transacoes.map((row) => cleanText(row.perfil_despesa) || 'despesa_variavel')));
   const naturezaNames = uniqueNamesByNormalizedKey([
     ...NATUREZA_PADRAO,
-    ...transacoes.map((row) => cleanText(row.natureza)).filter(Boolean),
+    ...naturezasOrigem.map((row) => cleanText(row.nome)).filter(Boolean),
+    ...transacoes.map((row) => cleanText(naturezaNomeFromRow(row))).filter(Boolean),
   ]);
   const decisaoNames = uniqueNamesByNormalizedKey([
     ...DECISAO_PADRAO,
-    ...transacoes.map((row) => cleanText(row.decisao)).filter(Boolean),
+    ...decisoesOrigem.map((row) => cleanText(row.nome)).filter(Boolean),
+    ...transacoes.map((row) => cleanText(decisaoNomeFromRow(row))).filter(Boolean),
   ]);
   const corretoraNames = Array.from(new Set([
     ...ativosInvestimento.map((row) => cleanText(row.corretora)),
@@ -341,11 +351,13 @@ async function main() {
     const tipoKey = typePaymentKey(row.tipo);
     const statusKey = cleanText(row.status) || 'pago';
     const perfilKey = cleanText(row.perfil_despesa) || 'despesa_variavel';
-    const naturezaKey = cleanText(row.natureza)
-      ? normalizedKey(row.natureza)
+    const naturezaNome = naturezaNomeFromRow(row);
+    const decisaoNome = decisaoNomeFromRow(row);
+    const naturezaKey = cleanText(naturezaNome)
+      ? normalizedKey(naturezaNome)
       : (tipoKey === 'transferencia' ? 'transferencia' : null);
-    const decisaoKey = cleanText(row.decisao)
-      ? normalizedKey(row.decisao)
+    const decisaoKey = cleanText(decisaoNome)
+      ? normalizedKey(decisaoNome)
       : (tipoKey === 'transferencia' ? 'transferencia' : null);
     const dataCompetencia = dateOnly(row.data) || dateOnly(row.data_baixa) || new Date().toISOString().slice(0, 10);
     const dataContabil = dateOnly(row.data_baixa) || dataCompetencia;
