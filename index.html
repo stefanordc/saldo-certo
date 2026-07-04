@@ -4860,35 +4860,19 @@ main {
       <div class="form-grid">
 
         <div class="form-group">
-          <label class="form-label">Data Contábil <span class="req">*</span></label>
+          <label class="form-label">Data transação <span class="req">*</span></label>
           <input type="date" class="form-input" id="f-data-contabil" onchange="syncDataCompetencia()">
           <span class="form-error" id="e-data-contabil"></span>
         </div>
 
         <div class="form-group">
-          <label class="form-label">Data Competência <span class="req">*</span></label>
+          <label class="form-label">Data baixa <span class="req">*</span></label>
           <input type="date" class="form-input" id="f-data-competencia">
           <label class="checkbox-row">
             <input type="checkbox" id="chk-mesma-data" onchange="syncDataCompetencia()">
-            <span>Mesma data contábil</span>
+            <span>Mesma data transação</span>
           </label>
           <span class="form-error" id="e-data-competencia"></span>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label">Cartão <span class="req">*</span></label>
-          <select class="form-select" id="f-cartao">
-            <option value="">Selecione…</option>
-          </select>
-          <span class="form-error" id="e-cartao"></span>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label">Forma de Pagamento <span class="req">*</span></label>
-          <select class="form-select" id="f-forma-pagamento">
-            <option value="">Selecione…</option>
-          </select>
-          <span class="form-error" id="e-forma-pagamento"></span>
         </div>
 
         <div class="form-group full">
@@ -4901,6 +4885,38 @@ main {
           <label class="form-label">Descrição Tratada <span class="req">*</span></label>
           <input type="text" class="form-input" id="f-descricao-tratada" placeholder="Descrição padronizada">
           <span class="form-error" id="e-descricao-tratada"></span>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Tipo <span class="req">*</span></label>
+          <select class="form-select" id="f-tipo-pagamento">
+            <option value="">Selecione…</option>
+          </select>
+          <span class="form-error" id="e-tipo-pagamento"></span>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Perfil Despesa <span class="req">*</span></label>
+          <select class="form-select" id="f-perfil-despesa">
+            <option value="">Selecione…</option>
+          </select>
+          <span class="form-error" id="e-perfil-despesa"></span>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Conta <span class="req">*</span></label>
+          <select class="form-select" id="f-cartao">
+            <option value="">Selecione…</option>
+          </select>
+          <span class="form-error" id="e-cartao"></span>
+        </div>
+
+        <div class="form-group" id="grp-conta-destino" style="display:none">
+          <label class="form-label">Conta Destino <span class="req">*</span></label>
+          <select class="form-select" id="f-conta-destino">
+            <option value="">Selecione…</option>
+          </select>
+          <span class="form-error" id="e-conta-destino"></span>
         </div>
 
         <div class="form-group">
@@ -4919,22 +4935,6 @@ main {
           <span class="form-error" id="e-subcategoria"></span>
         </div>
 
-        <div class="form-group">
-          <label class="form-label">Natureza <span class="req">*</span></label>
-          <select class="form-select" id="f-tipo-pagamento">
-            <option value="">Selecione…</option>
-          </select>
-          <span class="form-error" id="e-tipo-pagamento"></span>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label">Decisão <span class="req">*</span></label>
-          <select class="form-select" id="f-perfil-despesa">
-            <option value="">Selecione…</option>
-          </select>
-          <span class="form-error" id="e-perfil-despesa"></span>
-        </div>
-
         <div class="form-group" style="display:none">
           <label class="form-label">Status</label>
           <select class="form-select" id="f-status-compra">
@@ -4944,14 +4944,22 @@ main {
         </div>
 
         <div class="form-group">
-          <label class="form-label">Valor (R$) <span class="req">*</span></label>
+          <label class="form-label">Forma Pagamento <span class="req">*</span></label>
+          <select class="form-select" id="f-forma-pagamento">
+            <option value="">Selecione…</option>
+          </select>
+          <span class="form-error" id="e-forma-pagamento"></span>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Valor <span class="req">*</span></label>
           <input type="text" class="form-input" id="f-valor"
                  placeholder="0,00" oninput="maskValor(this)">
           <span class="form-error" id="e-valor"></span>
         </div>
 
         <div class="form-group full">
-          <label class="form-label">Parcelado <span class="req">*</span></label>
+          <label class="form-label">Parcela <span class="req">*</span></label>
           <select class="form-select" id="f-parcelado" onchange="toggleParcelas()">
             <option value="">Selecione…</option>
             <option value="Não">Não</option>
@@ -6220,7 +6228,7 @@ function renderTransacoes() {
   const nomeCat    = t => (categoriasData.find(x => x.id === t.categoria_id)?.nome || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
   const isEntrada  = t => nomeTipo(t) === 'entrada';
   const isSaida    = t => nomeTipo(t) === 'saida';
-  const isNeutro   = t => { const s = nomeStatus(t); return s === 'neutro' || s === '30'; };
+  const isNeutro   = t => { const s = nomeStatus(t); return s === 'neutro' || s === '30' || _transIsTransferenciaLancamento(t); };
   const isInvest   = t => nomeCat(t) === 'investimento' || nomeCat(t) === 'investimentos';
 
   // 1) Saldo no mês atual — todas as transações do mês corrente (data competência)
@@ -6461,6 +6469,14 @@ function _transEnsureConfigId(colecao, nome, aliases = []) {
   return dados.find(item => _transNormTexto(item.nome) === _transNormTexto(nome))?.id || '';
 }
 
+function _transTipoEntradaId() {
+  return _transEnsureConfigId('tipos', 'Entrada', ['Receita','Crédito','Credito']);
+}
+
+function _transTipoSaidaId() {
+  return _transEnsureConfigId('tipos', 'Saída', ['Saida','Despesa','Débito','Debito']);
+}
+
 function _transEnsureSubcategoriaTransferencia(categoriaId) {
   const itens = dbLoad('subcategorias').filter(item => _transIsTransferenciaNome(item.nome));
   const existente = itens.find(item => !categoriaId || item.categoria_id === categoriaId) || itens[0];
@@ -6479,10 +6495,26 @@ function _transSetSelectValue(selectId, colecao, id) {
   sel.value = id;
 }
 
+function _transCategoriaSelecionadaEhTransferencia() {
+  const selCategoria = document.getElementById('f-categoria');
+  const categoriaNome = selCategoria?.selectedOptions?.[0]?.textContent || '';
+  return _transIsTransferenciaNome(categoriaNome);
+}
+
+function toggleContaDestinoTransacao(isTransferencia = _transCategoriaSelecionadaEhTransferencia()) {
+  const grupo = document.getElementById('grp-conta-destino');
+  const selDestino = document.getElementById('f-conta-destino');
+  const exibir = !!isTransferencia && !editandoTransId;
+  if (grupo) grupo.style.display = exibir ? '' : 'none';
+  if (!exibir && selDestino) selDestino.value = '';
+}
+
 function onTransCategoriaChange() {
   const selCategoria = document.getElementById('f-categoria');
   const categoriaNome = selCategoria?.selectedOptions?.[0]?.textContent || '';
-  if (!_transIsTransferenciaNome(categoriaNome)) return;
+  const isTransferencia = _transIsTransferenciaNome(categoriaNome);
+  toggleContaDestinoTransacao(isTransferencia);
+  if (!isTransferencia) return;
 
   const categoriaId = selCategoria.value;
   const subcatId = _transEnsureSubcategoriaTransferencia(categoriaId);
@@ -6546,6 +6578,7 @@ function preencherSelects() {
 
   const mapa = {
     'f-cartao':          'cartoes',
+    'f-conta-destino':   'cartoes',
     'f-tipo-pagamento':  'tipos',
     'f-forma-pagamento': 'formas',
     'f-perfil-despesa':  'perfis',
@@ -6576,7 +6609,7 @@ function preencherSelects() {
 -------------------------------------------- */
 function limparFormTransacao() {
   const campos = [
-    'f-data-contabil', 'f-data-competencia', 'f-cartao',
+    'f-data-contabil', 'f-data-competencia', 'f-cartao', 'f-conta-destino',
     'f-tipo-pagamento', 'f-forma-pagamento', 'f-descricao',
     'f-descricao-tratada', 'f-perfil-despesa', 'f-categoria',
     'f-subcategoria', 'f-status-compra', 'f-valor',
@@ -6596,6 +6629,7 @@ function limparFormTransacao() {
   const chkRec = document.getElementById('f-recorrente');
   if (chkRec) { chkRec.checked = false; chkRec.disabled = false; }
   document.getElementById('f-data-competencia').disabled = false;
+  toggleContaDestinoTransacao(false);
   // Default "Não" para parcelado
   document.getElementById('f-parcelado').value = 'Não';
   document.getElementById('f-recorrencia-frequencia').value = 'mensal';
@@ -6627,6 +6661,8 @@ function preencherFormTransacao(t) {
   document.getElementById('f-status-compra').value     = t.status_compra_id || '';
   document.getElementById('f-valor').value             = t.valor ? fmtValor(parseFloat(t.valor)) : '';
   document.getElementById('f-parcelado').value         = t.parcelado || '';
+  document.getElementById('f-conta-destino').value      = '';
+  toggleContaDestinoTransacao(false);
 
   document.getElementById('f-obs').value = t.observacoes || '';
   if (t.parcelado === 'Sim') {
@@ -6677,18 +6713,18 @@ function saveTransacao() {
 
   // Campos obrigatórios
   const obrigatorios = {
-    'f-data-contabil':     { err: 'e-data-contabil',     label: 'Data Contábil' },
-    'f-data-competencia':  { err: 'e-data-competencia',  label: 'Data Competência' },
-    'f-cartao':            { err: 'e-cartao',            label: 'Cartão' },
-    'f-tipo-pagamento':    { err: 'e-tipo-pagamento',    label: 'Natureza' },
-    'f-forma-pagamento':   { err: 'e-forma-pagamento',   label: 'Forma de Pagamento' },
+    'f-data-contabil':     { err: 'e-data-contabil',     label: 'Data transação' },
+    'f-data-competencia':  { err: 'e-data-competencia',  label: 'Data baixa' },
+    'f-cartao':            { err: 'e-cartao',            label: 'Conta' },
+    'f-tipo-pagamento':    { err: 'e-tipo-pagamento',    label: 'Tipo' },
+    'f-forma-pagamento':   { err: 'e-forma-pagamento',   label: 'Forma Pagamento' },
     'f-descricao':         { err: 'e-descricao',         label: 'Descrição' },
     'f-descricao-tratada': { err: 'e-descricao-tratada', label: 'Descrição Tratada' },
-    'f-perfil-despesa':    { err: 'e-perfil-despesa',    label: 'Decisão' },
+    'f-perfil-despesa':    { err: 'e-perfil-despesa',    label: 'Perfil Despesa' },
     'f-categoria':         { err: 'e-categoria',         label: 'Categoria' },
     'f-subcategoria':      { err: 'e-subcategoria',      label: 'Subcategoria' },
     'f-valor':             { err: 'e-valor',             label: 'Valor' },
-    'f-parcelado':         { err: 'e-parcelado',         label: 'Parcelado' },
+    'f-parcelado':         { err: 'e-parcelado',         label: 'Parcela' },
   };
 
   let valido = true;
@@ -6708,6 +6744,19 @@ function saveTransacao() {
     if (!pm) { mostrarErro('f-parcela-maxima', 'e-parcela-maxima', 'Parcela máxima obrigatória'); valido = false; }
     if (pa && pm && parseInt(pa) > parseInt(pm)) {
       mostrarErro('f-parcela-atual', 'e-parcela-atual', 'Parcela atual não pode ser maior que a máxima');
+      valido = false;
+    }
+  }
+
+  const transferenciaNova = !editandoTransId && _transCategoriaSelecionadaEhTransferencia();
+  const contaOrigemId = document.getElementById('f-cartao').value;
+  const contaDestinoId = document.getElementById('f-conta-destino')?.value || '';
+  if (transferenciaNova) {
+    if (!contaDestinoId) {
+      mostrarErro('f-conta-destino', 'e-conta-destino', 'Conta destino é obrigatória');
+      valido = false;
+    } else if (contaDestinoId === contaOrigemId) {
+      mostrarErro('f-conta-destino', 'e-conta-destino', 'Conta destino deve ser diferente da conta de origem');
       valido = false;
     }
   }
@@ -6745,7 +6794,7 @@ function saveTransacao() {
     id:                editandoTransId || uid(),
     data_contabil:     dataCompetenciaBase,
     data_competencia:  dataContabilBase,
-    cartao_id:         document.getElementById('f-cartao').value,
+    cartao_id:         contaOrigemId,
     tipo_pagamento_id: document.getElementById('f-tipo-pagamento').value,
     forma_pagamento_id:document.getElementById('f-forma-pagamento').value,
     descricao:         document.getElementById('f-descricao').value.trim(),
@@ -6774,24 +6823,58 @@ function saveTransacao() {
     const hoje = new Date().toISOString().slice(0,10);
     const competencias = _transGerarDatasRecorrentes(dataCompetenciaBase, dataFimRec, frequenciaRec);
     const contabeis = competencias.map((_, i) => _transAddPeriodoIso(dataContabilBase, frequenciaRec, i));
+    const tipoSaidaId = transferenciaNova ? _transTipoSaidaId() : '';
+    const tipoEntradaId = transferenciaNova ? _transTipoEntradaId() : '';
     competencias.forEach((competencia, i) => {
-      dados.push({
+      const baseRecorrente = {
         ...transacao,
         id: uid(),
         data_contabil: competencia,
         data_competencia: contabeis[i],
         status_compra_id: competencia > hoje ? statusPendenteId : statusPagoId,
         createdAt: new Date().toISOString(),
-      });
+      };
+      if (transferenciaNova) {
+        dados.push(
+          { ...baseRecorrente, id: uid(), cartao_id: contaOrigemId, tipo_pagamento_id: tipoSaidaId },
+          { ...baseRecorrente, id: uid(), cartao_id: contaDestinoId, tipo_pagamento_id: tipoEntradaId }
+        );
+      } else {
+        dados.push(baseRecorrente);
+      }
     });
     dbSave('transacoes', dados);
-    toast(`${competencias.length} movimentação(ões) recorrente(s) adicionada(s)!`);
+    toast(transferenciaNova
+      ? `${competencias.length} transferência(s) recorrente(s) adicionada(s)!`
+      : `${competencias.length} movimentação(ões) recorrente(s) adicionada(s)!`);
   } else {
-    transacao.createdAt = new Date().toISOString();
-    transacao.status_compra_id = statusPagoId;
-    dados.push(transacao);
+    if (transferenciaNova) {
+      const createdAt = new Date().toISOString();
+      dados.push(
+        {
+          ...transacao,
+          id: uid(),
+          cartao_id: contaOrigemId,
+          tipo_pagamento_id: _transTipoSaidaId(),
+          status_compra_id: statusPagoId,
+          createdAt,
+        },
+        {
+          ...transacao,
+          id: uid(),
+          cartao_id: contaDestinoId,
+          tipo_pagamento_id: _transTipoEntradaId(),
+          status_compra_id: statusPagoId,
+          createdAt,
+        }
+      );
+    } else {
+      transacao.createdAt = new Date().toISOString();
+      transacao.status_compra_id = statusPagoId;
+      dados.push(transacao);
+    }
     dbSave('transacoes', dados);
-    toast('Movimentação adicionada com sucesso!');
+    toast(transferenciaNova ? 'Transferência adicionada com sucesso!' : 'Movimentação adicionada com sucesso!');
   }
 
   closeTransModal();
@@ -6810,6 +6893,23 @@ function mostrarErro(fieldId, errId, msg) {
 function limparErros() {
   document.querySelectorAll('.form-input, .form-select').forEach(el => el.classList.remove('error'));
   document.querySelectorAll('.form-error').forEach(el => el.textContent = '');
+}
+
+function _transNomeColecao(colecao, id) {
+  return dbLoad(colecao).find(x => x.id === id)?.nome || '';
+}
+
+function _transIsTransferenciaLancamento(t) {
+  return [
+    t.tipo_pagamento,
+    t.categoria,
+    t.subcategoria,
+    t.perfil_despesa,
+    _transNomeColecao('tipos', t.tipo_pagamento_id),
+    _transNomeColecao('categorias', t.categoria_id),
+    _transNomeColecao('subcategorias', t.subcategoria_id),
+    _transNomeColecao('perfis', t.perfil_despesa_id),
+  ].some(_transIsTransferenciaNome);
 }
 
 
@@ -6866,7 +6966,7 @@ function _textoTemAlgum(texto, termos) {
 
 function _isEntrada(t) { const n=_nomeTipoT(t); return n==='entrada'; }
 function _isSaida(t)   { const n=_nomeTipoT(t); return n==='saida'; }
-function _isNeutro(t)  { const s=_nomeStatusT(t); return s==='neutro'||s==='30'; }
+function _isNeutro(t)  { const s=_nomeStatusT(t); return s==='neutro'||s==='30'||_transIsTransferenciaLancamento(t); }
 function _isEmprestimo(t) { return _textoTemAlgum(_textoFinanceiroT(t), FIN_KEYWORDS_EMPRESTIMO); }
 function _isInvest(t)  {
   const tipo = _nomeTipoT(t);
@@ -7422,7 +7522,7 @@ function _relNomeStatus(t) {
   return (dbLoad('status').find(x=>x.id===t.status_compra_id)?.nome||'').toLowerCase()
     .normalize('NFD').replace(/[\u0300-\u036f]/g,'');
 }
-function _relIsNeutro(t) { const s=_relNomeStatus(t); return s==='neutro'||s==='30'; }
+function _relIsNeutro(t) { const s=_relNomeStatus(t); return s==='neutro'||s==='30'||_transIsTransferenciaLancamento(t); }
 function _relIsSaida(t) {
   return (dbLoad('tipos').find(x=>x.id===t.tipo_pagamento_id)?.nome||'').toLowerCase()
     .normalize('NFD').replace(/[\u0300-\u036f]/g,'') === 'saida';
@@ -8129,7 +8229,7 @@ function _adNomePerfil(t)   { return (dbLoad('perfis').find(x=>x.id===t.perfil_d
 function _adNomeCat(t)      { return (dbLoad('categorias').find(x=>x.id===t.categoria_id)?.nome||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
 function _adNomeTipo(t)     { return (dbLoad('tipos').find(x=>x.id===t.tipo_pagamento_id)?.nome||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
 function _adNomeStatus(t)   { return (dbLoad('status').find(x=>x.id===t.status_compra_id)?.nome||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
-function _adIsNeutro(t)     { const s=_adNomeStatus(t); return s==='neutro'||s==='30'; }
+function _adIsNeutro(t)     { const s=_adNomeStatus(t); return s==='neutro'||s==='30'||_transIsTransferenciaLancamento(t); }
 function _adIsEntrada(t)    { return _adNomeTipo(t)==='entrada'; }
 function _adIsSaida(t)      { return _adNomeTipo(t)==='saida'; }
 function _adIsPerfil(t, p)  { return _adNomePerfil(t).includes(p); }
@@ -8412,7 +8512,7 @@ function _orcNomeStatus(t) {
   return (dbLoad('status').find(x=>x.id===t.status_compra_id)?.nome||'').toLowerCase()
     .normalize('NFD').replace(/[\u0300-\u036f]/g,'');
 }
-function _orcIsNeutro(t)  { const s=_orcNomeStatus(t); return s==='neutro'||s==='30'; }
+function _orcIsNeutro(t)  { const s=_orcNomeStatus(t); return s==='neutro'||s==='30'||_transIsTransferenciaLancamento(t); }
 function _orcIsEntrada(t) { return _orcNomeTipo(t)==='entrada'; }
 function _orcIsSaida(t)   { return _orcNomeTipo(t)==='saida'; }
 
@@ -9701,7 +9801,7 @@ function _simNomeSubcat(t) {
   return (dbLoad('subcategorias').find(x=>x.id===t.subcategoria_id)?.nome||'')
     .toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
 }
-function _simIsNeutro(t) { const s=_simNomeStatus(t); return s==='neutro'||s==='30'; }
+function _simIsNeutro(t) { const s=_simNomeStatus(t); return s==='neutro'||s==='30'||_transIsTransferenciaLancamento(t); }
 function _simIsEntrada(t){ return _simNomeTipo(t)==='entrada'; }
 function _simIsSaida(t)  { return _simNomeTipo(t)==='saida'; }
 function _simIsDespFixa(t) {
