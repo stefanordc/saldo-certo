@@ -6834,6 +6834,20 @@ function _transPerfilIdTransferencia() {
   return _transEnsureConfigId('perfis', 'Transferência', TRANS_TRANSFERENCIA_ALIASES);
 }
 
+function _transFormaIdPix() {
+  return _transEnsureConfigId('formas', 'Pix', ['PIX']);
+}
+
+function _transPerfilSelecionadoEhTransferencia() {
+  return _transSelectEhTransferencia('f-perfil-despesa');
+}
+
+function _transAplicarPixQuandoPerfilTransferencia() {
+  if (_transPerfilSelecionadoEhTransferencia()) {
+    _transSetSelectValue('f-forma-pagamento', 'formas', _transFormaIdPix());
+  }
+}
+
 function _transPerfilDespesaVariavelId() {
   return _transEnsureConfigId('perfis', 'Despesa Variável', ['Despesa Variavel']);
 }
@@ -7107,6 +7121,7 @@ function _transAplicarTransferenciaNoForm() {
   _transSetSelectValue('f-natureza', 'naturezas', naturezaId);
   _transSetSelectValue('f-decisao', 'decisoes', decisaoId);
   _transSetSelectValue('f-tipo-pagamento', 'tipos', _transTipoSaidaId());
+  _transSetSelectValue('f-forma-pagamento', 'formas', _transFormaIdPix());
 }
 
 function _transCategoriaSelecionadaEhTransferencia() {
@@ -7154,6 +7169,7 @@ function onTransTransferenciaFieldChange(changedId = '') {
   if (changedId && _transSelectEhTransferencia(changedId)) {
     _transAplicarTransferenciaNoForm();
   }
+  _transAplicarPixQuandoPerfilTransferencia();
   toggleContaDestinoTransacao(isTransferencia);
 }
 
@@ -7417,6 +7433,7 @@ function preencherFormTransacao(t) {
     chkRec.disabled = true;
   }
   document.getElementById('recorrenciaSection')?.classList.remove('visible');
+  _transAplicarPixQuandoPerfilTransferencia();
   transRefreshSearchableSelects();
 }
 
@@ -7472,6 +7489,7 @@ function toggleRecorrenciaTransacao() {
 -------------------------------------------- */
 function saveTransacao() {
   limparErros();
+  _transAplicarPixQuandoPerfilTransferencia();
 
   // Campos obrigatórios
   const obrigatorios = {
@@ -7558,6 +7576,12 @@ function saveTransacao() {
   const naturezaId = document.getElementById('f-natureza').value;
   const decisaoId = document.getElementById('f-decisao').value;
   const tipoOperacionalId = _transTipoOperacionalId(naturezaId, categoriaId);
+  const perfilDespesaId = document.getElementById('f-perfil-despesa').value;
+  const perfilEhTransferencia = _transIsTransferenciaNome(_transNomeColecao('perfis', perfilDespesaId));
+  const formaPagamentoId = perfilEhTransferencia ? _transFormaIdPix() : document.getElementById('f-forma-pagamento').value;
+  if (perfilEhTransferencia) {
+    _transSetSelectValue('f-forma-pagamento', 'formas', formaPagamentoId);
+  }
   const transacao = {
     id:                editandoTransId || uid(),
     data_contabil:     dataCompetenciaBase,
@@ -7565,10 +7589,10 @@ function saveTransacao() {
     cartao_id:         contaOrigemId,
     conta_destino_id:  transferenciaAtual ? contaDestinoId : null,
     tipo_pagamento_id: tipoOperacionalId,
-    forma_pagamento_id:document.getElementById('f-forma-pagamento').value,
+    forma_pagamento_id:formaPagamentoId,
     descricao:         document.getElementById('f-descricao').value.trim(),
     descricao_tratada: document.getElementById('f-descricao-tratada').value.trim(),
-    perfil_despesa_id: document.getElementById('f-perfil-despesa').value,
+    perfil_despesa_id: perfilDespesaId,
     categoria_id:      categoriaId,
     subcategoria_id:   document.getElementById('f-subcategoria').value,
     natureza_id:       naturezaId,
@@ -14067,11 +14091,13 @@ function impExecutar() {
   const cartoes    = dbLoad('cartoes');
   const categorias = dbLoad('categorias');
   const subcat     = dbLoad('subcategorias');
-  const formas     = dbLoad('formas');
+  let formas       = dbLoad('formas');
   const perfis     = dbLoad('perfis');
   const naturezas  = dbLoad('naturezas');
   const decisoes   = dbLoad('decisoes');
   const statuses   = dbLoad('status');
+  const pixFormaId = _transFormaIdPix();
+  formas = dbLoad('formas');
   // Garantir tipos padrão (Entrada / Saída) se não existirem
   let tipos = dbLoad('tipos');
   if (!tipos.length) {
@@ -14248,6 +14274,8 @@ function impExecutar() {
       const decisaoId = findId(decisoes, get('decisao')) || (transferenciaImportada ? _transDecisaoIdTransferencia() : '');
       const perfilId = findId(perfis, get('perfil')) || (transferenciaImportada ? _transPerfilIdTransferencia() : '');
       const subcategoriaId = findId(subcat, get('subcategoria')) || (transferenciaImportada ? _transEnsureSubcategoriaTransferencia(categoriaId) : '');
+      const perfilImportadoEhTransferencia = transferenciaImportada || _transIsTransferenciaNome(dbLoad('perfis').find(x => x.id === perfilId)?.nome || get('perfil'));
+      const formaPagamentoId = perfilImportadoEhTransferencia ? pixFormaId : findId(formas, get('forma'));
 
       /* -- Tipo operacional: Entrada/Saída para saldo; Natureza é campo separado -- */
       const tipoRawOrig = get('tipo');
@@ -14290,7 +14318,7 @@ function impExecutar() {
         cartao_id:          contaOrigemId,
         conta_destino_id:   transferenciaImportada && contaDestinoId ? contaDestinoId : null,
         tipo_pagamento_id:  tipoId,
-        forma_pagamento_id: findId(formas,     get('forma')),
+        forma_pagamento_id: formaPagamentoId,
         descricao:          descricao,
         descricao_tratada:  descricaoTratada,
         perfil_despesa_id:  perfilId,
