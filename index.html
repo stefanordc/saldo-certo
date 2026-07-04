@@ -4905,7 +4905,7 @@ main {
 
         <div class="form-group">
           <label class="form-label">Categoria <span class="req">*</span></label>
-          <select class="form-select" id="f-categoria">
+          <select class="form-select" id="f-categoria" onchange="onTransCategoriaChange()">
             <option value="">Selecione…</option>
           </select>
           <span class="form-error" id="e-categoria"></span>
@@ -6423,6 +6423,13 @@ function _transNormTexto(v) {
   return (v || '').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
 }
 
+const TRANS_TRANSFERENCIA_ALIASES = ['Transferência','Transferencia','Trannsferência','Trannsferencia'];
+
+function _transIsTransferenciaNome(v) {
+  const n = _transNormTexto(v);
+  return n === 'transferencia' || n === 'trannsferencia';
+}
+
 function _transFindConfigId(colecao, nomes) {
   const alvos = nomes.map(_transNormTexto);
   const itens = dbLoad(colecao);
@@ -6440,6 +6447,39 @@ function _transEnsureConfigId(colecao, nome, aliases = []) {
   if (existente) return existente;
   const dados = dbInsert(colecao, { nome });
   return dados.find(item => _transNormTexto(item.nome) === _transNormTexto(nome))?.id || '';
+}
+
+function _transEnsureSubcategoriaTransferencia(categoriaId) {
+  const itens = dbLoad('subcategorias').filter(item => _transIsTransferenciaNome(item.nome));
+  const existente = itens.find(item => !categoriaId || item.categoria_id === categoriaId) || itens[0];
+  if (existente) return existente.id;
+  const dados = dbInsert('subcategorias', { nome: 'Transferência', categoria_id: categoriaId || '' });
+  return dados.find(item => _transIsTransferenciaNome(item.nome) && (!categoriaId || item.categoria_id === categoriaId))?.id || '';
+}
+
+function _transSetSelectValue(selectId, colecao, id) {
+  const sel = document.getElementById(selectId);
+  if (!sel || !id) return;
+  if (!Array.from(sel.options).some(opt => opt.value === id)) {
+    const item = dbLoad(colecao).find(x => x.id === id);
+    if (item) sel.innerHTML += `<option value="${item.id}">${escHtml(item.nome)}</option>`;
+  }
+  sel.value = id;
+}
+
+function onTransCategoriaChange() {
+  const selCategoria = document.getElementById('f-categoria');
+  const categoriaNome = selCategoria?.selectedOptions?.[0]?.textContent || '';
+  if (!_transIsTransferenciaNome(categoriaNome)) return;
+
+  const categoriaId = selCategoria.value;
+  const subcatId = _transEnsureSubcategoriaTransferencia(categoriaId);
+  const naturezaId = _transEnsureConfigId('tipos', 'Transferência', TRANS_TRANSFERENCIA_ALIASES);
+  const decisaoId = _transEnsureConfigId('perfis', 'Transferência', TRANS_TRANSFERENCIA_ALIASES);
+
+  _transSetSelectValue('f-subcategoria', 'subcategorias', subcatId);
+  _transSetSelectValue('f-tipo-pagamento', 'tipos', naturezaId);
+  _transSetSelectValue('f-perfil-despesa', 'perfis', decisaoId);
 }
 
 function _transStatusPagoId() {
