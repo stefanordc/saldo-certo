@@ -6576,116 +6576,104 @@ function calcularScore(transacoes, opts = {}) {
   };
 }
 
-function _fmtClv(v) {
+function _fmtMoedaScore(v) {
   const sinal = v < 0 ? '-' : '';
   return `${sinal}R$ ${Math.round(Math.abs(v)).toLocaleString('pt-BR')}`;
 }
 
-function _usoIntensidade(transacoes) {
-  const meses = new Set(transacoes.map(t=>_dataCompetenciaT(t).slice(0,7)).filter(Boolean));
-  const media = meses.size ? transacoes.length / meses.size : 0;
-  if (media > 20) return 2;
-  if (media >= 5) return 1;
-  return 0;
+function _scoreLimitado(valor, max) {
+  return Math.max(0, Math.min(max, Math.round(valor)));
 }
 
-function _clienteAtivo(transacoes) {
-  const corte = new Date();
-  corte.setDate(corte.getDate() - 90);
-  const iso = corte.toISOString().slice(0,10);
-  return transacoes.some(t => _dataCompetenciaT(t) >= iso) ||
-         dbLoad('inv_movimentos').some(m => (m.data || '') >= iso);
+function _faixaResiliencia(score, semBase) {
+  if (semBase) return { banda: 'Sem base', corBanda: '#EEF2F6', cor: '#5F6B7A' };
+  if (score >= 80) return { banda: 'Resiliência forte', corBanda: '#E6F7F1', cor: '#00875A' };
+  if (score >= 60) return { banda: 'Resiliência boa', corBanda: '#E8F0FB', cor: '#1558B0' };
+  if (score >= 40) return { banda: 'Em formação', corBanda: '#FFF8E6', cor: '#B8860B' };
+  return { banda: 'Resiliência frágil', corBanda: '#FDECEA', cor: '#D93025' };
 }
 
-function calcularCLVBancario() {
-  const transacoes = dbLoad('transacoes').filter(t=>!_isNeutro(t));
+function calcularResilienciaFinanceira(opts = {}) {
+  const asOfDate = opts.asOfDate || new Date().toISOString().slice(0,10);
+  const transacoes = (opts.historico || dbLoad('transacoes'))
+    .filter(t => !_isNeutro(t) && _dataCompetenciaT(t) && _dataCompetenciaT(t) <= asOfDate);
+
+  const baseData = new Date(asOfDate + 'T12:00:00');
+  const mesesRecentes = _mesesRecentes(6, baseData);
+  const transRecentes = transacoes.filter(t => mesesRecentes.includes(_dataCompetenciaT(t).slice(0,7)));
+  const deRecentes = mesesRecentes[mesesRecentes.length - 1] + '-01';
+
+  const rendaSeisMeses = _somaTrans(transRecentes, t =>
+    _isEntrada(t) && !_isEmprestimo(t) && !_isInvest(t)
+  );
+  const despesaSeisMeses = _somaTrans(transRecentes, t =>
+    _isSaida(t) && !_isEmprestimo(t) && !_isInvest(t)
+  );
+  const servicoEmprestimosSeisMeses = _somaTrans(transRecentes, t =>
+    _isSaida(t) && _isEmprestimo(t)
+  );
+  const aportesTransacionais = _somaTrans(transRecentes, t =>
+    _isInvest(t) && !_isEntrada(t)
+  );
+  const fluxoInvestModulo = _fluxoInvestimentosPeriodo(deRecentes, asOfDate);
+  const aportesInvest = aportesTransacionais > 0
+    ? aportesTransacionais
+    : Math.max(0, fluxoInvestModulo);
+
   const investimentosCarteira = Math.max(0, _investimentoCarteiraAtual());
   const metasAtual = _valorMetasAtual();
-  const recebiveisEmprestimo = _valorContasPendentes('contas_receber', ['recebida','cancelada'], _isContaEmprestimo);
-  const contasPagarEmprestimo = _valorContasPendentes('contas_pagar', ['paga','cancelada'], _isContaEmprestimo);
+  const recebiveisPendentes = _valorContasPendentes('contas_receber', ['recebida','cancelada']);
+  const contasPagarPendentes = _valorContasPendentes('contas_pagar', ['paga','cancelada']);
   const emprestimosTomados = _somaTrans(transacoes, t=>_isEntrada(t)&&_isEmprestimo(t));
   const amortizacoes = _somaTrans(transacoes, t=>_isSaida(t)&&_isEmprestimo(t));
   const passivoHistoricoEstimado = Math.max(0, emprestimosTomados - amortizacoes);
 
-  const totalSavings = investimentosCarteira + metasAtual + recebiveisEmprestimo;
-  const totalLiabilities = contasPagarEmprestimo + passivoHistoricoEstimado;
-  const cnw = totalSavings - totalLiabilities;
-  const usageIntensity = _usoIntensidade(transacoes);
-  const activeClient = _clienteAtivo(transacoes);
-  const tp08 = totalLiabilities > 0 ? 1 : 0;
-  const tp02 = totalSavings > 0 ? 1 : 0;
-  const ip06 = investimentosCarteira;
-  const semBasePatrimonial = totalSavings <= 0 && totalLiabilities <= 0;
+  const rendaMedia = rendaSeisMeses / 6;
+  const despesaMedia = despesaSeisMeses / 6;
+  const servicoEmprestimosMedia = servicoEmprestimosSeisMeses / 6;
+  const ativosLiquidos = investimentosCarteira + metasAtual;
+  const ativosTotais = ativosLiquidos + recebiveisPendentes;
+  const totalPassivos = contasPagarPendentes + passivoHistoricoEstimado;
+  const patrimonioLiquido = ativosTotais - totalPassivos;
+  const baseCobertura = despesaMedia > 0 ? despesaMedia : rendaMedia;
+  const mesesReserva = baseCobertura > 0 ? ativosLiquidos / baseCobertura : 0;
+  const patrimonioAlvo = baseCobertura > 0 ? baseCobertura * 12 : Math.max(ativosTotais, 1);
+  const taxaAporte = rendaMedia > 0 ? (aportesInvest / 6) / rendaMedia : 0;
+  const pressaoServico = rendaMedia > 0 ? servicoEmprestimosMedia / rendaMedia : (servicoEmprestimosMedia > 0 ? 1 : 0);
+  const baseAlavancagem = Math.max(ativosTotais, rendaMedia * 6, 1);
+  const alavancagem = totalPassivos > 0 ? totalPassivos / baseAlavancagem : 0;
+  const compromissoLiquido = Math.max(0, contasPagarPendentes - recebiveisPendentes);
+  const compromissoRatio = rendaMedia > 0 ? compromissoLiquido / rendaMedia : (compromissoLiquido > 0 ? 2 : 0);
 
-  let segmento = 22;
-  let mean = semBasePatrimonial ? 0 : -16;
-  let regra = semBasePatrimonial ? 'Sem base patrimonial para estimar CLV' : 'CNW = 0';
-  let textoSegmento = semBasePatrimonial ? 'Sem base patrimonial' : '';
+  const pReserva = _scoreLimitado((mesesReserva / 6) * 30, 30);
+  const penalidadeDivida = Math.min(1, Math.max(pressaoServico / 0.30, alavancagem));
+  const pDivida = _scoreLimitado((1 - penalidadeDivida) * 25, 25);
+  const pPatrimonio = _scoreLimitado((Math.max(patrimonioLiquido, 0) / patrimonioAlvo) * 20, 20);
+  const pInvest = _scoreLimitado((taxaAporte / 0.15) * 15, 15);
+  const pCompromissos = compromissoRatio <= 0.5
+    ? 10
+    : _scoreLimitado((1 - Math.min((compromissoRatio - 0.5) / 1.5, 1)) * 10, 10);
 
-  if (!semBasePatrimonial && cnw < 0) {
-    if (tp08 === 1) {
-      if (totalLiabilities <= 5250) { segmento = 1; mean = 105; regra = 'CNW < 0 · TP-08 = 1 · passivos <= 5.250'; }
-      else { segmento = 2; mean = 451; regra = 'CNW < 0 · TP-08 = 1 · passivos > 5.250'; }
-    } else {
-      segmento = 3; mean = 28; regra = 'CNW < 0 · TP-08 = 0';
-    }
-  } else if (cnw > 0 && cnw <= 350) {
-    if (usageIntensity === 0) { segmento = 4; mean = -19; regra = '0 < CNW <= 350 · uso = 0'; }
-    else if (usageIntensity === 1) { segmento = 5; mean = -12; regra = '0 < CNW <= 350 · uso = 1'; }
-    else { segmento = 6; mean = 51; regra = '0 < CNW <= 350 · uso > 1'; }
-  } else if (cnw > 350 && cnw <= 7500) {
-    if (tp08 === 1) {
-      segmento = 7; mean = 109; regra = '350 < CNW <= 7.500 · TP-08 = 1';
-    } else if (totalSavings <= 0) {
-      segmento = 15; mean = -14; regra = '350 < CNW <= 7.500 · poupança = 0';
-    } else if (totalSavings <= 2000) {
-      if (tp02 === 1) {
-        if (ip06 > 0 && ip06 <= 1500) { segmento = 8; mean = -95; regra = 'poupança <= 2.000 · TP-02 = 1 · 0 < IP-06 <= 1.500'; }
-        else if (ip06 > 1500) { segmento = 9; mean = 66; regra = 'poupança <= 2.000 · TP-02 = 1 · IP-06 > 1.500'; }
-        else { segmento = 10; mean = 2; regra = 'poupança <= 2.000 · TP-02 = 1 · IP-06 = 0'; }
-      } else if (usageIntensity === 1) {
-        segmento = 11; mean = 9; regra = 'poupança <= 2.000 · TP-02 <= 0 · uso = 1';
-      } else if (usageIntensity > 1) {
-        segmento = 12; mean = 38; regra = 'poupança <= 2.000 · TP-02 <= 0 · uso > 1';
-      } else {
-        segmento = 10; mean = 2; regra = 'poupança <= 2.000 · baixo uso';
-      }
-    } else if (activeClient) {
-      segmento = 14; mean = 96; regra = 'poupança > 2.000 · cliente ativo';
-    } else {
-      segmento = 13; mean = 31; regra = 'poupança > 2.000 · cliente inativo';
-    }
-  } else if (cnw > 7500 && cnw <= 22500) {
-    if (ip06 > 0 && ip06 <= 3000) { segmento = 16; mean = 54; regra = '7.500 < CNW <= 22.500 · 0 < IP-06 <= 3.000'; }
-    else if (ip06 > 3000) { segmento = 17; mean = 271; regra = '7.500 < CNW <= 22.500 · IP-06 > 3.000'; }
-    else { segmento = 18; mean = 144; regra = '7.500 < CNW <= 22.500 · IP-06 = 0'; }
-  } else if (cnw > 22500) {
-    if (ip06 > 0 && ip06 <= 4500) { segmento = 19; mean = 343; regra = 'CNW > 22.500 · 0 < IP-06 <= 4.500'; }
-    else if (ip06 > 4500) { segmento = 20; mean = 890; regra = 'CNW > 22.500 · IP-06 > 4.500'; }
-    else { segmento = 21; mean = 390; regra = 'CNW > 22.500 · IP-06 = 0'; }
-  }
-
-  const scoreVisual = semBasePatrimonial ? 0 : Math.max(0, Math.min(100, Math.round(((mean + 100) / 990) * 100)));
-  let banda='CLV baixo', corBanda='#FDECEA', cor='#D93025';
-  if (semBasePatrimonial) { banda='CLV sem base'; corBanda='#EEF2F6'; cor='#5F6B7A'; }
-  else if (mean >= 300) { banda='CLV alto'; corBanda='#E6F7F1'; cor='#00875A'; }
-  else if (mean >= 100) { banda='CLV bom'; corBanda='#E8F0FB'; cor='#1558B0'; }
-  else if (mean >= 0)   { banda='CLV moderado'; corBanda='#FFF8E6'; cor='#B8860B'; }
-
-  const pctSavings = Math.min(100, Math.round((Math.max(totalSavings,0) / 22500) * 100));
-  const pctLiabilities = Math.min(100, Math.round((Math.max(totalLiabilities,0) / 5250) * 100));
-  const pctCnw = Math.min(100, Math.round((Math.max(cnw,0) / 22500) * 100));
+  const semBase = transacoes.length === 0 && ativosTotais <= 0 && totalPassivos <= 0 && compromissoLiquido <= 0;
+  const score = semBase ? 0 : Math.max(0, Math.min(100, pReserva + pDivida + pPatrimonio + pInvest + pCompromissos));
+  const faixa = _faixaResiliencia(score, semBase);
+  const textoReserva = semBase
+    ? 'Sem dados patrimoniais'
+    : baseCobertura > 0
+      ? `${mesesReserva.toFixed(1)} mês(es) de cobertura`
+      : 'Sem gasto médio para medir cobertura';
 
   return {
-    score: scoreVisual,
-    displayScore: _fmtClv(mean),
-    banda, corBanda, cor,
+    score,
+    banda: faixa.banda,
+    corBanda: faixa.corBanda,
+    cor: faixa.cor,
     itens: [
-      { label: 'Segmento CLV', valor: scoreVisual, max: 100, texto: textoSegmento || `Segmento ${segmento} · mean ${_fmtClv(mean)}`, detalhe: false },
-      { label: 'Patrimônio líquido (CNW)', valor: pctCnw, max: 100, texto: `CNW ${_fmtClv(cnw)}`, detalhe: false },
-      { label: 'Poupança e investimentos', valor: pctSavings, max: 100, texto: `Total ${_fmtClv(totalSavings)}`, detalhe: false },
-      { label: 'Passivos e empréstimos', valor: pctLiabilities, max: 100, texto: `Total ${_fmtClv(totalLiabilities)}`, detalhe: false },
-      { label: 'Regra aplicada', valor: activeClient ? 100 : 35, max: 100, texto: regra, detalhe: false },
+      { label: 'Reserva de emergência', valor: pReserva, max: 30, texto: textoReserva },
+      { label: 'Endividamento e empréstimos', valor: pDivida, max: 25, texto: totalPassivos > 0 ? `${_fmtMoedaScore(totalPassivos)} em passivos` : 'Sem dívidas detectadas' },
+      { label: 'Patrimônio líquido', valor: pPatrimonio, max: 20, texto: `PL ${_fmtMoedaScore(patrimonioLiquido)}` },
+      { label: 'Investimentos e aportes', valor: pInvest, max: 15, texto: rendaMedia > 0 ? `${(taxaAporte * 100).toFixed(1)}% da renda média` : 'Sem renda para medir aportes' },
+      { label: 'Compromissos futuros', valor: pCompromissos, max: 10, texto: compromissoLiquido > 0 ? `${_fmtMoedaScore(compromissoLiquido)} líquido pendente` : 'Sem compromissos líquidos' },
     ]
   };
 }
@@ -6838,10 +6826,10 @@ function renderInicio() {
     _transMesLabel(anoMesAtual),
     calcularScore(transMes, { asOfDate: periodoAtual.ate, historico: todas }));
 
-  // CLV bancário estimado pela árvore de segmentação do modelo financeiro.
-  renderScoreCard('scoreGeral', 'Customer Lifetime Value — Bancário',
-    'CNW, investimentos, passivos e intensidade de uso',
-    calcularCLVBancario());
+  // Índice estrutural: mede a capacidade de absorver imprevistos e manter o plano financeiro.
+  renderScoreCard('scoreGeral', 'Resiliência Financeira',
+    'Reserva, dívidas, patrimônio, investimentos e compromissos',
+    calcularResilienciaFinanceira({ asOfDate: periodoAtual.ate, historico: todas }));
 
   renderUltimas10();
 }
