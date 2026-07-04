@@ -2697,7 +2697,7 @@ tr.trans-selected td { background: transparent; }
             </div>
 
             <div class="filtro-group">
-              <label class="filtro-label">Tipo de Pagamento</label>
+              <label class="filtro-label">Natureza</label>
               <select class="filtro-select" id="fil-tipo" onchange="renderTransacoes()">
                 <option value="">Todos</option>
               </select>
@@ -2711,7 +2711,7 @@ tr.trans-selected td { background: transparent; }
             </div>
 
             <div class="filtro-group">
-              <label class="filtro-label">Perfil da Despesa</label>
+              <label class="filtro-label">Decisão</label>
               <select class="filtro-select" id="fil-perfil" onchange="renderTransacoes()">
                 <option value="">Todos</option>
               </select>
@@ -4617,27 +4617,11 @@ tr.trans-selected td { background: transparent; }
         </div>
 
         <div class="form-group">
-          <label class="form-label">Tipo de Pagamento <span class="req">*</span></label>
-          <select class="form-select" id="f-tipo-pagamento">
-            <option value="">Selecione…</option>
-          </select>
-          <span class="form-error" id="e-tipo-pagamento"></span>
-        </div>
-
-        <div class="form-group">
           <label class="form-label">Forma de Pagamento <span class="req">*</span></label>
           <select class="form-select" id="f-forma-pagamento">
             <option value="">Selecione…</option>
           </select>
           <span class="form-error" id="e-forma-pagamento"></span>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label">Perfil da Despesa <span class="req">*</span></label>
-          <select class="form-select" id="f-perfil-despesa">
-            <option value="">Selecione…</option>
-          </select>
-          <span class="form-error" id="e-perfil-despesa"></span>
         </div>
 
         <div class="form-group full">
@@ -4669,7 +4653,23 @@ tr.trans-selected td { background: transparent; }
         </div>
 
         <div class="form-group">
-          <label class="form-label">Status da Compra <span class="req">*</span></label>
+          <label class="form-label">Natureza <span class="req">*</span></label>
+          <select class="form-select" id="f-tipo-pagamento">
+            <option value="">Selecione…</option>
+          </select>
+          <span class="form-error" id="e-tipo-pagamento"></span>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Decisão <span class="req">*</span></label>
+          <select class="form-select" id="f-perfil-despesa">
+            <option value="">Selecione…</option>
+          </select>
+          <span class="form-error" id="e-perfil-despesa"></span>
+        </div>
+
+        <div class="form-group" style="display:none">
+          <label class="form-label">Status</label>
           <select class="form-select" id="f-status-compra">
             <option value="">Selecione…</option>
           </select>
@@ -4703,6 +4703,32 @@ tr.trans-selected td { background: transparent; }
                 <label class="form-label">Parcela Máxima <span class="req">*</span></label>
                 <input type="number" class="form-input" id="f-parcela-maxima" min="1" max="99" placeholder="Ex: 12">
                 <span class="form-error" id="e-parcela-maxima"></span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-group full">
+          <label class="checkbox-row" style="margin-top:0">
+            <input type="checkbox" id="f-recorrente" onchange="toggleRecorrenciaTransacao()">
+            <span>Transação recorrente</span>
+          </label>
+          <div class="parcelas-section" id="recorrenciaSection">
+            <div class="installment-row">
+              <div class="form-group">
+                <label class="form-label">Frequência <span class="req">*</span></label>
+                <select class="form-select" id="f-recorrencia-frequencia">
+                  <option value="mensal">Mensal</option>
+                  <option value="semanal">Semanal</option>
+                  <option value="quinzenal">Quinzenal</option>
+                  <option value="anual">Anual</option>
+                </select>
+                <span class="form-error" id="e-recorrencia-frequencia"></span>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Repetir até <span class="req">*</span></label>
+                <input type="date" class="form-input" id="f-recorrencia-fim">
+                <span class="form-error" id="e-recorrencia-fim"></span>
               </div>
             </div>
           </div>
@@ -5484,7 +5510,7 @@ function saveEditConfig() {
 /* -- ESTADO -- */
 let editandoTransId = null;
 
-const transOrdenacao = { col: 'data_contabil', dir: 'desc' };
+const transOrdenacao = { col: 'data_competencia', dir: 'desc' };
 
 function _transDataContabil(t) {
   return t.data_competencia || t.data_contabil || '';
@@ -5533,20 +5559,14 @@ function _transDentroPeriodo(t, dataDe, dataAte) {
 
 /* -- COLUNAS DA TABELA -- */
 const TRANS_COLUNAS = [
-  { chave: 'data_competencia',  label: 'Dt. Contábil',    w: 110 },
-  { chave: 'data_contabil',     label: 'Dt. Competência', w: 120 },
-  { chave: 'cartao',            label: 'Cartão',          w: 120 },
-  { chave: 'tipo_pagamento',    label: 'Tipo Pgto.',      w: 110 },
-  { chave: 'forma_pagamento',   label: 'Forma Pgto.',     w: 110 },
-  { chave: 'descricao',         label: 'Descrição',       w: 180 },
-  { chave: 'descricao_tratada', label: 'Desc. Tratada',   w: 150 },
-  { chave: 'perfil_despesa',    label: 'Perfil',          w: 110 },
-  { chave: 'categoria',         label: 'Categoria',       w: 120 },
-  { chave: 'subcategoria',      label: 'Subcategoria',    w: 120 },
-  { chave: 'status_compra',     label: 'Status',          w: 110 },
-  { chave: 'valor',             label: 'Valor (R$)',      w: 110 },
-  { chave: 'parcelado',         label: 'Parcelado',       w: 90  },
-  { chave: 'parcelas',          label: 'Parcelas',        w: 90  },
+  { chave: 'data_competencia',  label: 'Data Competência', w: 135 },
+  { chave: 'cartao',            label: 'Cartão',           w: 130 },
+  { chave: 'descricao_tratada', label: 'Descrição Tratada',w: 230 },
+  { chave: 'categoria',         label: 'Categoria',        w: 140 },
+  { chave: 'subcategoria',      label: 'Subcategoria',     w: 150 },
+  { chave: 'tipo_pagamento',    label: 'Natureza',         w: 120 },
+  { chave: 'perfil_despesa',    label: 'Decisão',          w: 130 },
+  { chave: 'valor',             label: 'Valor',            w: 120 },
 ];
 
 
@@ -5702,9 +5722,9 @@ function atualizarChips(f) {
     }});
   }
   if (f.cartao)       chips.push({ label: `Cartão: ${getNome('cartoes', f.cartao)}`, clear: () => { document.getElementById('fil-cartao').value=''; renderTransacoes(); }});
-  if (f.tipo)         chips.push({ label: `Tipo: ${getNome('tipos', f.tipo)}`, clear: () => { document.getElementById('fil-tipo').value=''; renderTransacoes(); }});
+  if (f.tipo)         chips.push({ label: `Natureza: ${getNome('tipos', f.tipo)}`, clear: () => { document.getElementById('fil-tipo').value=''; renderTransacoes(); }});
   if (f.forma)        chips.push({ label: `Forma: ${getNome('formas', f.forma)}`, clear: () => { document.getElementById('fil-forma').value=''; renderTransacoes(); }});
-  if (f.perfil)       chips.push({ label: `Perfil: ${getNome('perfis', f.perfil)}`, clear: () => { document.getElementById('fil-perfil').value=''; renderTransacoes(); }});
+  if (f.perfil)       chips.push({ label: `Decisão: ${getNome('perfis', f.perfil)}`, clear: () => { document.getElementById('fil-perfil').value=''; renderTransacoes(); }});
   if (f.categoria)    chips.push({ label: `Categoria: ${getNome('categorias', f.categoria)}`, clear: () => { document.getElementById('fil-categoria').value=''; renderTransacoes(); }});
   if (f.subcategoria) chips.push({ label: `Subcategoria: ${getNome('subcategorias', f.subcategoria)}`, clear: () => { document.getElementById('fil-subcategoria').value=''; renderTransacoes(); }});
   if (f.status)       chips.push({ label: `Status: ${getNome('status', f.status)}`, clear: () => { document.getElementById('fil-status').value=''; renderTransacoes(); }});
@@ -5792,12 +5812,12 @@ function renderTransacoes() {
       const bv = parseFloat(b.valor) || 0;
       return ord.dir === 'asc' ? av - bv : bv - av;
     }
-    if (ord.col === 'data_contabil') {
+    if (ord.col === 'data_competencia') {
       const av = _transDataCompetencia(a);
       const bv = _transDataCompetencia(b);
       return ord.dir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
     }
-    if (ord.col === 'data_competencia') {
+    if (ord.col === 'data_contabil') {
       const av = _transDataContabil(a);
       const bv = _transDataContabil(b);
       return ord.dir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
@@ -5950,7 +5970,7 @@ function renderTransacoes() {
   const tb = document.getElementById('transBody');
   if (dados.length === 0) {
     tb.innerHTML = `<tr class="empty-row">
-      <td colspan="${TRANS_COLUNAS.length + 1}">
+      <td colspan="${TRANS_COLUNAS.length + 2}">
         Nenhuma movimentação encontrada. Clique em "Adicionar Movimentação".
       </td>
     </tr>`;
@@ -5962,17 +5982,13 @@ function renderTransacoes() {
       <td style="text-align:center;padding:8px 4px;width:44px;min-width:44px">
         <input type="checkbox" class="trans-sel-chk" data-id="${t.id}" onclick="event.stopPropagation()" onchange="transBulkAtualizarBarra()" style="width:15px;height:15px;cursor:pointer;accent-color:var(--primary)">
       </td>
-      <td>${fmtDateStr(_transDataContabil(t))}</td>
       <td>${fmtDateStr(_transDataCompetencia(t))}</td>
       <td>${escHtml(t.cartao)}</td>
-      <td>${escHtml(t.tipo_pagamento)}</td>
-      <td>${escHtml(t.forma_pagamento)}</td>
-      <td title="${escHtml(t.descricao)}">${escHtml(t.descricao)}</td>
-      <td title="${escHtml(t.descricao_tratada)}">${escHtml(t.descricao_tratada)}</td>
-      <td>${escHtml(t.perfil_despesa)}</td>
+      <td title="${escHtml(t.descricao_tratada || t.descricao)}">${escHtml(t.descricao_tratada || t.descricao)}</td>
       <td>${escHtml(t.categoria)}</td>
       <td>${escHtml(t.subcategoria)}</td>
-      <td><span class="badge badge-gray">${escHtml(t.status_compra)}</span></td>
+      <td>${escHtml(t.tipo_pagamento)}</td>
+      <td>${escHtml(t.perfil_despesa)}</td>
       ${(()=>{
         const tn=(t.tipo_pagamento||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
         const isNeutro = tn==='neutro' || tn==='';
@@ -5982,8 +5998,6 @@ function renderTransacoes() {
         const sinal  = isEntrada ? '+ ' : isSaida ? '- ' : '';
         return `<td class="${valCls}">${sinal}R$ ${fmtValor(Math.abs(parseFloat(t.valor)||0))}</td>`;
       })()}
-      <td><span class="badge ${t.parcelado === 'Sim' ? 'badge-blue' : 'badge-gray'}">${t.parcelado}</span></td>
-      <td>${t.parcelas}</td>
       <td class="actions">
         <div class="actions-cell">
           <button class="btn btn-icon btn-sm" title="Visualizar" onclick="verTransacao('${t.id}')" style="background:#EEF2FF;color:#4F46E5;border-color:#C7D2FE">👁</button>
@@ -6035,10 +6049,79 @@ function excluirTransacao(id) {
   });
 }
 
+function _transNormTexto(v) {
+  return (v || '').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+}
+
+function _transFindConfigId(colecao, nomes) {
+  const alvos = nomes.map(_transNormTexto);
+  const itens = dbLoad(colecao);
+  const exato = itens.find(item => alvos.includes(_transNormTexto(item.nome)));
+  if (exato) return exato.id;
+  const parcial = itens.find(item => {
+    const nome = _transNormTexto(item.nome);
+    return alvos.some(alvo => nome.includes(alvo) || alvo.includes(nome));
+  });
+  return parcial?.id || '';
+}
+
+function _transEnsureConfigId(colecao, nome, aliases = []) {
+  const existente = _transFindConfigId(colecao, [nome, ...aliases]);
+  if (existente) return existente;
+  const dados = dbInsert(colecao, { nome });
+  return dados.find(item => _transNormTexto(item.nome) === _transNormTexto(nome))?.id || '';
+}
+
+function _transStatusPagoId() {
+  return _transEnsureConfigId('status', 'Pago', ['Paga','Recebido','Recebida','Liquidado','Liquidada']);
+}
+
+function _transStatusPendenteId() {
+  return _transEnsureConfigId('status', 'Pendente', ['Em aberto','Aberto','Não pago','Nao pago','A pagar','A receber','Futuro']);
+}
+
+function _transGarantirStatusPadrao() {
+  _transStatusPagoId();
+  _transStatusPendenteId();
+}
+
+function _transAddDiasIso(iso, dias) {
+  const dt = new Date(iso + 'T12:00:00');
+  dt.setDate(dt.getDate() + dias);
+  return dt.toISOString().slice(0,10);
+}
+
+function _transAddMesesIso(iso, meses) {
+  const [ano, mes, dia] = iso.split('-').map(Number);
+  const alvo = new Date(ano, mes - 1 + meses, 1);
+  const ultimoDia = new Date(alvo.getFullYear(), alvo.getMonth() + 1, 0).getDate();
+  alvo.setDate(Math.min(dia, ultimoDia));
+  return alvo.toISOString().slice(0,10);
+}
+
+function _transAddPeriodoIso(iso, frequencia, indice) {
+  if (frequencia === 'semanal') return _transAddDiasIso(iso, indice * 7);
+  if (frequencia === 'quinzenal') return _transAddDiasIso(iso, indice * 14);
+  if (frequencia === 'anual') return _transAddMesesIso(iso, indice * 12);
+  return _transAddMesesIso(iso, indice);
+}
+
+function _transGerarDatasRecorrentes(inicio, fim, frequencia) {
+  const datas = [];
+  for (let i = 0; i < 240; i++) {
+    const data = _transAddPeriodoIso(inicio, frequencia, i);
+    if (data > fim) break;
+    datas.push(data);
+  }
+  return datas;
+}
+
 /* --------------------------------------------
    PREENCHE OS SELECTS COM DADOS DE CONFIGURAÇÃO
 -------------------------------------------- */
 function preencherSelects() {
+  _transGarantirStatusPadrao();
+
   const mapa = {
     'f-cartao':          'cartoes',
     'f-tipo-pagamento':  'tipos',
@@ -6075,7 +6158,8 @@ function limparFormTransacao() {
     'f-tipo-pagamento', 'f-forma-pagamento', 'f-descricao',
     'f-descricao-tratada', 'f-perfil-despesa', 'f-categoria',
     'f-subcategoria', 'f-status-compra', 'f-valor',
-    'f-parcelado', 'f-parcela-atual', 'f-parcela-maxima', 'f-obs',
+    'f-parcelado', 'f-parcela-atual', 'f-parcela-maxima',
+    'f-recorrencia-frequencia', 'f-recorrencia-fim', 'f-obs',
   ];
   campos.forEach(id => {
     const el = document.getElementById(id);
@@ -6083,12 +6167,17 @@ function limparFormTransacao() {
   });
   limparErros();
   document.getElementById('parcelasSection').classList.remove('visible');
+  document.getElementById('recorrenciaSection')?.classList.remove('visible');
   // Checkbox reset
   const chk = document.getElementById('chk-mesma-data');
   if (chk) { chk.checked = false; }
+  const chkRec = document.getElementById('f-recorrente');
+  if (chkRec) { chkRec.checked = false; chkRec.disabled = false; }
   document.getElementById('f-data-competencia').disabled = false;
   // Default "Não" para parcelado
   document.getElementById('f-parcelado').value = 'Não';
+  document.getElementById('f-recorrencia-frequencia').value = 'mensal';
+  document.getElementById('f-status-compra').value = _transStatusPagoId();
   // Default "Saída" para tipo de pagamento (apenas em novo registro)
   if (!editandoTransId) {
     const selTipo = document.getElementById('f-tipo-pagamento');
@@ -6123,6 +6212,12 @@ function preencherFormTransacao(t) {
     document.getElementById('f-parcela-atual').value  = t.parcela_atual || '';
     document.getElementById('f-parcela-maxima').value = t.parcela_maxima || '';
   }
+  const chkRec = document.getElementById('f-recorrente');
+  if (chkRec) {
+    chkRec.checked = false;
+    chkRec.disabled = true;
+  }
+  document.getElementById('recorrenciaSection')?.classList.remove('visible');
 }
 
 /* --------------------------------------------
@@ -6147,6 +6242,11 @@ function toggleParcelas() {
   document.getElementById('parcelasSection').classList.toggle('visible', val === 'Sim');
 }
 
+function toggleRecorrenciaTransacao() {
+  const marcado = !!document.getElementById('f-recorrente')?.checked;
+  document.getElementById('recorrenciaSection')?.classList.toggle('visible', marcado);
+}
+
 /* --------------------------------------------
    SALVA A TRANSAÇÃO
 -------------------------------------------- */
@@ -6158,14 +6258,13 @@ function saveTransacao() {
     'f-data-contabil':     { err: 'e-data-contabil',     label: 'Data Contábil' },
     'f-data-competencia':  { err: 'e-data-competencia',  label: 'Data Competência' },
     'f-cartao':            { err: 'e-cartao',            label: 'Cartão' },
-    'f-tipo-pagamento':    { err: 'e-tipo-pagamento',    label: 'Tipo de Pagamento' },
+    'f-tipo-pagamento':    { err: 'e-tipo-pagamento',    label: 'Natureza' },
     'f-forma-pagamento':   { err: 'e-forma-pagamento',   label: 'Forma de Pagamento' },
     'f-descricao':         { err: 'e-descricao',         label: 'Descrição' },
     'f-descricao-tratada': { err: 'e-descricao-tratada', label: 'Descrição Tratada' },
-    'f-perfil-despesa':    { err: 'e-perfil-despesa',    label: 'Perfil da Despesa' },
+    'f-perfil-despesa':    { err: 'e-perfil-despesa',    label: 'Decisão' },
     'f-categoria':         { err: 'e-categoria',         label: 'Categoria' },
     'f-subcategoria':      { err: 'e-subcategoria',      label: 'Subcategoria' },
-    'f-status-compra':     { err: 'e-status-compra',     label: 'Status da Compra' },
     'f-valor':             { err: 'e-valor',             label: 'Valor' },
     'f-parcelado':         { err: 'e-parcelado',         label: 'Parcelado' },
   };
@@ -6191,6 +6290,24 @@ function saveTransacao() {
     }
   }
 
+  const recorrente = !editandoTransId && !!document.getElementById('f-recorrente')?.checked;
+  const frequenciaRec = document.getElementById('f-recorrencia-frequencia')?.value || 'mensal';
+  const dataFimRec = document.getElementById('f-recorrencia-fim')?.value || '';
+  if (recorrente) {
+    const dataCompetencia = document.getElementById('f-data-competencia').value;
+    if (!frequenciaRec) {
+      mostrarErro('f-recorrencia-frequencia', 'e-recorrencia-frequencia', 'Frequência obrigatória');
+      valido = false;
+    }
+    if (!dataFimRec) {
+      mostrarErro('f-recorrencia-fim', 'e-recorrencia-fim', 'Data final obrigatória');
+      valido = false;
+    } else if (dataCompetencia && dataFimRec < dataCompetencia) {
+      mostrarErro('f-recorrencia-fim', 'e-recorrencia-fim', 'Data final não pode ser anterior à competência');
+      valido = false;
+    }
+  }
+
   if (!valido) {
     toast('Preencha todos os campos obrigatórios.', 'error');
     return;
@@ -6198,10 +6315,14 @@ function saveTransacao() {
 
   // Monta objeto da transação
   const valorRaw = document.getElementById('f-valor').value.replace(/\./g, '').replace(',', '.');
+  const statusPagoId = _transStatusPagoId();
+  const statusPendenteId = _transStatusPendenteId();
+  const dataContabilBase = document.getElementById('f-data-contabil').value;
+  const dataCompetenciaBase = document.getElementById('f-data-competencia').value;
   const transacao = {
     id:                editandoTransId || uid(),
-    data_contabil:     document.getElementById('f-data-competencia').value,
-    data_competencia:  document.getElementById('f-data-contabil').value,
+    data_contabil:     dataCompetenciaBase,
+    data_competencia:  dataContabilBase,
     cartao_id:         document.getElementById('f-cartao').value,
     tipo_pagamento_id: document.getElementById('f-tipo-pagamento').value,
     forma_pagamento_id:document.getElementById('f-forma-pagamento').value,
@@ -6210,7 +6331,7 @@ function saveTransacao() {
     perfil_despesa_id: document.getElementById('f-perfil-despesa').value,
     categoria_id:      document.getElementById('f-categoria').value,
     subcategoria_id:   document.getElementById('f-subcategoria').value,
-    status_compra_id:  document.getElementById('f-status-compra').value,
+    status_compra_id:  document.getElementById('f-status-compra').value || statusPagoId,
     valor:             parseFloat(valorRaw),
     parcelado:         parcelado,
     parcela_atual:     parcelado === 'Sim' ? document.getElementById('f-parcela-atual').value : '',
@@ -6227,8 +6348,25 @@ function saveTransacao() {
     );
     dbSave('transacoes', dados);
     toast('Movimentação atualizada com sucesso!');
+  } else if (recorrente) {
+    const hoje = new Date().toISOString().slice(0,10);
+    const competencias = _transGerarDatasRecorrentes(dataCompetenciaBase, dataFimRec, frequenciaRec);
+    const contabeis = competencias.map((_, i) => _transAddPeriodoIso(dataContabilBase, frequenciaRec, i));
+    competencias.forEach((competencia, i) => {
+      dados.push({
+        ...transacao,
+        id: uid(),
+        data_contabil: competencia,
+        data_competencia: contabeis[i],
+        status_compra_id: competencia > hoje ? statusPendenteId : statusPagoId,
+        createdAt: new Date().toISOString(),
+      });
+    });
+    dbSave('transacoes', dados);
+    toast(`${competencias.length} movimentação(ões) recorrente(s) adicionada(s)!`);
   } else {
     transacao.createdAt = new Date().toISOString();
+    transacao.status_compra_id = statusPagoId;
     dados.push(transacao);
     dbSave('transacoes', dados);
     toast('Movimentação adicionada com sucesso!');
@@ -12078,12 +12216,12 @@ function verTransacao(id) {
       </div>
 
       ${[
-        ['Data Contábil',    fmtDateStr(_transDataContabil(t))],
         ['Data Competência', fmtDateStr(_transDataCompetencia(t))],
-        ['Tipo',             tipoNome],
+        ['Data Contábil',    fmtDateStr(_transDataContabil(t))],
+        ['Natureza',         tipoNome],
         ['Forma',            formaNome],
         ['Conta / Cartão',   cartaoNome],
-        ['Perfil',           perfilNome],
+        ['Decisão',          perfilNome],
         ['Categoria',        catNome],
         ['Subcategoria',     subcatNome],
         ['Status',           statusNome],
