@@ -4860,17 +4860,17 @@ main {
       <div class="form-grid">
 
         <div class="form-group">
-          <label class="form-label">Data transação <span class="req">*</span></label>
+          <label class="form-label">Data da transação <span class="req">*</span></label>
           <input type="date" class="form-input" id="f-data-contabil" onchange="syncDataCompetencia()">
           <span class="form-error" id="e-data-contabil"></span>
         </div>
 
         <div class="form-group">
-          <label class="form-label">Data baixa <span class="req">*</span></label>
+          <label class="form-label">Data da baixa <span class="req">*</span></label>
           <input type="date" class="form-input" id="f-data-competencia">
           <label class="checkbox-row">
             <input type="checkbox" id="chk-mesma-data" onchange="syncDataCompetencia()">
-            <span>Mesma data transação</span>
+            <span>Mesma data da transação</span>
           </label>
           <span class="form-error" id="e-data-competencia"></span>
         </div>
@@ -4882,21 +4882,13 @@ main {
         </div>
 
         <div class="form-group full">
-          <label class="form-label">Descrição Tratada <span class="req">*</span></label>
+          <label class="form-label">Descrição tratada <span class="req">*</span></label>
           <input type="text" class="form-input" id="f-descricao-tratada" placeholder="Descrição padronizada">
           <span class="form-error" id="e-descricao-tratada"></span>
         </div>
 
         <div class="form-group">
-          <label class="form-label">Tipo <span class="req">*</span></label>
-          <select class="form-select" id="f-tipo-pagamento">
-            <option value="">Selecione…</option>
-          </select>
-          <span class="form-error" id="e-tipo-pagamento"></span>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label">Perfil Despesa <span class="req">*</span></label>
+          <label class="form-label">Perfil da despesa <span class="req">*</span></label>
           <select class="form-select" id="f-perfil-despesa">
             <option value="">Selecione…</option>
           </select>
@@ -4912,7 +4904,7 @@ main {
         </div>
 
         <div class="form-group" id="grp-conta-destino" style="display:none">
-          <label class="form-label">Conta Destino <span class="req">*</span></label>
+          <label class="form-label">Conta de destino <span class="req">*</span></label>
           <select class="form-select" id="f-conta-destino">
             <option value="">Selecione…</option>
           </select>
@@ -4935,6 +4927,20 @@ main {
           <span class="form-error" id="e-subcategoria"></span>
         </div>
 
+        <div class="form-group">
+          <label class="form-label">Natureza <span class="req">*</span></label>
+          <select class="form-select" id="f-tipo-pagamento">
+            <option value="">Selecione…</option>
+          </select>
+          <span class="form-error" id="e-tipo-pagamento"></span>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Decisão <span class="req">*</span></label>
+          <input type="text" class="form-input" id="f-decisao" placeholder="Decisão">
+          <span class="form-error" id="e-decisao"></span>
+        </div>
+
         <div class="form-group" style="display:none">
           <label class="form-label">Status</label>
           <select class="form-select" id="f-status-compra">
@@ -4944,7 +4950,7 @@ main {
         </div>
 
         <div class="form-group">
-          <label class="form-label">Forma Pagamento <span class="req">*</span></label>
+          <label class="form-label">Forma de pagamento <span class="req">*</span></label>
           <select class="form-select" id="f-forma-pagamento">
             <option value="">Selecione…</option>
           </select>
@@ -5955,7 +5961,7 @@ const TRANS_COLUNAS = [
   { chave: 'categoria',         label: 'Categoria',        w: 140 },
   { chave: 'subcategoria',      label: 'Subcategoria',     w: 150 },
   { chave: 'tipo_pagamento',    label: 'Natureza',         w: 120 },
-  { chave: 'perfil_despesa',    label: 'Decisão',          w: 130 },
+  { chave: 'decisao',           label: 'Decisão',          w: 130 },
   { chave: 'valor',             label: 'Valor',            w: 120 },
 ];
 
@@ -6149,6 +6155,7 @@ function renderTransacoes() {
     tipo_pagamento:  dbLoad('tipos').find(x => x.id === t.tipo_pagamento_id)?.nome || '',
     forma_pagamento: dbLoad('formas').find(x => x.id === t.forma_pagamento_id)?.nome || '',
     perfil_despesa:  dbLoad('perfis').find(x => x.id === t.perfil_despesa_id)?.nome || '',
+    decisao:         _transDecisao(t) || dbLoad('perfis').find(x => x.id === t.perfil_despesa_id)?.nome || '',
     categoria:       dbLoad('categorias').find(x => x.id === t.categoria_id)?.nome || '',
     subcategoria:    dbLoad('subcategorias').find(x => x.id === t.subcategoria_id)?.nome || '',
     status_compra:   dbLoad('status').find(x => x.id === t.status_compra_id)?.nome || '',
@@ -6378,7 +6385,7 @@ function renderTransacoes() {
       <td data-label="Categoria">${escHtml(t.categoria)}</td>
       <td data-label="Subcategoria">${escHtml(t.subcategoria)}</td>
       <td data-label="Natureza">${escHtml(t.tipo_pagamento)}</td>
-      <td data-label="Decisão">${escHtml(t.perfil_despesa)}</td>
+      <td data-label="Decisão">${escHtml(t.decisao)}</td>
       ${(()=>{
         const tn=(t.tipo_pagamento||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
         const isNeutro = tn==='neutro' || tn==='';
@@ -6519,11 +6526,11 @@ function onTransCategoriaChange() {
   const categoriaId = selCategoria.value;
   const subcatId = _transEnsureSubcategoriaTransferencia(categoriaId);
   const naturezaId = _transEnsureConfigId('tipos', 'Transferência', TRANS_TRANSFERENCIA_ALIASES);
-  const decisaoId = _transEnsureConfigId('perfis', 'Transferência', TRANS_TRANSFERENCIA_ALIASES);
 
   _transSetSelectValue('f-subcategoria', 'subcategorias', subcatId);
   _transSetSelectValue('f-tipo-pagamento', 'tipos', naturezaId);
-  _transSetSelectValue('f-perfil-despesa', 'perfis', decisaoId);
+  const decisaoEl = document.getElementById('f-decisao');
+  if (decisaoEl) decisaoEl.value = 'Transferência';
 }
 
 function _transStatusPagoId() {
@@ -6612,7 +6619,7 @@ function limparFormTransacao() {
     'f-data-contabil', 'f-data-competencia', 'f-cartao', 'f-conta-destino',
     'f-tipo-pagamento', 'f-forma-pagamento', 'f-descricao',
     'f-descricao-tratada', 'f-perfil-despesa', 'f-categoria',
-    'f-subcategoria', 'f-status-compra', 'f-valor',
+    'f-subcategoria', 'f-decisao', 'f-status-compra', 'f-valor',
     'f-parcelado', 'f-parcela-atual', 'f-parcela-maxima',
     'f-recorrencia-frequencia', 'f-recorrencia-fim', 'f-obs',
   ];
@@ -6664,7 +6671,8 @@ function preencherFormTransacao(t) {
   document.getElementById('f-conta-destino').value      = '';
   toggleContaDestinoTransacao(false);
 
-  document.getElementById('f-obs').value = t.observacoes || '';
+  document.getElementById('f-decisao').value = _transDecisao(t);
+  document.getElementById('f-obs').value = _transObservacoesTexto(t);
   if (t.parcelado === 'Sim') {
     document.getElementById('parcelasSection').classList.add('visible');
     document.getElementById('f-parcela-atual').value  = t.parcela_atual || '';
@@ -6713,16 +6721,17 @@ function saveTransacao() {
 
   // Campos obrigatórios
   const obrigatorios = {
-    'f-data-contabil':     { err: 'e-data-contabil',     label: 'Data transação' },
-    'f-data-competencia':  { err: 'e-data-competencia',  label: 'Data baixa' },
+    'f-data-contabil':     { err: 'e-data-contabil',     label: 'Data da transação' },
+    'f-data-competencia':  { err: 'e-data-competencia',  label: 'Data da baixa' },
     'f-cartao':            { err: 'e-cartao',            label: 'Conta' },
-    'f-tipo-pagamento':    { err: 'e-tipo-pagamento',    label: 'Tipo' },
-    'f-forma-pagamento':   { err: 'e-forma-pagamento',   label: 'Forma Pagamento' },
+    'f-tipo-pagamento':    { err: 'e-tipo-pagamento',    label: 'Natureza' },
+    'f-forma-pagamento':   { err: 'e-forma-pagamento',   label: 'Forma de pagamento' },
     'f-descricao':         { err: 'e-descricao',         label: 'Descrição' },
-    'f-descricao-tratada': { err: 'e-descricao-tratada', label: 'Descrição Tratada' },
-    'f-perfil-despesa':    { err: 'e-perfil-despesa',    label: 'Perfil Despesa' },
+    'f-descricao-tratada': { err: 'e-descricao-tratada', label: 'Descrição tratada' },
+    'f-perfil-despesa':    { err: 'e-perfil-despesa',    label: 'Perfil da despesa' },
     'f-categoria':         { err: 'e-categoria',         label: 'Categoria' },
     'f-subcategoria':      { err: 'e-subcategoria',      label: 'Subcategoria' },
+    'f-decisao':           { err: 'e-decisao',           label: 'Decisão' },
     'f-valor':             { err: 'e-valor',             label: 'Valor' },
     'f-parcelado':         { err: 'e-parcelado',         label: 'Parcela' },
   };
@@ -6790,6 +6799,7 @@ function saveTransacao() {
   const statusPendenteId = _transStatusPendenteId();
   const dataContabilBase = document.getElementById('f-data-contabil').value;
   const dataCompetenciaBase = document.getElementById('f-data-competencia').value;
+  const decisao = document.getElementById('f-decisao').value.trim();
   const transacao = {
     id:                editandoTransId || uid(),
     data_contabil:     dataCompetenciaBase,
@@ -6807,7 +6817,8 @@ function saveTransacao() {
     parcelado:         parcelado,
     parcela_atual:     parcelado === 'Sim' ? parseInt(document.getElementById('f-parcela-atual').value, 10) : null,
     parcela_maxima:    parcelado === 'Sim' ? parseInt(document.getElementById('f-parcela-maxima').value, 10) : null,
-    observacoes:       document.getElementById('f-obs').value.trim(),
+    decisao:           decisao,
+    observacoes:       _transBuildObservacoes(document.getElementById('f-obs').value.trim(), { decisao }),
   };
 
   // Insere ou atualiza
@@ -6895,6 +6906,40 @@ function limparErros() {
   document.querySelectorAll('.form-error').forEach(el => el.textContent = '');
 }
 
+const TRANS_OBS_META_RE = /\s*\[\[SC_META:([^\]]+)\]\]\s*$/;
+
+function _transSplitObservacoes(valor) {
+  const bruto = (valor || '').toString();
+  const match = bruto.match(TRANS_OBS_META_RE);
+  if (!match) return { texto: bruto, meta: {} };
+  try {
+    const meta = JSON.parse(decodeURIComponent(match[1]));
+    return { texto: bruto.replace(TRANS_OBS_META_RE, '').trim(), meta };
+  } catch (_) {
+    return { texto: bruto, meta: {} };
+  }
+}
+
+function _transBuildObservacoes(texto, meta = {}) {
+  const base = _transSplitObservacoes(texto).texto.trim();
+  const limpo = {};
+  Object.entries(meta).forEach(([k, v]) => {
+    const val = (v || '').toString().trim();
+    if (val) limpo[k] = val;
+  });
+  if (!Object.keys(limpo).length) return base;
+  const marcador = `[[SC_META:${encodeURIComponent(JSON.stringify(limpo))}]]`;
+  return base ? `${base}\n${marcador}` : marcador;
+}
+
+function _transDecisao(t) {
+  return (t?.decisao || _transSplitObservacoes(t?.observacoes).meta.decisao || '').toString();
+}
+
+function _transObservacoesTexto(t) {
+  return _transSplitObservacoes(t?.observacoes).texto;
+}
+
 function _transNomeColecao(colecao, id) {
   return dbLoad(colecao).find(x => x.id === id)?.nome || '';
 }
@@ -6904,6 +6949,7 @@ function _transIsTransferenciaLancamento(t) {
     t.tipo_pagamento,
     t.categoria,
     t.subcategoria,
+    _transDecisao(t),
     t.perfil_despesa,
     _transNomeColecao('tipos', t.tipo_pagamento_id),
     _transNomeColecao('categorias', t.categoria_id),
@@ -12717,6 +12763,8 @@ function verTransacao(id) {
   const subcatNome = dbLoad('subcategorias').find(x=>x.id===t.subcategoria_id)?.nome || '—';
   const perfilNome = dbLoad('perfis').find(x=>x.id===t.perfil_despesa_id)?.nome   || '—';
   const statusNome = dbLoad('status').find(x=>x.id===t.status_compra_id)?.nome    || '—';
+  const decisaoNome = _transDecisao(t) || '—';
+  const obsTexto   = _transObservacoesTexto(t);
   const valor      = parseFloat(t.valor)||0;
   const isSaida    = tipoNome.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'') === 'saida';
   const corValor   = isSaida ? '#D93025' : '#00875A';
@@ -12733,17 +12781,18 @@ function verTransacao(id) {
       </div>
 
       ${[
-        ['Data Competência', fmtDateStr(_transDataCompetencia(t))],
-        ['Data Contábil',    fmtDateStr(_transDataContabil(t))],
+        ['Data da baixa',    fmtDateStr(_transDataCompetencia(t))],
+        ['Data da transação',fmtDateStr(_transDataContabil(t))],
+        ['Perfil da despesa',perfilNome],
+        ['Conta',            cartaoNome],
         ['Natureza',         tipoNome],
-        ['Forma',            formaNome],
-        ['Conta / Cartão',   cartaoNome],
-        ['Decisão',          perfilNome],
+        ['Decisão',          decisaoNome],
+        ['Forma de pagamento', formaNome],
         ['Categoria',        catNome],
         ['Subcategoria',     subcatNome],
         ['Status',           statusNome],
         t.parcelado==='Sim' ? ['Parcelas', `${t.parcela_atual||'?'}/${t.parcela_maxima||'?'}`] : null,
-      t.observacoes ? ['Observações', t.observacoes] : null,
+      obsTexto ? ['Observações', obsTexto] : null,
       ].filter(Boolean).map(([l,v])=>`
         <div class="comprovante-row">
           <span class="comprovante-row-label">${l}</span>
@@ -13459,13 +13508,14 @@ function exportarTransacoesFormato(formato) {
     'Cartão/Conta':      findNome(cartoes,   t.cartao_id),
     'Forma de Pagamento':findNome(formas,    t.forma_pagamento_id),
     'Perfil':            findNome(perfis,    t.perfil_despesa_id),
+    'Decisão':           _transDecisao(t),
     'Categoria':         findNome(categorias,t.categoria_id),
     'Subcategoria':      findNome(subcat,    t.subcategoria_id),
     'Status':            findNome(statuses,  t.status_compra_id),
     'Parcelado':         t.parcelado === 'Sim' ? 'Sim' : 'Não',
     'Parcela':           t.parcelado === 'Sim' ? `${t.parcela_atual||1}/${t.parcela_maxima||1}` : '',
     'Valor (R$)':        parseFloat(t.valor||0).toFixed(2).replace('.',','),
-    'Observações':       t.observacoes || '',
+    'Observações':       _transObservacoesTexto(t),
   }));
 
   const nomeArquivo = `SaldoCerto_transacoes_${new Date().toISOString().slice(0,10)}`;
