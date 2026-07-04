@@ -28,6 +28,7 @@ alter table public.decisoes
   add column if not exists user_id uuid references auth.users(id) on delete cascade;
 
 alter table public.transacoes
+  add column if not exists conta_destino_id uuid references public.cartoes(id) on delete set null,
   add column if not exists natureza_id uuid references public.naturezas(id) on delete set null,
   add column if not exists decisao_id uuid references public.decisoes(id) on delete set null;
 

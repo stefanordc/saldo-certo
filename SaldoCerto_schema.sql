@@ -85,6 +85,7 @@ create table if not exists transacoes (
   importado           boolean default false,
 
   cartao_id           uuid references cartoes(id)           on delete set null,
+  conta_destino_id    uuid references cartoes(id)           on delete set null,
   tipo_pagamento_id   uuid references tipos_pagamento(id)   on delete set null,
   forma_pagamento_id  uuid references formas_pagamento(id)  on delete set null,
   perfil_despesa_id   uuid references perfis_despesa(id)    on delete set null,

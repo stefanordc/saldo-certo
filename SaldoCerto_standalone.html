@@ -6246,6 +6246,35 @@ function _transSetSelectValue(selectId, colecao, id) {
   sel.value = id;
 }
 
+function _transResolverContaId(valor) {
+  const raw = (valor || '').toString().trim();
+  if (!raw) return '';
+  const contas = dbLoad('cartoes');
+  if (contas.some(c => c.id === raw)) return raw;
+  const norm = _transNormTexto(raw);
+  return contas.find(c => _transNormTexto(c.nome) === norm)?.id ||
+         contas.find(c => _transNormTexto(c.nome).includes(norm) || norm.includes(_transNormTexto(c.nome)))?.id ||
+         '';
+}
+
+function _transContaDestinoLegadaId(t) {
+  const meta = _transSplitObservacoes(t?.observacoes).meta || {};
+  return _transResolverContaId(
+    t?.conta_destino_id ||
+    t?.contaDestinoId ||
+    t?.conta_destino ||
+    t?.contaDestino ||
+    t?.cartao_destino_id ||
+    t?.destino_id ||
+    t?.destino ||
+    meta.conta_destino_id ||
+    meta.contaDestinoId ||
+    meta.conta_destino ||
+    meta.contaDestino ||
+    meta.cartao_destino_id
+  );
+}
+
 function _transAplicarTransferenciaNoForm() {
   const categoriaId = _transCategoriaIdTransferencia();
   const subcatId = _transEnsureSubcategoriaTransferencia(categoriaId);
@@ -6326,21 +6355,32 @@ function _transChaveDescricaoPar(t) {
   return _transNormTexto(t?.descricao_tratada || t?.descricao || '');
 }
 
-function _transEhParTransferencia(a, b) {
+function _transPontuarParTransferencia(a, b) {
   if (!a || !b || a.id === b.id) return false;
   if (!_transIsTransferenciaLancamento(a) || !_transIsTransferenciaLancamento(b)) return false;
   if (a.cartao_id && b.cartao_id && a.cartao_id === b.cartao_id) return false;
   if (Math.abs(parseFloat(a.valor) || 0) !== Math.abs(parseFloat(b.valor) || 0)) return false;
-  if (_transDataContabil(a) !== _transDataContabil(b)) return false;
-  if (_transDataCompetencia(a) !== _transDataCompetencia(b)) return false;
+  const mesmaBaixa = _transDataCompetencia(a) && _transDataCompetencia(a) === _transDataCompetencia(b);
+  const mesmaTransacao = _transDataContabil(a) && _transDataContabil(a) === _transDataContabil(b);
+  if (!mesmaBaixa && !mesmaTransacao) return false;
+
+  let score = 0;
+  if (mesmaBaixa) score += 4;
+  if (mesmaTransacao) score += 3;
+  if ((_transIsSaidaOperacional(a) && _transIsEntradaOperacional(b)) || (_transIsEntradaOperacional(a) && _transIsSaidaOperacional(b))) score += 6;
   const da = _transChaveDescricaoPar(a);
   const db = _transChaveDescricaoPar(b);
-  if (da && db && da !== db) return false;
-  return true;
+  if (da && db && da === db) score += 2;
+  if (a.forma_pagamento_id && a.forma_pagamento_id === b.forma_pagamento_id) score += 1;
+  return score;
 }
 
 function _transEncontrarParTransferencia(t) {
-  const candidatos = dbLoad('transacoes').filter(x => _transEhParTransferencia(t, x));
+  const candidatos = dbLoad('transacoes')
+    .map(x => ({ item: x, score: _transPontuarParTransferencia(t, x) }))
+    .filter(x => x.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .map(x => x.item);
   if (!candidatos.length) return null;
   const querEntrada = _transIsSaidaOperacional(t);
   const querSaida = _transIsEntradaOperacional(t);
@@ -6349,6 +6389,11 @@ function _transEncontrarParTransferencia(t) {
 }
 
 function _transOrigemDestinoTransferencia(t) {
+  const destinoLegadoId = _transContaDestinoLegadaId(t);
+  if (destinoLegadoId && destinoLegadoId !== t?.cartao_id && !_transIsEntradaOperacional(t)) {
+    return { origem: t, destino: null, destinoId: destinoLegadoId };
+  }
+
   const par = _transEncontrarParTransferencia(t);
   if (par) {
     if (_transIsEntradaOperacional(t) && !_transIsEntradaOperacional(par)) {
@@ -6734,6 +6779,7 @@ function saveTransacao() {
     data_contabil:     dataCompetenciaBase,
     data_competencia:  dataContabilBase,
     cartao_id:         contaOrigemId,
+    conta_destino_id:  transferenciaAtual ? contaDestinoId : null,
     tipo_pagamento_id: tipoOperacionalId,
     forma_pagamento_id:document.getElementById('f-forma-pagamento').value,
     descricao:         document.getElementById('f-descricao').value.trim(),
@@ -6768,6 +6814,7 @@ function saveTransacao() {
             ...transacao,
             id: origemId,
             cartao_id: contaOrigemId,
+            conta_destino_id: contaDestinoId,
             tipo_pagamento_id: _transTipoSaidaId(),
             status_compra_id: statusPagoId,
             updatedAt: now,
@@ -6780,6 +6827,7 @@ function saveTransacao() {
             ...transacao,
             id: destinoId,
             cartao_id: contaDestinoId,
+            conta_destino_id: contaOrigemId,
             tipo_pagamento_id: _transTipoEntradaId(),
             status_compra_id: statusPagoId,
             updatedAt: now,
@@ -6792,6 +6840,7 @@ function saveTransacao() {
           ...transacao,
           id: destinoId,
           cartao_id: contaDestinoId,
+          conta_destino_id: contaOrigemId,
           tipo_pagamento_id: _transTipoEntradaId(),
           status_compra_id: statusPagoId,
           createdAt: now,
@@ -6824,8 +6873,8 @@ function saveTransacao() {
       };
       if (transferenciaNova) {
         dados.push(
-          { ...baseRecorrente, id: uid(), cartao_id: contaOrigemId, tipo_pagamento_id: tipoSaidaId },
-          { ...baseRecorrente, id: uid(), cartao_id: contaDestinoId, tipo_pagamento_id: tipoEntradaId }
+          { ...baseRecorrente, id: uid(), cartao_id: contaOrigemId, conta_destino_id: contaDestinoId, tipo_pagamento_id: tipoSaidaId },
+          { ...baseRecorrente, id: uid(), cartao_id: contaDestinoId, conta_destino_id: contaOrigemId, tipo_pagamento_id: tipoEntradaId }
         );
       } else {
         dados.push(baseRecorrente);
@@ -6843,6 +6892,7 @@ function saveTransacao() {
           ...transacao,
           id: uid(),
           cartao_id: contaOrigemId,
+          conta_destino_id: contaDestinoId,
           tipo_pagamento_id: _transTipoSaidaId(),
           status_compra_id: statusPagoId,
           createdAt,
@@ -6851,6 +6901,7 @@ function saveTransacao() {
           ...transacao,
           id: uid(),
           cartao_id: contaDestinoId,
+          conta_destino_id: contaOrigemId,
           tipo_pagamento_id: _transTipoEntradaId(),
           status_compra_id: statusPagoId,
           createdAt,
@@ -13436,6 +13487,7 @@ function impExecutar() {
         data_contabil:      dataCompetencia,
         data_competencia:   dataContabil,
         cartao_id:          contaOrigemId,
+        conta_destino_id:   transferenciaImportada && contaDestinoId ? contaDestinoId : null,
         tipo_pagamento_id:  tipoId,
         forma_pagamento_id: findId(formas,     get('forma')),
         descricao:          descricao,
@@ -13457,8 +13509,8 @@ function impExecutar() {
 
       if (transferenciaImportada && contaDestinoId && contaDestinoId !== contaOrigemId) {
         transacoes.push(
-          { ...nova, id: uid(), cartao_id: contaOrigemId, tipo_pagamento_id: _transTipoSaidaId() },
-          { ...nova, id: uid(), cartao_id: contaDestinoId, tipo_pagamento_id: _transTipoEntradaId() }
+          { ...nova, id: uid(), cartao_id: contaOrigemId, conta_destino_id: contaDestinoId, tipo_pagamento_id: _transTipoSaidaId() },
+          { ...nova, id: uid(), cartao_id: contaDestinoId, conta_destino_id: contaOrigemId, tipo_pagamento_id: _transTipoEntradaId() }
         );
       } else {
         transacoes.push(nova);

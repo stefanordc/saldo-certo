@@ -140,6 +140,10 @@ function boolValue(value) {
   return value === true || value === 1 || value === '1' || String(value).toLowerCase() === 'true';
 }
 
+function firstValue(...values) {
+  return values.find((value) => cleanText(value)) || null;
+}
+
 function rowSql(row) {
   return `(${row.map(sqlValue).join(', ')})`;
 }
@@ -357,6 +361,7 @@ async function main() {
       cleanText(row.observacoes) || null,
       true,
       idMap('contas', row.conta_id, contaIds),
+      idMap('contas', firstValue(row.conta_destino_id, row.conta_destino, row.contaDestino), contaIds),
       deterministicUuid('tipos_pagamento', tipoKey),
       idMap('formas_pagamento', row.forma_pagamento, formaIds),
       deterministicUuid('perfis_despesa', perfilKey),
@@ -445,6 +450,7 @@ async function main() {
       'observacoes',
       'importado',
       'cartao_id',
+      'conta_destino_id',
       'tipo_pagamento_id',
       'forma_pagamento_id',
       'perfil_despesa_id',
@@ -533,6 +539,7 @@ async function main() {
         'observacoes',
         'importado',
         'cartao_id',
+        'conta_destino_id',
         'tipo_pagamento_id',
         'forma_pagamento_id',
         'perfil_despesa_id',
