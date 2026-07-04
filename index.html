@@ -6637,7 +6637,7 @@ function _transCategoriaSelecionadaEhTransferencia() {
 function toggleContaDestinoTransacao(isTransferencia = _transCategoriaSelecionadaEhTransferencia()) {
   const grupo = document.getElementById('grp-conta-destino');
   const selDestino = document.getElementById('f-conta-destino');
-  const exibir = !!isTransferencia && !editandoTransId;
+  const exibir = !!isTransferencia;
   if (grupo) grupo.style.display = exibir ? '' : 'none';
   if (!exibir && selDestino) selDestino.value = '';
   if (exibir) _transAtualizarOpcoesContaDestino();
@@ -6677,6 +6677,58 @@ function onTransTransferenciaFieldChange(changedId = '') {
 
 function onTransCategoriaChange() {
   onTransTransferenciaFieldChange('f-categoria');
+}
+
+function _transTipoNomeNorm(t) {
+  return _transNormTexto(_transNomeColecao('tipos', t?.tipo_pagamento_id) || t?.tipo_pagamento);
+}
+
+function _transIsEntradaOperacional(t) {
+  return _transTipoNomeNorm(t) === 'entrada';
+}
+
+function _transIsSaidaOperacional(t) {
+  return _transTipoNomeNorm(t) === 'saida';
+}
+
+function _transChaveDescricaoPar(t) {
+  return _transNormTexto(t?.descricao_tratada || t?.descricao || '');
+}
+
+function _transEhParTransferencia(a, b) {
+  if (!a || !b || a.id === b.id) return false;
+  if (!_transIsTransferenciaLancamento(a) || !_transIsTransferenciaLancamento(b)) return false;
+  if (a.cartao_id && b.cartao_id && a.cartao_id === b.cartao_id) return false;
+  if (Math.abs(parseFloat(a.valor) || 0) !== Math.abs(parseFloat(b.valor) || 0)) return false;
+  if (_transDataContabil(a) !== _transDataContabil(b)) return false;
+  if (_transDataCompetencia(a) !== _transDataCompetencia(b)) return false;
+  const da = _transChaveDescricaoPar(a);
+  const db = _transChaveDescricaoPar(b);
+  if (da && db && da !== db) return false;
+  return true;
+}
+
+function _transEncontrarParTransferencia(t) {
+  const candidatos = dbLoad('transacoes').filter(x => _transEhParTransferencia(t, x));
+  if (!candidatos.length) return null;
+  const querEntrada = _transIsSaidaOperacional(t);
+  const querSaida = _transIsEntradaOperacional(t);
+  return candidatos.find(x => querEntrada ? _transIsEntradaOperacional(x) : querSaida ? _transIsSaidaOperacional(x) : false)
+      || candidatos[0];
+}
+
+function _transOrigemDestinoTransferencia(t) {
+  const par = _transEncontrarParTransferencia(t);
+  if (par) {
+    if (_transIsEntradaOperacional(t) && !_transIsEntradaOperacional(par)) {
+      return { origem: par, destino: t, destinoId: t.cartao_id || '' };
+    }
+    if (_transIsEntradaOperacional(par) && !_transIsEntradaOperacional(t)) {
+      return { origem: t, destino: par, destinoId: par.cartao_id || '' };
+    }
+    return { origem: t, destino: par, destinoId: par.cartao_id || '' };
+  }
+  return { origem: t, destino: null, destinoId: '' };
 }
 
 function _transTextoContexto(t) {
@@ -6893,29 +6945,32 @@ function limparFormTransacao() {
    PREENCHE O FORMULÁRIO (modo edição)
 -------------------------------------------- */
 function preencherFormTransacao(t) {
-  document.getElementById('f-data-contabil').value     = _transDataContabil(t);
-  document.getElementById('f-data-competencia').value  = _transDataCompetencia(t);
-  document.getElementById('f-cartao').value            = t.cartao_id || '';
-  document.getElementById('f-tipo-pagamento').value    = t.tipo_pagamento_id || '';
-  document.getElementById('f-forma-pagamento').value   = t.forma_pagamento_id || '';
-  document.getElementById('f-descricao').value         = t.descricao || '';
-  document.getElementById('f-descricao-tratada').value = t.descricao_tratada || '';
-  document.getElementById('f-perfil-despesa').value    = t.perfil_despesa_id || '';
-  document.getElementById('f-categoria').value         = t.categoria_id || '';
-  document.getElementById('f-subcategoria').value      = t.subcategoria_id || '';
-  document.getElementById('f-natureza').value           = t.natureza_id || _transFindConfigId('naturezas', [_transNatureza(t)]);
-  document.getElementById('f-status-compra').value     = t.status_compra_id || '';
-  document.getElementById('f-valor').value             = t.valor ? fmtValor(parseFloat(t.valor)) : '';
-  document.getElementById('f-parcelado').value         = t.parcelado || '';
-  document.getElementById('f-conta-destino').value      = '';
-  toggleContaDestinoTransacao(false);
+  const transf = _transIsTransferenciaLancamento(t) ? _transOrigemDestinoTransferencia(t) : null;
+  const base = transf?.origem || t;
 
-  document.getElementById('f-decisao').value = t.decisao_id || _transFindConfigId('decisoes', [_transDecisao(t)]);
-  document.getElementById('f-obs').value = _transObservacoesTexto(t);
-  if (t.parcelado === 'Sim') {
+  document.getElementById('f-data-contabil').value     = _transDataContabil(base);
+  document.getElementById('f-data-competencia').value  = _transDataCompetencia(base);
+  document.getElementById('f-cartao').value            = base.cartao_id || '';
+  document.getElementById('f-tipo-pagamento').value    = base.tipo_pagamento_id || '';
+  document.getElementById('f-forma-pagamento').value   = base.forma_pagamento_id || '';
+  document.getElementById('f-descricao').value         = base.descricao || '';
+  document.getElementById('f-descricao-tratada').value = base.descricao_tratada || '';
+  document.getElementById('f-perfil-despesa').value    = base.perfil_despesa_id || '';
+  document.getElementById('f-categoria').value         = base.categoria_id || '';
+  document.getElementById('f-subcategoria').value      = base.subcategoria_id || '';
+  document.getElementById('f-natureza').value           = base.natureza_id || _transFindConfigId('naturezas', [_transNatureza(base)]);
+  document.getElementById('f-status-compra').value     = base.status_compra_id || '';
+  document.getElementById('f-valor').value             = base.valor ? fmtValor(parseFloat(base.valor)) : '';
+  document.getElementById('f-parcelado').value         = base.parcelado || '';
+  document.getElementById('f-conta-destino').value      = transf?.destinoId || '';
+  toggleContaDestinoTransacao(!!transf);
+
+  document.getElementById('f-decisao').value = base.decisao_id || _transFindConfigId('decisoes', [_transDecisao(base)]);
+  document.getElementById('f-obs').value = _transObservacoesTexto(base);
+  if (base.parcelado === 'Sim') {
     document.getElementById('parcelasSection').classList.add('visible');
-    document.getElementById('f-parcela-atual').value  = t.parcela_atual || '';
-    document.getElementById('f-parcela-maxima').value = t.parcela_maxima || '';
+    document.getElementById('f-parcela-atual').value  = base.parcela_atual || '';
+    document.getElementById('f-parcela-maxima').value = base.parcela_maxima || '';
   }
   const chkRec = document.getElementById('f-recorrente');
   if (chkRec) {
@@ -6996,10 +7051,11 @@ function saveTransacao() {
     }
   }
 
-  const transferenciaNova = !editandoTransId && _transCategoriaSelecionadaEhTransferencia();
+  const transferenciaAtual = _transCategoriaSelecionadaEhTransferencia();
+  const transferenciaNova = !editandoTransId && transferenciaAtual;
   const contaOrigemId = document.getElementById('f-cartao').value;
   const contaDestinoId = document.getElementById('f-conta-destino')?.value || '';
-  if (transferenciaNova) {
+  if (transferenciaAtual) {
     if (!contaDestinoId) {
       mostrarErro('f-conta-destino', 'e-conta-destino', 'Conta destino é obrigatória');
       valido = false;
@@ -7067,12 +7123,59 @@ function saveTransacao() {
   // Insere ou atualiza
   let dados = dbLoad('transacoes');
   if (editandoTransId) {
-    dados = dados.map(x => x.id === editandoTransId
-      ? { ...x, ...transacao, updatedAt: new Date().toISOString() }
-      : x
-    );
-    dbSave('transacoes', dados);
-    toast('Movimentação atualizada com sucesso!');
+    if (transferenciaAtual) {
+      const original = dados.find(x => x.id === editandoTransId) || transacao;
+      const par = _transOrigemDestinoTransferencia(original);
+      const origemId = par?.origem?.id || editandoTransId;
+      const destinoId = par?.destino?.id || uid();
+      const now = new Date().toISOString();
+      let destinoExiste = false;
+      dados = dados.map(x => {
+        if (x.id === origemId) {
+          return {
+            ...x,
+            ...transacao,
+            id: origemId,
+            cartao_id: contaOrigemId,
+            tipo_pagamento_id: _transTipoSaidaId(),
+            status_compra_id: statusPagoId,
+            updatedAt: now,
+          };
+        }
+        if (x.id === destinoId) {
+          destinoExiste = true;
+          return {
+            ...x,
+            ...transacao,
+            id: destinoId,
+            cartao_id: contaDestinoId,
+            tipo_pagamento_id: _transTipoEntradaId(),
+            status_compra_id: statusPagoId,
+            updatedAt: now,
+          };
+        }
+        return x;
+      });
+      if (!destinoExiste) {
+        dados.push({
+          ...transacao,
+          id: destinoId,
+          cartao_id: contaDestinoId,
+          tipo_pagamento_id: _transTipoEntradaId(),
+          status_compra_id: statusPagoId,
+          createdAt: now,
+        });
+      }
+      dbSave('transacoes', dados);
+      toast('Transferência atualizada com sucesso!');
+    } else {
+      dados = dados.map(x => x.id === editandoTransId
+        ? { ...x, ...transacao, updatedAt: new Date().toISOString() }
+        : x
+      );
+      dbSave('transacoes', dados);
+      toast('Movimentação atualizada com sucesso!');
+    }
   } else if (recorrente) {
     const hoje = new Date().toISOString().slice(0,10);
     const competencias = _transGerarDatasRecorrentes(dataCompetenciaBase, dataFimRec, frequenciaRec);
@@ -13303,6 +13406,7 @@ const IMP_CAMPOS = {
   valor:           ['valor','value','amount','montante','vlr'],
   tipo:            ['tipo','type'],
   cartao:          ['cartão','cartao','conta','card','banco'],
+  conta_destino:   ['conta destino','conta_destino','contaDestino','conta de destino','destino','conta destino transferência','conta destino transferencia'],
   categoria:       ['categoria','category','cat'],
   subcategoria:    ['subcategoria','subcategory','subcat'],
   forma:           ['forma','forma pgto','forma de pagamento','forma_pagamento','formaPagamento','payment method','pagamento'],
@@ -13636,11 +13740,26 @@ function impExecutar() {
                               new Date().toISOString().slice(0, 10);
       const dataContabil    = parseDataISO(get('data_contabil'))    || dataCompetencia;
 
-      const categoriaId = findId(categorias, get('categoria'));
-      const categoriaNome = categorias.find(x => x.id === categoriaId)?.nome || get('categoria');
-      const categoriaTransferencia = _transIsTransferenciaNome(categoriaNome);
-      const naturezaId = findId(naturezas, get('natureza')) || (categoriaTransferencia ? _transNaturezaIdTransferencia() : '');
-      const decisaoId = findId(decisoes, get('decisao')) || (categoriaTransferencia ? _transDecisaoIdTransferencia() : '');
+      const contaOrigemId = findId(cartoes, get('cartao'));
+      const contaDestinoId = findId(cartoes, get('conta_destino'));
+      let categoriaId = findId(categorias, get('categoria'));
+      let categoriaNome = categorias.find(x => x.id === categoriaId)?.nome || get('categoria');
+      const transferenciaImportada = [
+        categoriaNome,
+        get('subcategoria'),
+        get('natureza'),
+        get('decisao'),
+        get('perfil'),
+        get('tipo'),
+      ].some(_transIsTransferenciaNome);
+      if (transferenciaImportada && !categoriaId) {
+        categoriaId = _transCategoriaIdTransferencia();
+        categoriaNome = 'Transferência';
+      }
+      const naturezaId = findId(naturezas, get('natureza')) || (transferenciaImportada ? _transNaturezaIdTransferencia() : '');
+      const decisaoId = findId(decisoes, get('decisao')) || (transferenciaImportada ? _transDecisaoIdTransferencia() : '');
+      const perfilId = findId(perfis, get('perfil')) || (transferenciaImportada ? _transPerfilIdTransferencia() : '');
+      const subcategoriaId = findId(subcat, get('subcategoria')) || (transferenciaImportada ? _transEnsureSubcategoriaTransferencia(categoriaId) : '');
 
       /* -- Tipo operacional: Entrada/Saída para saldo; Natureza é campo separado -- */
       const tipoRawOrig = get('tipo');
@@ -13680,14 +13799,14 @@ function impExecutar() {
         id:                 uid(),
         data_contabil:      dataCompetencia,
         data_competencia:   dataContabil,
-        cartao_id:          findId(cartoes,    get('cartao')),
+        cartao_id:          contaOrigemId,
         tipo_pagamento_id:  tipoId,
         forma_pagamento_id: findId(formas,     get('forma')),
         descricao:          descricao,
         descricao_tratada:  descricaoTratada,
-        perfil_despesa_id:  findId(perfis,     get('perfil')),
+        perfil_despesa_id:  perfilId,
         categoria_id:       categoriaId,
-        subcategoria_id:    findId(subcat,      get('subcategoria')),
+        subcategoria_id:    subcategoriaId,
         natureza_id:        naturezaId,
         decisao_id:         decisaoId,
         status_compra_id:   findId(statuses,   get('status')),
@@ -13700,7 +13819,14 @@ function impExecutar() {
         importado:          true,
       };
 
-      transacoes.push(nova);
+      if (transferenciaImportada && contaDestinoId && contaDestinoId !== contaOrigemId) {
+        transacoes.push(
+          { ...nova, id: uid(), cartao_id: contaOrigemId, tipo_pagamento_id: _transTipoSaidaId() },
+          { ...nova, id: uid(), cartao_id: contaDestinoId, tipo_pagamento_id: _transTipoEntradaId() }
+        );
+      } else {
+        transacoes.push(nova);
+      }
       importadas++;
     } catch(e) {
       console.warn('Erro ao importar linha:', e);
