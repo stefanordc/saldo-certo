@@ -5691,6 +5691,19 @@ function _transDataReferencia(t) {
   return _transDataCompetencia(t);
 }
 
+function _transTimestampCriacao(t) {
+  const raw = t?.createdAt || t?.created_at || '';
+  const ts = Date.parse(raw);
+  return Number.isFinite(ts) ? ts : 0;
+}
+
+function _transDesempateInsercaoRecente(a, b, ordemInsercao = new Map()) {
+  const ta = _transTimestampCriacao(a);
+  const tb = _transTimestampCriacao(b);
+  if (ta !== tb) return tb - ta;
+  return (ordemInsercao.get(b.id) ?? 0) - (ordemInsercao.get(a.id) ?? 0);
+}
+
 function _transMesReferenciaAtual(transacoes = dbLoad('transacoes')) {
   const meses = [...new Set((transacoes || [])
     .map(t => _transDataReferencia(t).slice(0, 7))
@@ -5922,7 +5935,9 @@ function renderTransacoes() {
   const busca = (document.getElementById('transSearch')?.value || '').toLowerCase();
 
   // Carrega e enriquece com nomes das tabelas de apoio
-  let dados = dbLoad('transacoes').map(t => ({
+  const transacoesOriginais = dbLoad('transacoes');
+  const ordemInsercao = new Map(transacoesOriginais.map((t, i) => [t.id, i]));
+  let dados = transacoesOriginais.map(t => ({
     ...t,
     cartao:          dbLoad('cartoes').find(x => x.id === t.cartao_id)?.nome || '',
     tipo_pagamento:  dbLoad('tipos').find(x => x.id === t.tipo_pagamento_id)?.nome || '',
@@ -5986,12 +6001,14 @@ function renderTransacoes() {
     if (ord.col === 'data_competencia') {
       const av = _transDataCompetencia(a);
       const bv = _transDataCompetencia(b);
-      return ord.dir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
+      const porData = ord.dir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
+      return porData || _transDesempateInsercaoRecente(a, b, ordemInsercao);
     }
     if (ord.col === 'data_contabil') {
       const av = _transDataContabil(a);
       const bv = _transDataContabil(b);
-      return ord.dir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
+      const porData = ord.dir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
+      return porData || _transDesempateInsercaoRecente(a, b, ordemInsercao);
     }
     const av = (a[ord.col] || '').toString().toLowerCase();
     const bv = (b[ord.col] || '').toString().toLowerCase();
