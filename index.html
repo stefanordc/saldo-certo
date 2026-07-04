@@ -324,6 +324,43 @@ main { padding: 28px 28px 48px; }
 
 /* -- TABELA -- */
 .table-wrap { overflow-x: auto; border-radius: var(--radius); border: 1px solid var(--border); }
+.trans-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding-top: 12px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.trans-pagination-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.trans-page-btn {
+  min-width: 32px;
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+.trans-page-btn:hover:not(:disabled),
+.trans-page-btn.active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+.trans-page-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.trans-page-gap { padding: 0 4px; color: var(--text-light); }
 
 table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 
@@ -2977,6 +3014,9 @@ main {
         <button class="btn btn-ghost" onclick="exportarTransacoes()" title="Exportar transações filtradas">
           📤 Exportar
         </button>
+        <button class="btn btn-ghost" onclick="limparTransacoes()" title="Apagar somente as transações, mantendo configurações">
+          🧹 Zerar transações
+        </button>
         <button class="btn btn-primary" onclick="openTransacaoModal()">
           <span>＋</span> Adicionar Movimentação
         </button>
@@ -3094,6 +3134,7 @@ main {
             <tbody id="transBody"></tbody>
           </table>
         </div>
+        <div id="transPagination" class="trans-pagination"></div>
       </div>
     </div>
   </main>
@@ -6100,6 +6141,75 @@ function saveEditConfig() {
 let editandoTransId = null;
 
 const transOrdenacao = { col: 'data_competencia', dir: 'desc' };
+const TRANS_PAGE_SIZE = 50;
+let transPaginaAtual = 1;
+let transFiltroAssinatura = '';
+
+function _transFiltroAssinatura(busca, fil) {
+  return JSON.stringify({ busca, ...fil });
+}
+
+function _transAtualizarPaginaPorFiltro(busca, fil) {
+  const assinatura = _transFiltroAssinatura(busca, fil);
+  if (assinatura !== transFiltroAssinatura) {
+    transPaginaAtual = 1;
+    transFiltroAssinatura = assinatura;
+  }
+}
+
+function transSetPagina(pagina) {
+  transPaginaAtual = Math.max(1, Number(pagina) || 1);
+  renderTransacoes();
+}
+
+function _transPaginasVisiveis(totalPaginas, paginaAtual) {
+  const set = new Set([1, totalPaginas]);
+  for (let p = paginaAtual - 2; p <= paginaAtual + 2; p++) {
+    if (p >= 1 && p <= totalPaginas) set.add(p);
+  }
+  const ordenadas = Array.from(set).sort((a, b) => a - b);
+  const saida = [];
+  ordenadas.forEach((p, i) => {
+    if (i > 0 && p - ordenadas[i - 1] > 1) saida.push(null);
+    saida.push(p);
+  });
+  return saida;
+}
+
+function _transRenderPaginacao(total, totalPaginas, inicio, fim) {
+  const el = document.getElementById('transPagination');
+  if (!el) return;
+  if (!total) {
+    el.innerHTML = '';
+    return;
+  }
+
+  const botao = (label, page, opts = {}) => {
+    const active = opts.active ? ' active' : '';
+    const disabled = opts.disabled ? ' disabled' : '';
+    const click = opts.disabled || !page ? '' : ` onclick="transSetPagina(${page})"`;
+    return `<button type="button" class="trans-page-btn${active}"${disabled}${click}>${label}</button>`;
+  };
+
+  const paginas = totalPaginas > 1
+    ? _transPaginasVisiveis(totalPaginas, transPaginaAtual).map(p =>
+        p === null
+          ? '<span class="trans-page-gap">...</span>'
+          : botao(String(p), p, { active: p === transPaginaAtual })
+      ).join('')
+    : '';
+
+  el.innerHTML = `
+    <div class="trans-pagination-info">
+      Mostrando <strong>${inicio + 1}</strong>-<strong>${fim}</strong> de <strong>${total}</strong>
+    </div>
+    <div class="trans-pagination-actions">
+      ${totalPaginas > 1 ? botao('&lt;', transPaginaAtual - 1, { disabled: transPaginaAtual <= 1 }) : ''}
+      ${paginas}
+      ${totalPaginas > 1 ? botao('&gt;', transPaginaAtual + 1, { disabled: transPaginaAtual >= totalPaginas }) : ''}
+    </div>
+  `;
+}
 
 function _transDataContabil(t) {
   return t.data_competencia || t.data_contabil || '';
@@ -6350,11 +6460,11 @@ function atualizarChips(f) {
    RENDERIZA LISTA DE TRANSAÇÕES
 -------------------------------------------- */
 function renderTransacoes() {
-  _transBackfillNaturezaDecisao();
-
   // Resetar seleção ao re-renderizar
   document.getElementById('transBulkBar')?.classList.remove('visible');
   const busca = (document.getElementById('transSearch')?.value || '').toLowerCase();
+  const fil = coletarFiltros();
+  _transAtualizarPaginaPorFiltro(busca, fil);
 
   // Carrega e enriquece com nomes das tabelas de apoio
   const transacoesOriginais = dbLoad('transacoes');
@@ -6372,9 +6482,6 @@ function renderTransacoes() {
     status_compra:   dbLoad('status').find(x => x.id === t.status_compra_id)?.nome || '',
     parcelas:        t.parcelado === 'Sim' ? `${t.parcela_atual}/${t.parcela_maxima}` : '—',
   }));
-
-  // Coleta filtros
-  const fil = coletarFiltros();
 
   // Filtra pela busca textual
   if (busca) {
@@ -6533,7 +6640,17 @@ function renderTransacoes() {
       <div class="stat-sub">${periodoLabel} · ${numDias}d · Total R$ ${fmtValor(totalGasto)}</div>
     </div>`;
 
-  document.getElementById('transCount').textContent = `${dados.length} registro(s)`;
+  const totalRegistros = dados.length;
+  const totalPaginas = Math.max(1, Math.ceil(totalRegistros / TRANS_PAGE_SIZE));
+  transPaginaAtual = Math.min(Math.max(1, transPaginaAtual), totalPaginas);
+  const inicioPagina = totalRegistros ? (transPaginaAtual - 1) * TRANS_PAGE_SIZE : 0;
+  const fimPagina = Math.min(inicioPagina + TRANS_PAGE_SIZE, totalRegistros);
+  const dadosPagina = dados.slice(inicioPagina, fimPagina);
+
+  document.getElementById('transCount').textContent = totalRegistros
+    ? `${inicioPagina + 1}-${fimPagina} de ${totalRegistros} registro(s)`
+    : '0 registro(s)';
+  _transRenderPaginacao(totalRegistros, totalPaginas, inicioPagina, fimPagina);
 
   // Cabeçalho da tabela
   const th = document.getElementById('transHead');
@@ -6580,7 +6697,7 @@ function renderTransacoes() {
 
   // Corpo da tabela
   const tb = document.getElementById('transBody');
-  if (dados.length === 0) {
+  if (totalRegistros === 0) {
     tb.innerHTML = `<tr class="empty-row">
       <td colspan="${TRANS_COLUNAS.length + 2}">
         Nenhuma movimentação encontrada. Clique em "Adicionar Movimentação".
@@ -6589,7 +6706,7 @@ function renderTransacoes() {
     return;
   }
 
-  tb.innerHTML = dados.map(t => `
+  tb.innerHTML = dadosPagina.map(t => `
     <tr>
       <td data-label="" style="text-align:center;padding:8px 4px;width:44px;min-width:44px">
         <input type="checkbox" class="trans-sel-chk" data-id="${t.id}" onclick="event.stopPropagation()" onchange="transBulkAtualizarBarra()" style="width:15px;height:15px;cursor:pointer;accent-color:var(--primary)">
@@ -7137,116 +7254,6 @@ function _transTextoContexto(t) {
     _transNomeColecao('categorias', t?.categoria_id),
     _transNomeColecao('subcategorias', t?.subcategoria_id),
   ].filter(Boolean).join(' '));
-}
-
-function _transTextoContem(ctx, palavras) {
-  return palavras.some(p => ctx.includes(_transNormTexto(p)));
-}
-
-function _transConfigIdValido(colecao, id) {
-  return !!id && !!_transNomeColecao(colecao, id);
-}
-
-function _transInferirConfigIdPorHistorico(t, colecao, campoId) {
-  const chaveDescricao = _transChaveDescricaoPar(t);
-  const filtros = [
-    item => t.subcategoria_id && t.categoria_id &&
-      item.subcategoria_id === t.subcategoria_id &&
-      item.categoria_id === t.categoria_id,
-    item => t.subcategoria_id && item.subcategoria_id === t.subcategoria_id,
-    item => chaveDescricao && _transChaveDescricaoPar(item) === chaveDescricao,
-  ];
-
-  for (const filtro of filtros) {
-    const contagem = new Map();
-    dbLoad('transacoes')
-      .filter(item => item.id !== t.id && filtro(item) && _transConfigIdValido(colecao, item[campoId]))
-      .forEach(item => {
-        const id = item[campoId];
-        contagem.set(id, (contagem.get(id) || 0) + 1);
-      });
-    if (contagem.size) {
-      return Array.from(contagem.entries()).sort((a, b) => b[1] - a[1])[0][0];
-    }
-  }
-
-  return '';
-}
-
-function _transInferirNaturezaId(t) {
-  const legado = _transFindConfigId('naturezas', [_transNatureza(t), t?.natureza]);
-  if (legado) return legado;
-  if (_transIsTransferenciaLancamento(t)) return _transNaturezaIdTransferencia();
-  const historico = _transInferirConfigIdPorHistorico(t, 'naturezas', 'natureza_id');
-  if (historico) return historico;
-
-  const ctx = _transTextoContexto(t);
-  const tipoNome = _transNormTexto(_transNomeColecao('tipos', t?.tipo_pagamento_id));
-  const regras = [
-    { nome: 'Recuperação', palavras: ['recuperacao','reembolso','estorno','devolucao','ressarcimento','cashback'] },
-    { nome: 'Renda', palavras: ['renda','receita','salario','valor a receber','receber','recebimento','provento','dividendo','bonus','decimo terceiro'] },
-    { nome: 'Neutro', palavras: ['neutro','investimento','investimentos','reserva','aplicacao','aporte','corretora','tesouro','cdb','poupanca'] },
-    { nome: 'Risco', palavras: ['risco','seguro','protecao','imprevisto','multa','juros','sinistro'] },
-    { nome: 'Essencial', palavras: ['essencial','moradia','aluguel','condominio','mercado','supermercado','padaria','feira','acougue','hortifruti','saude','farmacia','educacao','transporte','uber','99','passagem','energia','agua','luz','gas','internet'] },
-    { nome: 'Qualidade de vida', palavras: ['qualidade de vida','lazer','futebol','academia','viagem','restaurante','terapia','hobby'] },
-    { nome: 'Conveniência', palavras: ['conveniencia','delivery','assinatura','streaming','tv','telefone','app'] },
-    { nome: 'Supérfluo', palavras: ['superfluo','shopping','roupa','presente','bar','bebida','cosmetico','jogo'] },
-  ];
-  for (const regra of regras) {
-    if (_transTextoContem(ctx, regra.palavras)) {
-      return _transEnsureConfigId('naturezas', regra.nome);
-    }
-  }
-  if (tipoNome === 'entrada') return _transEnsureConfigId('naturezas', 'Renda');
-  return '';
-}
-
-function _transInferirDecisaoId(t) {
-  const legado = _transFindConfigId('decisoes', [_transDecisao(t), t?.decisao]);
-  if (legado) return legado;
-  if (_transIsTransferenciaLancamento(t)) return _transDecisaoIdTransferencia();
-  const historico = _transInferirConfigIdPorHistorico(t, 'decisoes', 'decisao_id');
-  if (historico) return historico;
-
-  const ctx = _transTextoContexto(t);
-  if (_transTextoContem(ctx, ['recorrente','salario','aluguel','condominio','mensalidade','assinatura','internet','tv','telefone','financiamento','emprestimo','cartao de passagem'])) {
-    return _transEnsureConfigId('decisoes', 'Recorrente');
-  }
-  if (_transTextoContem(ctx, ['impulsivo','impulso','ifood','delivery','shopping','bar','bebida','lanche'])) {
-    return _transEnsureConfigId('decisoes', 'Impulsivo');
-  }
-  return _transEnsureConfigId('decisoes', 'Eventual');
-}
-
-function _transBackfillNaturezaDecisao() {
-  garantirConfigPadrao();
-  const dados = dbLoad('transacoes');
-  if (!dados.length) return 0;
-
-  let alteradas = 0;
-  const atualizados = dados.map(t => {
-    const novo = { ...t };
-    let mudou = false;
-    if (!_transConfigIdValido('naturezas', novo.natureza_id)) {
-      const naturezaId = _transInferirNaturezaId(novo);
-      if (naturezaId && naturezaId !== novo.natureza_id) { novo.natureza_id = naturezaId; mudou = true; }
-    }
-    if (!_transConfigIdValido('decisoes', novo.decisao_id)) {
-      const decisaoId = _transInferirDecisaoId(novo);
-      if (decisaoId && decisaoId !== novo.decisao_id) { novo.decisao_id = decisaoId; mudou = true; }
-    }
-    if (mudou) {
-      alteradas++;
-      novo.updatedAt = new Date().toISOString();
-    }
-    return novo;
-  });
-
-  if (alteradas) {
-    dbSave('transacoes', atualizados);
-    console.log(`[Transações] natureza/decisão preenchidas em ${alteradas} registro(s) antigos`);
-  }
-  return alteradas;
 }
 
 function _transStatusPagoId() {
@@ -13732,6 +13739,25 @@ function transBulkExcluir() {
   });
 }
 
+function limparTransacoes() {
+  const total = dbLoad('transacoes').length;
+  if (!total) {
+    toast('Não há transações para apagar.', 'warn');
+    return;
+  }
+  openConfirm(
+    `Apagar ${total} transação(ões)? As configurações serão mantidas para permitir uma nova importação.`,
+    () => {
+      dbSave('transacoes', []);
+      transPaginaAtual = 1;
+      renderTransacoes();
+      renderInicio();
+      toast(`${total} transação(ões) apagada(s). Importe novamente o arquivo correto.`, 'warn');
+    },
+    { label: 'Zerar transações', icon: '🧹' }
+  );
+}
+
 function transToggleAll(chk) {
   document.querySelectorAll('.trans-sel-chk').forEach(c => { c.checked = chk.checked; });
   transBulkAtualizarBarra();
@@ -14991,7 +15017,6 @@ function _authEntrarNoApp(session) {
     // Sincronizar dados do Supabase para cache local
     // silentEmpty=true: no login inicial, preserva config local se banco retornar vazio
     sbSyncDown(null, true).then(total => {
-      _transBackfillNaturezaDecisao();
       // Restaurar página do hash da URL (prioridade) ou do localStorage
       const hashPage = window.location.hash.replace('#', '').trim();
       const _paginasValidas = ['inicio','transacoes','orcamentos','metas','contas-receber',
