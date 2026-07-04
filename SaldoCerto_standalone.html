@@ -5043,6 +5043,26 @@ function _sbTable(colecao) {
   return SB_TABLE_MAP[colecao] || colecao;
 }
 
+const SB_OPTIONAL_COLS = {
+  transacoes: ['conta_destino_id', 'natureza_id', 'decisao_id'],
+};
+
+function _sbMissingOptionalCols(error, tableName) {
+  const textoErro = [
+    error?.message,
+    error?.details,
+    error?.hint,
+    error?.code,
+  ].filter(Boolean).join(' ');
+  return (SB_OPTIONAL_COLS[tableName] || []).filter(col => textoErro.includes(col));
+}
+
+function _sbWithoutCols(row, cols) {
+  const clean = { ...row };
+  cols.forEach(col => { delete clean[col]; });
+  return clean;
+}
+
 /* INSERT de um único registro */
 async function _sbInsert(colecao, registro) {
   const sb = _getSB();
@@ -5075,6 +5095,25 @@ async function _sbInsert(colecao, registro) {
     .single();
 
   if (error) {
+    const colsAusentes = _sbMissingOptionalCols(error, tableName);
+    if (colsAusentes.length) {
+      console.warn('[SB insert schema atrasado]', tableName, colsAusentes.join(', '));
+      const { data: retryInserted, error: retryError } = await sb
+        .from(tableName)
+        .insert(_sbWithoutCols(row, colsAusentes))
+        .select('id')
+        .single();
+      if (!retryError) {
+        if (retryInserted?.id && localId) {
+          const dados = dbLoad(colecao).map(r =>
+            r.id === localId ? { ...r, id: retryInserted.id } : r
+          );
+          localStorage.setItem(STORAGE_KEYS[colecao], JSON.stringify(dados));
+        }
+        return;
+      }
+      console.warn('[SB insert retry erro]', colecao, retryError.message, retryError.code);
+    }
     console.warn('[SB insert erro]', colecao, error.message, error.code, row);
     return;
   }
@@ -5098,11 +5137,25 @@ async function _sbUpdate(colecao, id, dados) {
   }
   // Ignorar updates de IDs temporários locais (ainda não no banco)
   if (String(id).startsWith('_local_')) return;
-  const { error } = await sb.from(_sbTable(colecao))
-    .update(_sbNormalizeRow(dados, _sbTable(colecao)))
+  const tableName = _sbTable(colecao);
+  const row = _sbNormalizeRow(dados, tableName);
+  const { error } = await sb.from(tableName)
+    .update(row)
     .eq('id', id)
     .eq('user_id', window._authUser.id);
-  if (error) console.warn('[SB update erro]', colecao, error.message, error.code);
+  if (error) {
+    const colsAusentes = _sbMissingOptionalCols(error, tableName);
+    if (colsAusentes.length) {
+      console.warn('[SB update schema atrasado]', tableName, colsAusentes.join(', '));
+      const { error: retryError } = await sb.from(tableName)
+        .update(_sbWithoutCols(row, colsAusentes))
+        .eq('id', id)
+        .eq('user_id', window._authUser.id);
+      if (!retryError) return;
+      console.warn('[SB update retry erro]', colecao, retryError.message, retryError.code);
+    }
+    console.warn('[SB update erro]', colecao, error.message, error.code);
+  }
 }
 
 /* DELETE de um único registro */
@@ -5144,6 +5197,23 @@ async function _sbSyncSave(colecao, dados) {
     row.id = newUUID;
     const { data: inserted, error } = await sb.from(tbl).insert(row).select('id').single();
     if (error) {
+      const colsAusentes = _sbMissingOptionalCols(error, tbl);
+      if (colsAusentes.length) {
+        console.warn('[SB syncSave insert schema atrasado]', tbl, colsAusentes.join(', '));
+        const { data: retryInserted, error: retryError } = await sb
+          .from(tbl)
+          .insert(_sbWithoutCols(row, colsAusentes))
+          .select('id')
+          .single();
+        if (!retryError) {
+          if (retryInserted?.id) {
+            const atual = dbLoad(colecao).map(x => x.id === localId ? { ...x, id: retryInserted.id } : x);
+            localStorage.setItem(STORAGE_KEYS[colecao], JSON.stringify(atual));
+          }
+          continue;
+        }
+        console.warn('[SB syncSave insert retry erro]', colecao, retryError.message, retryError.code);
+      }
       console.warn('[SB syncSave insert erro]', colecao, error.message, row);
     } else if (inserted?.id) {
       // Substituir ID local pelo ID do banco no localStorage
@@ -5156,8 +5226,19 @@ async function _sbSyncSave(colecao, dados) {
   if (existentes.length) {
     const rows = existentes.map(r => _sbInjectUser(_sbNormalizeRow(r, tbl)));
     for (let i = 0; i < rows.length; i += 100) {
-      const { error } = await sb.from(tbl).upsert(rows.slice(i, i+100), { onConflict: 'id,user_id' });
-      if (error) console.warn('[SB syncSave upsert erro]', colecao, error.message);
+      const lote = rows.slice(i, i+100);
+      const { error } = await sb.from(tbl).upsert(lote, { onConflict: 'id,user_id' });
+      if (error) {
+        const colsAusentes = _sbMissingOptionalCols(error, tbl);
+        if (colsAusentes.length) {
+          console.warn('[SB syncSave schema atrasado]', tbl, colsAusentes.join(', '));
+          const retryRows = lote.map(row => _sbWithoutCols(row, colsAusentes));
+          const { error: retryError } = await sb.from(tbl).upsert(retryRows, { onConflict: 'id,user_id' });
+          if (!retryError) continue;
+          console.warn('[SB syncSave retry erro]', colecao, retryError.message, retryError.code);
+        }
+        console.warn('[SB syncSave upsert erro]', colecao, error.message);
+      }
     }
   }
 }
@@ -5177,7 +5258,7 @@ const _SB_COLS = {
   modalidades_inv:      ['nome','user_id'],
   transacoes: [
     'id','user_id','descricao','descricao_tratada','valor',
-    'data_contabil','data_competencia','cartao_id','tipo_pagamento_id',
+    'data_contabil','data_competencia','cartao_id','conta_destino_id','tipo_pagamento_id',
     'forma_pagamento_id','perfil_despesa_id','natureza_id','decisao_id','categoria_id','subcategoria_id',
     'status_compra_id','parcelado','parcela_atual','parcela_maxima','observacoes',
     'importado'
@@ -5647,6 +5728,7 @@ function _transDentroPeriodo(t, dataDe, dataAte) {
 const TRANS_COLUNAS = [
   { chave: 'data_competencia',  label: 'Data Competência', w: 135 },
   { chave: 'cartao',            label: 'Cartão',           w: 130 },
+  { chave: 'conta_destino',     label: 'Conta Destino',    w: 150 },
   { chave: 'descricao_tratada', label: 'Descrição Tratada',w: 230 },
   { chave: 'categoria',         label: 'Categoria',        w: 140 },
   { chave: 'subcategoria',      label: 'Subcategoria',     w: 150 },
@@ -5844,6 +5926,7 @@ function renderTransacoes() {
   let dados = dbLoad('transacoes').map(t => ({
     ...t,
     cartao:          dbLoad('cartoes').find(x => x.id === t.cartao_id)?.nome || '',
+    conta_destino:   _transContaDestinoNome(t),
     tipo_pagamento:  dbLoad('tipos').find(x => x.id === t.tipo_pagamento_id)?.nome || '',
     forma_pagamento: dbLoad('formas').find(x => x.id === t.forma_pagamento_id)?.nome || '',
     perfil_despesa:  dbLoad('perfis').find(x => x.id === t.perfil_despesa_id)?.nome || '',
@@ -6076,6 +6159,7 @@ function renderTransacoes() {
       </td>
       <td>${fmtDateStr(_transDataCompetencia(t))}</td>
       <td>${escHtml(t.cartao)}</td>
+      <td>${escHtml(t.conta_destino || '—')}</td>
       <td title="${escHtml(t.descricao_tratada || t.descricao)}">${escHtml(t.descricao_tratada || t.descricao)}</td>
       <td>${escHtml(t.categoria)}</td>
       <td>${escHtml(t.subcategoria)}</td>
@@ -6247,7 +6331,11 @@ function _transSetSelectValue(selectId, colecao, id) {
 }
 
 function _transResolverContaId(valor) {
-  const raw = (valor || '').toString().trim();
+  let raw = valor;
+  if (raw && typeof raw === 'object') {
+    raw = raw.id || raw.cartao_id || raw.conta_id || raw.nome || raw.name || raw.titulo || '';
+  }
+  raw = (raw || '').toString().trim();
   if (!raw) return '';
   const contas = dbLoad('cartoes');
   if (contas.some(c => c.id === raw)) return raw;
@@ -6262,16 +6350,30 @@ function _transContaDestinoLegadaId(t) {
   return _transResolverContaId(
     t?.conta_destino_id ||
     t?.contaDestinoId ||
+    t?.contaDestino_id ||
     t?.conta_destino ||
     t?.contaDestino ||
+    t?.conta_destino_uuid ||
+    t?.contaDestinoUuid ||
     t?.cartao_destino_id ||
+    t?.cartaoDestinoId ||
+    t?.cartao_destino ||
+    t?.cartaoDestino ||
     t?.destino_id ||
     t?.destino ||
     meta.conta_destino_id ||
     meta.contaDestinoId ||
+    meta.contaDestino_id ||
     meta.conta_destino ||
     meta.contaDestino ||
-    meta.cartao_destino_id
+    meta.conta_destino_uuid ||
+    meta.contaDestinoUuid ||
+    meta.cartao_destino_id ||
+    meta.cartaoDestinoId ||
+    meta.cartao_destino ||
+    meta.cartaoDestino ||
+    meta.destino_id ||
+    meta.destino
   );
 }
 
@@ -6405,6 +6507,17 @@ function _transOrigemDestinoTransferencia(t) {
     return { origem: t, destino: par, destinoId: par.cartao_id || '' };
   }
   return { origem: t, destino: null, destinoId: '' };
+}
+
+function _transContaDestinoId(t) {
+  if (!_transIsTransferenciaLancamento(t)) return '';
+  return _transOrigemDestinoTransferencia(t)?.destinoId || '';
+}
+
+function _transContaDestinoNome(t) {
+  const destinoId = _transContaDestinoId(t);
+  if (!destinoId) return '';
+  return dbLoad('cartoes').find(x => x.id === destinoId)?.nome || destinoId;
 }
 
 function _transTextoContexto(t) {
@@ -12811,6 +12924,7 @@ function verTransacao(id) {
   const tipoNome   = dbLoad('tipos').find(x=>x.id===t.tipo_pagamento_id)?.nome   || '—';
   const formaNome  = dbLoad('formas').find(x=>x.id===t.forma_pagamento_id)?.nome || '—';
   const cartaoNome = dbLoad('cartoes').find(x=>x.id===t.cartao_id)?.nome          || '—';
+  const contaDestinoNome = _transContaDestinoNome(t);
   const catNome    = dbLoad('categorias').find(x=>x.id===t.categoria_id)?.nome    || '—';
   const subcatNome = dbLoad('subcategorias').find(x=>x.id===t.subcategoria_id)?.nome || '—';
   const perfilNome = dbLoad('perfis').find(x=>x.id===t.perfil_despesa_id)?.nome   || '—';
@@ -12838,6 +12952,7 @@ function verTransacao(id) {
         ['Data da transação',fmtDateStr(_transDataContabil(t))],
         ['Perfil da despesa',perfilNome],
         ['Conta',            cartaoNome],
+        contaDestinoNome ? ['Conta de destino', contaDestinoNome] : null,
         ['Natureza',         naturezaNome],
         ['Decisão',          decisaoNome],
         ['Forma de pagamento', formaNome],
