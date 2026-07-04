@@ -28,6 +28,7 @@ const NATUREZA_PADRAO = [
   'Recuperação',
   'Essencial',
   'Qualidade de vida',
+  'Risco',
 ];
 const DECISAO_PADRAO = [
   'Eventual',
