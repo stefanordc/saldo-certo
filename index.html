@@ -7768,7 +7768,7 @@ function transRenderSearchableOptions(select, wrap, query = '') {
   const options = Array.from(select.options).filter(opt => {
     if (!q) return true;
     if (!opt.value) return false;
-    return _transNormTexto(opt.textContent).includes(q);
+    return _transNormTexto(opt.textContent).startsWith(q);
   });
 
   if (!options.length) {
