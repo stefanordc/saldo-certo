@@ -5841,6 +5841,38 @@ function dbLoad(colecao) {
   }
 }
 
+function _dbIsPendingLocalRow(item) {
+  return String(item?.id || '').startsWith('_local_');
+}
+
+function _dbDedupPorId(dados) {
+  const saida = [];
+  const posicoes = new Map();
+  (dados || []).forEach(item => {
+    const id = String(item?.id || '');
+    if (!id) {
+      saida.push(item);
+      return;
+    }
+    if (posicoes.has(id)) {
+      saida[posicoes.get(id)] = item;
+    } else {
+      posicoes.set(id, saida.length);
+      saida.push(item);
+    }
+  });
+  return saida;
+}
+
+function _dbMergePendingLocalRows(colecao, remotos) {
+  if (colecao !== 'transacoes') return remotos;
+  const idsRemotos = new Set((remotos || []).map(item => String(item?.id || '')).filter(Boolean));
+  const pendentes = dbLoad(colecao)
+    .filter(item => _dbIsPendingLocalRow(item) && !idsRemotos.has(String(item.id || '')))
+    .map(item => ({ ...item }));
+  return pendentes.length ? _dbDedupPorId([...(remotos || []), ...pendentes]) : remotos;
+}
+
 function _dbSameId(a, b) {
   if (a === null || a === undefined || b === null || b === undefined) return false;
   return String(a) === String(b);
@@ -6081,7 +6113,7 @@ async function _sbSyncSave(colecao, dados) {
           .single();
         if (!retryError) {
           if (retryInserted?.id) {
-            const atual = dbLoad(colecao).map(x => x.id === localId ? { ...x, id: retryInserted.id } : x);
+            const atual = _dbDedupPorId(dbLoad(colecao).map(x => x.id === localId ? { ...x, id: retryInserted.id } : x));
             localStorage.setItem(STORAGE_KEYS[colecao], JSON.stringify(atual));
           }
           continue;
@@ -6091,7 +6123,7 @@ async function _sbSyncSave(colecao, dados) {
       console.warn('[SB syncSave insert erro]', colecao, error.message, row);
     } else if (inserted?.id) {
       // Substituir ID local pelo ID do banco no localStorage
-      const atual = dbLoad(colecao).map(x => x.id === localId ? { ...x, id: inserted.id } : x);
+      const atual = _dbDedupPorId(dbLoad(colecao).map(x => x.id === localId ? { ...x, id: inserted.id } : x));
       localStorage.setItem(STORAGE_KEYS[colecao], JSON.stringify(atual));
     }
   }
@@ -6250,13 +6282,14 @@ async function sbSyncDown() {
       if (error) { console.warn('[SB down]', col, error.message); continue; }
       if (data && data.length > 0) {
         // Normalizar para formato local
-        const local = data.map(row => ({
+        const localRemoto = data.map(row => ({
           ...row,
           createdAt: row.created_at || row.createdAt,
           updatedAt: row.updated_at || row.updatedAt,
         }));
+        const local = _dbMergePendingLocalRows(col, localRemoto);
         localStorage.setItem(STORAGE_KEYS[col], JSON.stringify(local));
-        total += data.length;
+        total += local.length;
       }
       // Se banco retornou vazio, não tocar no cache local
       // (pode ter dados recém-inseridos que ainda estão sendo processados)
@@ -6903,7 +6936,7 @@ function _transAgendarRenderCompletoTransacoes() {
     window._transRenderCompletoTimer = setTimeout(() => {
       window._transRenderCompletoTimer = null;
       renderTransacoes();
-    }, 0);
+    }, 120);
   };
   if (typeof requestAnimationFrame === 'function') requestAnimationFrame(agendar);
   else agendar();
@@ -7195,20 +7228,27 @@ function atualizarChips(f) {
 }
 
 function _transDadosTabelaFiltrados(busca = '', fil = coletarFiltros()) {
-  _transEliminarTransferenciasDuplicadasLegadas({ silencioso: true });
   const transacoesOriginais = _transTransacoesCanonicas(dbLoad('transacoes'));
+  const mapaPorId = colecao => new Map(dbLoad(colecao).map(item => [String(item.id), item]));
+  const cartoesPorId = mapaPorId('cartoes');
+  const tiposPorId = mapaPorId('tipos');
+  const formasPorId = mapaPorId('formas');
+  const perfisPorId = mapaPorId('perfis');
+  const categoriasPorId = mapaPorId('categorias');
+  const subcategoriasPorId = mapaPorId('subcategorias');
+  const statusPorId = mapaPorId('status');
   const ordemInsercao = new Map(transacoesOriginais.map((t, i) => [t.id, i]));
   let dados = transacoesOriginais.map(t => ({
     ...t,
-    cartao:          dbLoad('cartoes').find(x => _dbSameId(x.id, t.cartao_id))?.nome || '',
-    tipo_pagamento:  dbLoad('tipos').find(x => _dbSameId(x.id, t.tipo_pagamento_id))?.nome || '',
-    forma_pagamento: dbLoad('formas').find(x => _dbSameId(x.id, t.forma_pagamento_id))?.nome || '',
-    perfil_despesa:  dbLoad('perfis').find(x => _dbSameId(x.id, t.perfil_despesa_id))?.nome || '',
+    cartao:          cartoesPorId.get(String(t.cartao_id))?.nome || '',
+    tipo_pagamento:  tiposPorId.get(String(t.tipo_pagamento_id))?.nome || '',
+    forma_pagamento: formasPorId.get(String(t.forma_pagamento_id))?.nome || '',
+    perfil_despesa:  perfisPorId.get(String(t.perfil_despesa_id))?.nome || '',
     natureza:        _transNatureza(t),
     decisao:         _transDecisao(t),
-    categoria:       dbLoad('categorias').find(x => _dbSameId(x.id, t.categoria_id))?.nome || '',
-    subcategoria:    dbLoad('subcategorias').find(x => _dbSameId(x.id, t.subcategoria_id))?.nome || '',
-    status_compra:   dbLoad('status').find(x => _dbSameId(x.id, t.status_compra_id))?.nome || '',
+    categoria:       categoriasPorId.get(String(t.categoria_id))?.nome || '',
+    subcategoria:    subcategoriasPorId.get(String(t.subcategoria_id))?.nome || '',
+    status_compra:   statusPorId.get(String(t.status_compra_id))?.nome || '',
     parcelas:        t.parcelado === 'Sim' ? `${t.parcela_atual}/${t.parcela_maxima}` : '—',
   }));
 
