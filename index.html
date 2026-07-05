@@ -378,8 +378,10 @@ body.theme-dark .inicio-legend-dot {
   display: flex;
   border-bottom: 1px solid var(--border);
   padding: 0 20px;
-  background: #fff;
+  background: var(--card);
   overflow-x: auto;
+  gap: 4px;
+  scrollbar-width: thin;
 }
 .tab-btn {
   background: none;
@@ -394,9 +396,10 @@ body.theme-dark .inicio-legend-dot {
   margin-bottom: -1px;
   transition: var(--transition);
   white-space: nowrap;
+  border-radius: 8px 8px 0 0;
 }
-.tab-btn:hover { color: var(--primary); }
-.tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); }
+.tab-btn:hover { color: var(--primary); background: var(--primary-light); }
+.tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); background: var(--primary-light); }
 
 .tab-content { padding: 24px; }
 
@@ -746,6 +749,53 @@ td.actions { white-space: nowrap; text-align: right; }
 .stat-value.blue   { color: var(--primary); }
 .stat-value.danger { color: var(--danger); }
 .stat-sub { font-size: 11px; color: var(--text-light); margin-top: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* -- PAGINA CARTOES -- */
+.cartoes-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+  margin-top: 18px;
+}
+.cartao-item {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.cartao-item-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.cartao-nome {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--text);
+}
+.cartao-conta {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 3px;
+}
+.cartao-saldo {
+  font-family: var(--font-mono);
+  font-size: 20px;
+  font-weight: 800;
+}
+.cartao-saldo.positivo { color: var(--accent); }
+.cartao-saldo.negativo { color: var(--danger); }
+.cartao-saldo.neutro { color: var(--text); }
+.cartao-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
 
 /* -- TOAST (notificação) -- */
 .toast-container {
@@ -2628,6 +2678,19 @@ body.theme-dark .inv-card {
   color: var(--text);
   box-shadow: var(--shadow-sm);
 }
+body.theme-dark .tabs-bar {
+  background: var(--card);
+  border-color: var(--border);
+}
+body.theme-dark .tab-btn {
+  color: #D7E0EE;
+}
+body.theme-dark .tab-btn:hover,
+body.theme-dark .tab-btn.active {
+  color: #FFFFFF;
+  background: rgba(93,168,255,0.14);
+  border-bottom-color: #5DA8FF;
+}
 body.theme-dark thead tr,
 body.theme-dark .rel-summary-table thead tr {
   background: #151B21;
@@ -3397,6 +3460,9 @@ main {
     <button class="nav-btn" id="navbtn-transacoes" onclick="showPage('transacoes')">
       <span class="nav-icon">💳</span> Transações
     </button>
+    <button class="nav-btn" id="navbtn-cartoes" onclick="showPage('cartoes')">
+      <span class="nav-icon">💳</span> Cartões
+    </button>
     <button class="nav-btn" id="navbtn-orcamentos" onclick="showPage('orcamentos')">
       <span class="nav-icon">🎯</span> Orçamentos
     </button>
@@ -3767,6 +3833,49 @@ main {
 <!-- ============================================
      PÁGINA: ORÇAMENTOS
 ============================================ -->
+<div id="page-cartoes" class="page">
+  <main>
+    <div class="page-header">
+      <div>
+        <div class="page-title">Cartões</div>
+        <div class="page-subtitle">Cadastre cartões vinculados às suas contas e acompanhe o saldo atual</div>
+      </div>
+      <button class="btn btn-primary" onclick="cartoesFocarFormulario()">
+        <span>＋</span> Novo Cartão
+      </button>
+    </div>
+
+    <div class="stats-row" id="cartoesStats"></div>
+
+    <div class="card" style="padding:22px 24px;margin-bottom:20px">
+      <div class="section-header">
+        <span class="section-title" id="cartoesFormTitle">Novo cartão</span>
+      </div>
+      <input type="hidden" id="cartao-edit-id">
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Nome do cartão <span class="req">*</span></label>
+          <input type="text" class="form-input" id="cartao-nome" placeholder="Ex.: Nubank Ultravioleta">
+          <span class="form-error" id="e-cartao-nome"></span>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Conta vinculada <span class="req">*</span></label>
+          <select class="form-select" id="cartao-conta">
+            <option value="">Selecione a conta</option>
+          </select>
+          <span class="form-error" id="e-cartao-conta"></span>
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;margin-top:18px">
+        <button class="btn btn-ghost" type="button" onclick="cartoesLimparFormulario()">Cancelar</button>
+        <button class="btn btn-primary" type="button" onclick="cartoesSalvar()">Salvar cartão</button>
+      </div>
+    </div>
+
+    <div id="cartoesLista" class="cartoes-grid"></div>
+  </main>
+</div>
+
 <div id="page-orcamentos" class="page">
   <main>
     <div class="page-header">
@@ -5527,7 +5636,7 @@ main {
     <div class="card">
       <!-- Abas -->
       <div class="tabs-bar">
-        <button class="tab-btn active" onclick="switchTab('cartoes',this)">Cartões</button>
+        <button class="tab-btn active" onclick="switchTab('cartoes',this)">Contas</button>
         <button class="tab-btn" onclick="switchTab('categorias',this)">Categorias</button>
         <button class="tab-btn" onclick="switchTab('subcategorias',this)">Subcategorias</button>
         <button class="tab-btn" onclick="switchTab('formas',this)">Formas de Pagamento</button>
@@ -5924,6 +6033,7 @@ function initResizable(thead) {
 /* -- Colecoes de dados do app -- */
 const STORAGE_KEYS = {
   cartoes:       'sc_cartoes',
+  cartoes_credito: 'sc_cartoes_credito',
   categorias:    'sc_categorias',
   subcategorias: 'sc_subcategorias',
   formas:        'sc_formas',
@@ -5943,6 +6053,31 @@ const STORAGE_KEYS = {
   inv_movimentos:  'sc_inv_movimentos',
   inv_dividendos:  'sc_inv_dividendos',
 };
+
+const DB_LOCAL_ONLY = new Set(['cartoes_credito']);
+
+function _dbIsLocalOnly(colecao) {
+  return DB_LOCAL_ONLY.has(colecao);
+}
+
+function _dbLoadLocalOnly(colecao) {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS[colecao]);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (_) {
+    return [];
+  }
+}
+
+function _dbPersistLocalOnly(colecao) {
+  if (!_dbIsLocalOnly(colecao)) return;
+  try {
+    localStorage.setItem(STORAGE_KEYS[colecao], JSON.stringify(DB_CACHE[colecao] || []));
+  } catch (e) {
+    console.warn('[DB local] erro ao persistir', colecao, e.message);
+  }
+}
 
 /* -- LÊ uma coleção -- */
 /* ============================================================
@@ -5977,7 +6112,7 @@ const SB_TABLE_MAP = {
 };
 
 const DB_CACHE = Object.keys(STORAGE_KEYS).reduce((acc, key) => {
-  acc[key] = [];
+  acc[key] = _dbIsLocalOnly(key) ? _dbLoadLocalOnly(key) : [];
   return acc;
 }, {});
 
@@ -6000,6 +6135,10 @@ function dbSave(colecao, dados) {
     .forEach(item => _sbDelete(colecao, item.id));
 
   DB_CACHE[colecao] = dados.map(item => ({ ...item }));
+  if (_dbIsLocalOnly(colecao)) {
+    _dbPersistLocalOnly(colecao);
+    return;
+  }
   _dbScheduleSyncSave(colecao, DB_CACHE[colecao]);
 }
 
@@ -6011,6 +6150,10 @@ function dbInsert(colecao, registro) {
   const dados  = dbLoad(colecao);
   dados.push(novo);
   DB_CACHE[colecao] = dados.map(item => ({ ...item }));
+  if (_dbIsLocalOnly(colecao)) {
+    _dbPersistLocalOnly(colecao);
+    return dados;
+  }
   _sbInsert(colecao, novo);
   return dados;
 }
@@ -6021,6 +6164,10 @@ function dbUpdate(colecao, id, novosDados) {
     _dbSameId(item.id, id) ? { ...item, ...novosDados, updatedAt: new Date().toISOString() } : item
   );
   DB_CACHE[colecao] = dados.map(item => ({ ...item }));
+  if (_dbIsLocalOnly(colecao)) {
+    _dbPersistLocalOnly(colecao);
+    return dados;
+  }
   _sbUpdate(colecao, id, { ...novosDados, updated_at: new Date().toISOString() });
   return dados;
 }
@@ -6029,6 +6176,10 @@ function dbUpdate(colecao, id, novosDados) {
 function dbDelete(colecao, id) {
   const dados = dbLoad(colecao).filter(item => !_dbSameId(item.id, id));
   DB_CACHE[colecao] = dados.map(item => ({ ...item }));
+  if (_dbIsLocalOnly(colecao)) {
+    _dbPersistLocalOnly(colecao);
+    return dados;
+  }
   _sbDelete(colecao, id);
   return dados;
 }
@@ -6376,6 +6527,7 @@ function _limparDadosLegados() {
     if (validos.length < dados.length) {
       removidos += dados.length - validos.length;
       DB_CACHE[col] = validos.map(item => ({ ...item }));
+      _dbPersistLocalOnly(col);
     }
   });
   if (removidos > 0) console.log(`[SB] ${removidos} registros legados removidos do cache local`);
@@ -6497,6 +6649,10 @@ async function sbSyncDown(forceCols = null, silentEmpty = false) {
   }
 
   console.log(`[SB] Sync completo: ${total} registros carregados (coleções: ${forceCols ? forceCols.join(',') : 'todas'})`);
+  if (colecoes.includes('transacoes') && typeof _transEliminarTransferenciasDuplicadasLegadas === 'function') {
+    const removidas = _transEliminarTransferenciasDuplicadasLegadas({ silencioso: true });
+    if (removidas) console.log(`[Transacoes] ${removidas} transferencia(s) duplicada(s) removida(s)`);
+  }
   return total;
 }
 
@@ -6516,7 +6672,7 @@ const configOrdenacao = {};
 
 /* -- NOMES AMIGÁVEIS -- */
 const CONFIG_LABELS = {
-  cartoes:       'Cartão',
+  cartoes:       'Conta',
   categorias:    'Categoria',
   subcategorias: 'Subcategoria',
   formas:        'Forma de Pagamento',
@@ -7421,7 +7577,8 @@ function atualizarChips(f) {
 }
 
 function _transDadosTabelaFiltrados(busca = '', fil = coletarFiltros()) {
-  const transacoesOriginais = dbLoad('transacoes');
+  _transEliminarTransferenciasDuplicadasLegadas({ silencioso: true });
+  const transacoesOriginais = _transTransacoesCanonicas(dbLoad('transacoes'));
   const ordemInsercao = new Map(transacoesOriginais.map((t, i) => [t.id, i]));
   let dados = transacoesOriginais.map(t => ({
     ...t,
@@ -7783,16 +7940,10 @@ function duplicarTransacao(id) {
 
   const createdAt = new Date().toISOString();
   const duplicatas = [];
-  const idsOriginais = new Set();
 
   if (_transIsTransferenciaLancamento(item)) {
     const par = _transOrigemDestinoTransferencia(item);
-    [par?.origem, par?.destino].filter(Boolean).forEach(orig => {
-      if (!idsOriginais.has(orig.id)) {
-        idsOriginais.add(orig.id);
-        duplicatas.push(_transCriarDuplicata(orig, createdAt));
-      }
-    });
+    duplicatas.push(_transCriarDuplicata(par?.origem || item, createdAt));
   }
 
   if (!duplicatas.length) {
@@ -7811,7 +7962,13 @@ function excluirTransacao(id) {
     return;
   }
   openConfirm(`Excluir "${item?.descricao || ''}"?`, () => {
-    dbDelete('transacoes', item.id);
+    if (_transIsTransferenciaLancamento(item)) {
+      const par = _transOrigemDestinoTransferencia(item);
+      const remover = new Set([par?.origem?.id, par?.destino?.id, item.id].filter(Boolean).map(String));
+      dbSave('transacoes', dbLoad('transacoes').filter(t => !remover.has(String(t.id))));
+    } else {
+      dbDelete('transacoes', item.id);
+    }
     renderTransacoes();
     toast('Movimentação excluída.', 'warn');
   });
@@ -8741,6 +8898,44 @@ function _transPontuarParTransferencia(a, b) {
   return score;
 }
 
+function _transIsEntradaTransferenciaLegadaDuplicada(t, todas = dbLoad('transacoes')) {
+  if (!_transIsTransferenciaLancamento(t) || !_transIsEntradaOperacional(t)) return false;
+  const contaOrigemId = _transContaDestinoLegadaId(t);
+  const contaDestinoId = t?.cartao_id || '';
+  if (!contaOrigemId || !contaDestinoId) return false;
+  return todas.some(x =>
+    !_dbSameId(x.id, t.id) &&
+    _transIsTransferenciaLancamento(x) &&
+    !_transIsEntradaOperacional(x) &&
+    _dbSameId(x.cartao_id, contaOrigemId) &&
+    _dbSameId(_transContaDestinoLegadaId(x), contaDestinoId) &&
+    _transPontuarParTransferencia(t, x) > 0
+  );
+}
+
+function _transTransacoesCanonicas(transacoes = dbLoad('transacoes')) {
+  return transacoes.filter(t => !_transIsEntradaTransferenciaLegadaDuplicada(t, transacoes));
+}
+
+function _transEliminarTransferenciasDuplicadasLegadas(opcoes = {}) {
+  const todas = dbLoad('transacoes');
+  if (!todas.length) return 0;
+  const duplicadas = todas.filter(t => _transIsEntradaTransferenciaLegadaDuplicada(t, todas));
+  if (!duplicadas.length) return 0;
+
+  const remover = new Set(duplicadas.map(t => String(t.id)));
+  const limpas = todas.filter(t => !remover.has(String(t.id)));
+  dbSave('transacoes', limpas);
+  duplicadas.forEach(t => {
+    if (t.id && typeof _sbDelete === 'function') _sbDelete('transacoes', t.id);
+  });
+
+  if (!opcoes.silencioso) {
+    toast(`${duplicadas.length} transferencia(s) duplicada(s) removida(s).`);
+  }
+  return duplicadas.length;
+}
+
 function _transEncontrarParTransferencia(t) {
   const candidatos = dbLoad('transacoes')
     .map(x => ({ item: x, score: _transPontuarParTransferencia(t, x) }))
@@ -9224,6 +9419,8 @@ function saveTransacao() {
         }
         return x;
       });
+      dados = dados.filter(x => !_dbSameId(x.id, destinoId));
+      destinoExiste = true;
       if (!destinoExiste) {
         dados.push({
           ...transacao,
@@ -9238,6 +9435,10 @@ function saveTransacao() {
       dbSave('transacoes', dados);
       toast('Transferência atualizada com sucesso!');
     } else {
+      const original = dados.find(x => _dbSameId(x.id, editandoTransId));
+      const par = original && _transIsTransferenciaLancamento(original) ? _transOrigemDestinoTransferencia(original) : null;
+      const remover = new Set([par?.destino?.id].filter(Boolean).map(String));
+      dados = dados.filter(x => !remover.has(String(x.id)));
       dados = dados.map(x => _dbSameId(x.id, editandoTransId)
         ? { ...x, ...transacao, updatedAt: new Date().toISOString() }
         : x
@@ -9250,7 +9451,6 @@ function saveTransacao() {
     const competencias = _transGerarDatasRecorrentes(dataCompetenciaBase, dataFimRec, frequenciaRec);
     const contabeis = competencias.map((_, i) => _transAddPeriodoIso(dataContabilBase, frequenciaRec, i));
     const tipoSaidaId = transferenciaNova ? _transTipoSaidaId() : '';
-    const tipoEntradaId = transferenciaNova ? _transTipoEntradaId() : '';
     competencias.forEach((competencia, i) => {
       const baseRecorrente = {
         ...transacao,
@@ -9261,10 +9461,7 @@ function saveTransacao() {
         createdAt: new Date().toISOString(),
       };
       if (transferenciaNova) {
-        dados.push(
-          { ...baseRecorrente, id: uid(), cartao_id: contaOrigemId, conta_destino_id: contaDestinoId, tipo_pagamento_id: tipoSaidaId },
-          { ...baseRecorrente, id: uid(), cartao_id: contaDestinoId, conta_destino_id: contaOrigemId, tipo_pagamento_id: tipoEntradaId }
-        );
+        dados.push({ ...baseRecorrente, cartao_id: contaOrigemId, conta_destino_id: contaDestinoId, tipo_pagamento_id: tipoSaidaId });
       } else {
         dados.push(baseRecorrente);
       }
@@ -9276,26 +9473,15 @@ function saveTransacao() {
   } else {
     if (transferenciaNova) {
       const createdAt = new Date().toISOString();
-      dados.push(
-        {
-          ...transacao,
-          id: uid(),
-          cartao_id: contaOrigemId,
-          conta_destino_id: contaDestinoId,
-          tipo_pagamento_id: _transTipoSaidaId(),
-          status_compra_id: statusPagoId,
-          createdAt,
-        },
-        {
-          ...transacao,
-          id: uid(),
-          cartao_id: contaDestinoId,
-          conta_destino_id: contaOrigemId,
-          tipo_pagamento_id: _transTipoEntradaId(),
-          status_compra_id: statusPagoId,
-          createdAt,
-        }
-      );
+      dados.push({
+        ...transacao,
+        id: uid(),
+        cartao_id: contaOrigemId,
+        conta_destino_id: contaDestinoId,
+        tipo_pagamento_id: _transTipoSaidaId(),
+        status_compra_id: statusPagoId,
+        createdAt,
+      });
     } else {
       transacao.createdAt = new Date().toISOString();
       transacao.status_compra_id = statusPagoId;
@@ -15643,6 +15829,196 @@ function transToggleAll(chk) {
 }
 
 
+// -- cartoes.js --
+/* ============================================================
+   cartoes.js  -  Pagina de Cartoes
+============================================================ */
+function _cartoesCreditoData() {
+  return dbLoad('cartoes_credito').sort((a, b) => (a.nome || '').localeCompare(b.nome || '', 'pt'));
+}
+
+function _cartoesContasData() {
+  return dbLoad('cartoes').sort((a, b) => (a.nome || '').localeCompare(b.nome || '', 'pt'));
+}
+
+function _cartoesContaNome(contaId) {
+  return _cartoesContasData().find(c => _dbSameId(c.id, contaId))?.nome || 'Conta não encontrada';
+}
+
+function _cartoesValorMovimentoConta(t, contaId) {
+  const valor = Math.abs(parseFloat(t?.valor) || 0);
+  if (!valor || !contaId) return 0;
+
+  if (_transIsTransferenciaLancamento(t)) {
+    if (_dbSameId(t.cartao_id, contaId)) return -valor;
+    const destinoId = _transContaDestinoLegadaId(t);
+    if (destinoId && _dbSameId(destinoId, contaId)) return valor;
+    return 0;
+  }
+
+  if (!_dbSameId(t.cartao_id, contaId)) return 0;
+  const tipoNome = _transNomeColecao('tipos', t?.tipo_pagamento_id) || t?.tipo_pagamento || '';
+  if (_transTipoNomeEhEntrada(tipoNome)) return valor;
+  if (_transTipoNomeEhSaida(tipoNome)) return -valor;
+  return 0;
+}
+
+function _cartoesSaldoConta(contaId) {
+  return _transTransacoesCanonicas(dbLoad('transacoes'))
+    .reduce((saldo, t) => saldo + _cartoesValorMovimentoConta(t, contaId), 0);
+}
+
+function _cartoesSaldoClasse(valor) {
+  if (valor > 0) return 'positivo';
+  if (valor < 0) return 'negativo';
+  return 'neutro';
+}
+
+function cartoesRenderSelectContas() {
+  const sel = document.getElementById('cartao-conta');
+  if (!sel) return;
+  const atual = sel.value;
+  const contas = _cartoesContasData();
+  sel.innerHTML = '<option value="">Selecione a conta</option>' + contas.map(c =>
+    `<option value="${escHtml(c.id)}">${escHtml(c.nome || 'Conta sem nome')}</option>`
+  ).join('');
+  if (atual && contas.some(c => _dbSameId(c.id, atual))) sel.value = atual;
+}
+
+function cartoesRenderStats() {
+  const stats = document.getElementById('cartoesStats');
+  if (!stats) return;
+  const cartoes = _cartoesCreditoData();
+  const contasVinculadas = new Set(cartoes.map(c => String(c.conta_id || '')).filter(Boolean)).size;
+  const saldoSomado = cartoes.reduce((s, c) => s + _cartoesSaldoConta(c.conta_id), 0);
+  stats.innerHTML = `
+    <div class="stat-card">
+      <div class="stat-label">Cartões cadastrados</div>
+      <div class="stat-value blue">${cartoes.length}</div>
+      <div class="stat-sub">Vinculados a contas cadastradas</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Contas vinculadas</div>
+      <div class="stat-value">${contasVinculadas}</div>
+      <div class="stat-sub">Contas usadas pelos cartões</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Saldo somado</div>
+      <div class="stat-value ${saldoSomado < 0 ? 'danger' : 'green'}">R$ ${fmtValor(Math.abs(saldoSomado))}</div>
+      <div class="stat-sub">${saldoSomado < 0 ? 'Saldo negativo' : 'Saldo positivo ou zerado'}</div>
+    </div>`;
+}
+
+function cartoesRenderLista() {
+  const lista = document.getElementById('cartoesLista');
+  if (!lista) return;
+  const cartoes = _cartoesCreditoData();
+  if (!cartoes.length) {
+    lista.innerHTML = `<div class="card" style="padding:32px;text-align:center;color:var(--text-muted);grid-column:1/-1">
+      Nenhum cartão cadastrado.
+    </div>`;
+    return;
+  }
+  lista.innerHTML = cartoes.map(c => {
+    const saldo = _cartoesSaldoConta(c.conta_id);
+    const cls = _cartoesSaldoClasse(saldo);
+    return `
+      <div class="cartao-item">
+        <div class="cartao-item-head">
+          <div>
+            <div class="cartao-nome">${escHtml(c.nome || 'Cartão sem nome')}</div>
+            <div class="cartao-conta">Conta vinculada: ${escHtml(_cartoesContaNome(c.conta_id))}</div>
+          </div>
+          <span class="badge badge-blue">Cartão</span>
+        </div>
+        <div>
+          <div class="stat-label">Saldo atual</div>
+          <div class="cartao-saldo ${cls}">${saldo < 0 ? '-' : ''}R$ ${fmtValor(Math.abs(saldo))}</div>
+        </div>
+        <div class="cartao-actions">
+          <button class="btn btn-icon btn-sm edit" title="Editar" onclick="cartoesEditar('${c.id}')">Editar</button>
+          <button class="btn btn-icon btn-sm del" title="Excluir" onclick="cartoesExcluir('${c.id}')">Excluir</button>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function renderCartoes() {
+  cartoesRenderSelectContas();
+  cartoesRenderStats();
+  cartoesRenderLista();
+}
+
+function cartoesFocarFormulario() {
+  renderCartoes();
+  document.getElementById('cartao-nome')?.focus();
+}
+
+function cartoesLimparFormulario() {
+  document.getElementById('cartao-edit-id').value = '';
+  document.getElementById('cartao-nome').value = '';
+  document.getElementById('cartao-conta').value = '';
+  document.getElementById('cartoesFormTitle').textContent = 'Novo cartão';
+  document.getElementById('e-cartao-nome').textContent = '';
+  document.getElementById('e-cartao-conta').textContent = '';
+}
+
+function cartoesSalvar() {
+  const id = document.getElementById('cartao-edit-id')?.value || '';
+  const nomeEl = document.getElementById('cartao-nome');
+  const contaEl = document.getElementById('cartao-conta');
+  const nome = nomeEl?.value.trim() || '';
+  const contaId = contaEl?.value || '';
+  document.getElementById('e-cartao-nome').textContent = '';
+  document.getElementById('e-cartao-conta').textContent = '';
+
+  let valido = true;
+  if (!nome) {
+    document.getElementById('e-cartao-nome').textContent = 'Nome do cartão é obrigatório';
+    valido = false;
+  }
+  if (!contaId) {
+    document.getElementById('e-cartao-conta').textContent = 'Conta vinculada é obrigatória';
+    valido = false;
+  }
+  if (!valido) return;
+
+  const duplicado = _cartoesCreditoData().some(c => !_dbSameId(c.id, id) && _transNormTexto(c.nome) === _transNormTexto(nome));
+  if (duplicado) {
+    toast('Já existe um cartão com este nome.', 'warn');
+    return;
+  }
+
+  if (id) dbUpdate('cartoes_credito', id, { nome, conta_id: contaId });
+  else dbInsert('cartoes_credito', { nome, conta_id: contaId });
+  cartoesLimparFormulario();
+  renderCartoes();
+  toast(id ? 'Cartão atualizado!' : 'Cartão cadastrado!');
+}
+
+function cartoesEditar(id) {
+  const cartao = dbLoad('cartoes_credito').find(c => _dbSameId(c.id, id));
+  if (!cartao) return;
+  cartoesRenderSelectContas();
+  document.getElementById('cartao-edit-id').value = cartao.id;
+  document.getElementById('cartao-nome').value = cartao.nome || '';
+  document.getElementById('cartao-conta').value = cartao.conta_id || '';
+  document.getElementById('cartoesFormTitle').textContent = 'Editar cartão';
+  document.getElementById('cartao-nome')?.focus();
+}
+
+function cartoesExcluir(id) {
+  const cartao = dbLoad('cartoes_credito').find(c => _dbSameId(c.id, id));
+  if (!cartao) return;
+  openConfirm(`Excluir "${cartao.nome || ''}"?`, () => {
+    dbDelete('cartoes_credito', id);
+    cartoesLimparFormulario();
+    renderCartoes();
+    toast('Cartão excluído.', 'warn');
+  });
+}
+
+
 // -- app.js --
 /* ============================================================
    app.js  —  Ponto de entrada da aplicação
@@ -15676,12 +16052,13 @@ function showPage(id) {
   }
 
   // Atualiza botões do sidebar
-  ['inicio','transacoes','orcamentos','metas','contas-receber','contas-pagar','simulacao','desejos','investimentos','calculadoras','analise','relatorios','configuracoes'].forEach(p => {
+  ['inicio','transacoes','cartoes','orcamentos','metas','contas-receber','contas-pagar','simulacao','desejos','investimentos','calculadoras','analise','relatorios','configuracoes'].forEach(p => {
     document.getElementById('navbtn-' + p)?.classList.toggle('active', p === id);
   });
 
   if (id === 'inicio')         renderInicio();
   if (id === 'transacoes')     renderTransacoes();
+  if (id === 'cartoes')        renderCartoes();
   if (id === 'orcamentos')     { _orcInitPeriodo(); renderOrcamentos(); }
   if (id === 'metas')          renderMetas();
   if (id === 'contas-receber')  { _ctaInitMesAtual('receber'); renderContas('receber'); }
@@ -16295,22 +16672,13 @@ function _transContaExportacaoOptions() {
 }
 
 function _transSinalTransferenciaConta(t, contaReferenciaId) {
-  const fluxo = _transOrigemDestinoTransferencia(t);
-  const origemId = fluxo?.origem?.cartao_id || '';
-  const destinoId = fluxo?.destinoId || fluxo?.destino?.cartao_id || '';
-
-  if (destinoId && _dbSameId(destinoId, contaReferenciaId)) return 1;
-  if (origemId && _dbSameId(origemId, contaReferenciaId)) return -1;
-
   const contaMovimentoId = t?.cartao_id || '';
   const contaDestinoDiretaId = _transContaDestinoLegadaId(t);
-  if (_transIsEntradaOperacional(t)) {
-    if (contaMovimentoId && _dbSameId(contaMovimentoId, contaReferenciaId)) return 1;
-    if (contaDestinoDiretaId && _dbSameId(contaDestinoDiretaId, contaReferenciaId)) return -1;
-  } else {
-    if (contaDestinoDiretaId && _dbSameId(contaDestinoDiretaId, contaReferenciaId)) return 1;
-    if (contaMovimentoId && _dbSameId(contaMovimentoId, contaReferenciaId)) return -1;
-  }
+  if (contaMovimentoId && _dbSameId(contaMovimentoId, contaReferenciaId)) return -1;
+  if (contaDestinoDiretaId && _dbSameId(contaDestinoDiretaId, contaReferenciaId)) return 1;
+  const fluxo = _transOrigemDestinoTransferencia(t);
+  if (fluxo?.origem?.cartao_id && _dbSameId(fluxo.origem.cartao_id, contaReferenciaId)) return -1;
+  if (fluxo?.destinoId && _dbSameId(fluxo.destinoId, contaReferenciaId)) return 1;
   return 0;
 }
 
@@ -16389,7 +16757,8 @@ function exportarTransacoesFormato(formato, contaReferenciaId = '') {
     'Descrição':         t.descricao          || '',
     'Descrição Tratada': t.descricao_tratada  || '',
     'Tipo':              t.tipo_pagamento || '',
-    'Cartão/Conta':      t.cartao || '',
+    'Conta':             t.cartao || '',
+    'Conta destino':     _transContaDestinoNome(t) || '',
     'Forma de Pagamento':t.forma_pagamento || '',
     'Perfil':            t.perfil_despesa || '',
     'Natureza':          t.natureza || '',
@@ -16771,6 +17140,7 @@ function limparTodosDados() {
   if (!confirm('⚠️ ATENÇÃO\n\nIsso vai apagar TODOS os seus dados do Saldo Certo neste navegador:\n\n• Transações\n• Orçamentos\n• Metas\n• Contas a Receber e a Pagar\n• Investimentos\n• Configurações (cartões, categorias, etc.)\n\nEssa ação é IRREVERSÍVEL.\n\nDeseja continuar?')) return;
   if (!confirm('Tem certeza absoluta? Todos os dados serão perdidos.')) return;
   Object.keys(STORAGE_KEYS).forEach(k => { DB_CACHE[k] = []; });
+  DB_LOCAL_ONLY.forEach(k => localStorage.removeItem(STORAGE_KEYS[k]));
   toast('Todos os dados foram apagados. Recarregando...', 'warn');
   setTimeout(() => location.reload(), 1500);
 }
@@ -16813,6 +17183,10 @@ async function limparTodosDadosSupabase() {
       if (error) throw error;
       DB_CACHE[col] = [];
     }
+    DB_LOCAL_ONLY.forEach(col => {
+      DB_CACHE[col] = [];
+      localStorage.removeItem(STORAGE_KEYS[col]);
+    });
     toast('Todos os dados foram apagados do Supabase. Recarregando...', 'warn');
     setTimeout(() => location.reload(), 1500);
   } catch (error) {
@@ -16895,6 +17269,7 @@ function _reRenderPaginasTransacoes() {
   if (!active) return;
   const mapa = {
     transacoes:     () => renderTransacoes?.(),
+    cartoes:        () => renderCartoes?.(),
     inicio:         () => renderInicio?.(),
     analise:        () => renderAnaliseDiaria?.(),
     relatorios:     () => renderRelatorios?.(),
@@ -17005,7 +17380,7 @@ function _authEntrarNoApp(session) {
     sbSyncDown(null, true).then(total => {
       // Restaurar página do hash da URL (prioridade) ou do localStorage
       const hashPage = window.location.hash.replace('#', '').trim();
-      const _paginasValidas = ['inicio','transacoes','orcamentos','metas','contas-receber',
+      const _paginasValidas = ['inicio','transacoes','cartoes','orcamentos','metas','contas-receber',
         'contas-pagar','simulacao','desejos','investimentos','calculadoras','analise','relatorios','configuracoes'];
       const ultimaPagina = (hashPage && _paginasValidas.includes(hashPage))
         ? hashPage
