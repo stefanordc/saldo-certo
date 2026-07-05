@@ -7749,16 +7749,33 @@ function _transDescricaoComecaComPix(valor) {
   return _transNormTexto(valor).startsWith('pix');
 }
 
+function _transDescricaoComecaComPixRecebido(valor) {
+  return _transNormTexto(valor).startsWith('pix recebido');
+}
+
+function _transDescricoesDoForm() {
+  return [
+    document.getElementById('f-descricao')?.value || '',
+    document.getElementById('f-descricao-tratada')?.value || '',
+  ];
+}
+
+function _transFormDescricaoEhPixRecebido() {
+  return _transDescricoesDoForm().some(_transDescricaoComecaComPixRecebido);
+}
+
 function _transAplicarPixPorDescricao() {
-  const descricao = document.getElementById('f-descricao')?.value || '';
-  const descricaoTratada = document.getElementById('f-descricao-tratada')?.value || '';
-  if (_transDescricaoComecaComPix(descricao) || _transDescricaoComecaComPix(descricaoTratada)) {
+  const descricoes = _transDescricoesDoForm();
+  if (descricoes.some(_transDescricaoComecaComPix)) {
     const sel = document.getElementById('f-forma-pagamento');
     const oldValue = sel?.value || '';
     _transSetSelectValue('f-forma-pagamento', 'formas', _transFormaIdPix());
     if (sel && sel.value !== oldValue) {
       sel.dispatchEvent(new Event('change', { bubbles: true }));
       transRefreshSearchableSelect('f-forma-pagamento');
+    }
+    if (_transFormDescricaoEhPixRecebido()) {
+      _transAplicarClassificacaoPixRecebido();
     }
     return true;
   }
@@ -7777,6 +7794,55 @@ function _transBindDescricaoPixAuto() {
 
 function _transFormaIdDebito() {
   return _transEnsureConfigId('formas', 'Débito', ['Debito']);
+}
+
+function _transPerfilReceitaVariavelId() {
+  return _transEnsureConfigId('perfis', 'Receita Variável', ['Receita Variavel']);
+}
+
+function _transCategoriaFinanceiroId() {
+  return _transEnsureConfigId('categorias', 'Financeiro');
+}
+
+function _transNaturezaRecuperacaoId() {
+  return _transEnsureConfigId('naturezas', 'Recuperação', ['Recuperacao']);
+}
+
+function _transDecisaoEventualId() {
+  return _transEnsureConfigId('decisoes', 'Eventual');
+}
+
+function _transEnsureSubcategoriaPorNome(nome, categoriaId = '', aliases = []) {
+  const alvos = [nome, ...aliases].map(_transNormTexto).filter(Boolean);
+  const itens = dbLoad('subcategorias').filter(item => {
+    const itemNome = _transNormTexto(item.nome);
+    if (!itemNome) return false;
+    return alvos.some(alvo => itemNome === alvo || itemNome.includes(alvo) || alvo.includes(itemNome));
+  });
+  const existente = itens.find(item => !categoriaId || _dbSameId(item.categoria_id, categoriaId)) || itens[0];
+  if (existente) return existente.id;
+  const dados = dbInsert('subcategorias', { nome, categoria_id: categoriaId || '' });
+  return dados.find(item => _transNormTexto(item.nome) === _transNormTexto(nome) && (!categoriaId || _dbSameId(item.categoria_id, categoriaId)))?.id || '';
+}
+
+function _transSubcategoriaReembolsoId(categoriaId) {
+  return _transEnsureSubcategoriaPorNome('Reembolso', categoriaId);
+}
+
+function _transAplicarClassificacaoPixRecebido() {
+  const perfilId = _transPerfilReceitaVariavelId();
+  const categoriaId = _transCategoriaFinanceiroId();
+  const subcatId = _transSubcategoriaReembolsoId(categoriaId);
+  const naturezaId = _transNaturezaRecuperacaoId();
+  const decisaoId = _transDecisaoEventualId();
+
+  _transSetSelectValue('f-tipo-pagamento', 'tipos', _transTipoEntradaId());
+  _transSetSelectValue('f-perfil-despesa', 'perfis', perfilId);
+  _transSetSelectValue('f-categoria', 'categorias', categoriaId);
+  _transSetSelectValue('f-subcategoria', 'subcategorias', subcatId);
+  _transSetSelectValue('f-natureza', 'naturezas', naturezaId);
+  _transSetSelectValue('f-decisao', 'decisoes', decisaoId);
+  toggleContaDestinoTransacao(false);
 }
 
 function _transPerfilSelecionadoEhTransferencia() {
@@ -15641,14 +15707,23 @@ function impExecutar() {
         categoriaId = _transCategoriaIdTransferencia();
         categoriaNome = 'Transferência';
       }
-      const naturezaId = findId(naturezas, get('natureza')) || (transferenciaImportada ? _transNaturezaIdTransferencia() : '');
-      const decisaoId = findId(decisoes, get('decisao')) || (transferenciaImportada ? _transDecisaoIdTransferencia() : '');
-      const perfilId = findId(perfis, get('perfil')) || (transferenciaImportada ? _transPerfilIdTransferencia() : '');
-      const subcategoriaId = findId(subcat, get('subcategoria')) || (transferenciaImportada ? _transEnsureSubcategoriaTransferencia(categoriaId) : '');
-      const perfilImportadoEhTransferencia = transferenciaImportada || _transIsTransferenciaNome(dbLoad('perfis').find(x => x.id === perfilId)?.nome || get('perfil'));
       const descricao = get('descricao') || get('descricao_tratada') || 'Importado';
       const descricaoTratada = get('descricao_tratada') || descricao;
       const descricaoImportadaEhPix = _transDescricaoComecaComPix(descricao) || _transDescricaoComecaComPix(descricaoTratada);
+      const descricaoImportadaEhPixRecebido = _transDescricaoComecaComPixRecebido(descricao) || _transDescricaoComecaComPixRecebido(descricaoTratada);
+      let naturezaId = findId(naturezas, get('natureza')) || (transferenciaImportada ? _transNaturezaIdTransferencia() : '');
+      let decisaoId = findId(decisoes, get('decisao')) || (transferenciaImportada ? _transDecisaoIdTransferencia() : '');
+      let perfilId = findId(perfis, get('perfil')) || (transferenciaImportada ? _transPerfilIdTransferencia() : '');
+      let subcategoriaId = findId(subcat, get('subcategoria')) || (transferenciaImportada ? _transEnsureSubcategoriaTransferencia(categoriaId) : '');
+      if (descricaoImportadaEhPixRecebido) {
+        categoriaId = _transCategoriaFinanceiroId();
+        categoriaNome = 'Financeiro';
+        perfilId = _transPerfilReceitaVariavelId();
+        naturezaId = _transNaturezaRecuperacaoId();
+        decisaoId = _transDecisaoEventualId();
+        subcategoriaId = _transSubcategoriaReembolsoId(categoriaId);
+      }
+      const perfilImportadoEhTransferencia = transferenciaImportada || _transIsTransferenciaNome(dbLoad('perfis').find(x => x.id === perfilId)?.nome || get('perfil'));
       const formaPagamentoId = (perfilImportadoEhTransferencia || descricaoImportadaEhPix)
         ? pixFormaId
         : findId(formas, get('forma'));
