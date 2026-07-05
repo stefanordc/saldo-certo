@@ -8235,6 +8235,11 @@ function _transSubcategoriaNomeEhAlimentacao(valor) {
   return _transNormTexto(valor) === 'alimentacao';
 }
 
+function _transSubcategoriaNomeEhBares(valor) {
+  const n = _transNormTexto(valor);
+  return n === 'bares' || n === 'bar';
+}
+
 function _transNaturezaNeutroId() {
   return _transEnsureConfigId('naturezas', 'Neutro');
 }
@@ -8282,6 +8287,13 @@ function _transSubcategoriaSelecionadaEhAlimentacao() {
   return _transSubcategoriaNomeEhAlimentacao(nome);
 }
 
+function _transSubcategoriaSelecionadaEhBares() {
+  const sel = document.getElementById('f-subcategoria');
+  if (!sel?.value) return false;
+  const nome = sel.selectedOptions?.[0]?.textContent || _transNomeColecao('subcategorias', sel.value);
+  return _transSubcategoriaNomeEhBares(nome);
+}
+
 function _transAplicarClassificacaoCategoriaOutros() {
   if (!_transCategoriaSelecionadaEhOutros() || _transSelectEhTransferencia('f-categoria')) return false;
   const categoriaId = document.getElementById('f-categoria')?.value || _transCategoriaOutrosId();
@@ -8300,9 +8312,25 @@ function _transClassificacaoLazerAlimentacaoIds() {
   };
 }
 
+function _transClassificacaoBaresIds() {
+  return {
+    naturezaId: _transNaturezaSuperfluoId(),
+    decisaoId: _transDecisaoImpulsivoId(),
+  };
+}
+
 function _transAplicarClassificacaoLazerAlimentacao() {
   if (!_transCategoriaSelecionadaEhLazer() || !_transSubcategoriaSelecionadaEhAlimentacao()) return false;
   const ids = _transClassificacaoLazerAlimentacaoIds();
+  _transSetSelectValue('f-natureza', 'naturezas', ids.naturezaId);
+  _transSetSelectValue('f-decisao', 'decisoes', ids.decisaoId);
+  toggleContaDestinoTransacao(_transFormEhTransferencia());
+  return true;
+}
+
+function _transAplicarClassificacaoBares() {
+  if (!_transSubcategoriaSelecionadaEhBares()) return false;
+  const ids = _transClassificacaoBaresIds();
   _transSetSelectValue('f-natureza', 'naturezas', ids.naturezaId);
   _transSetSelectValue('f-decisao', 'decisoes', ids.decisaoId);
   toggleContaDestinoTransacao(_transFormEhTransferencia());
@@ -8855,11 +8883,13 @@ function onTransCategoriaChange() {
   onTransTransferenciaFieldChange('f-categoria');
   _transAplicarClassificacaoCategoriaOutros();
   _transAplicarClassificacaoLazerAlimentacao();
+  _transAplicarClassificacaoBares();
 }
 
 function onTransSubcategoriaChange() {
   onTransTransferenciaFieldChange('f-subcategoria');
   _transAplicarClassificacaoLazerAlimentacao();
+  _transAplicarClassificacaoBares();
 }
 
 function _transTipoNomeNorm(t) {
@@ -9265,6 +9295,7 @@ function saveTransacao() {
   _transAplicarPixPorDescricao();
   _transAplicarClassificacaoCategoriaOutros();
   _transAplicarClassificacaoLazerAlimentacao();
+  _transAplicarClassificacaoBares();
   const isNovaTransacao = !editandoTransId;
 
   // Campos obrigatórios
@@ -16561,6 +16592,10 @@ function impExecutar() {
         const classificacaoLazer = _transClassificacaoLazerAlimentacaoIds();
         naturezaId = classificacaoLazer.naturezaId;
         decisaoId = classificacaoLazer.decisaoId;
+      } else if (!transferenciaImportada && _transSubcategoriaNomeEhBares(subcategoriaNome || get('subcategoria'))) {
+        const classificacaoBares = _transClassificacaoBaresIds();
+        naturezaId = classificacaoBares.naturezaId;
+        decisaoId = classificacaoBares.decisaoId;
       } else if (!transferenciaImportada && _transCategoriaNomeEhOutros(categoriaNome)) {
         const classificacaoOutros = _transClassificacaoCategoriaOutrosIds(categoriaId);
         categoriaId = classificacaoOutros.categoriaId;
