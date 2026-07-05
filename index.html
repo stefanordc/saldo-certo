@@ -287,6 +287,92 @@ main { padding: 28px 28px 48px; }
   overflow: hidden;
 }
 
+.inicio-chart-card {
+  margin-bottom: 24px;
+  background: linear-gradient(180deg,#FFFFFF 0%,#F8FAFD 100%);
+  box-shadow: 0 18px 42px rgba(22,33,62,0.08);
+}
+.inicio-chart-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 22px 24px 10px;
+}
+.inicio-chart-title {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--text);
+  letter-spacing: 0;
+}
+.inicio-chart-subtitle {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 4px;
+  line-height: 1.4;
+}
+.inicio-chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 800;
+}
+.inicio-legend-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 28px;
+  padding: 6px 10px;
+  border: 1px solid rgba(83,97,121,0.14);
+  border-radius: 999px;
+  background: rgba(255,255,255,0.78);
+  color: var(--text);
+}
+.inicio-legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  display: inline-block;
+  box-shadow: 0 0 0 3px rgba(255,255,255,0.7);
+}
+.inicio-legend-dot.entrada { background: #10B981; }
+.inicio-legend-dot.saida { background: #EF4444; }
+.inicio-chart-body { padding: 0 22px 22px; }
+.inicio-chart-canvas {
+  position: relative;
+  height: 300px;
+  padding: 4px 2px 0;
+}
+body.theme-dark .inicio-chart-card {
+  background: linear-gradient(180deg,#192028 0%,#12181F 100%);
+  box-shadow: 0 18px 42px rgba(0,0,0,0.34);
+}
+body.theme-dark .inicio-legend-pill {
+  background: rgba(255,255,255,0.045);
+  border-color: rgba(207,225,255,0.14);
+  color: #EAF3FF;
+}
+body.theme-dark .inicio-legend-dot {
+  box-shadow: 0 0 0 3px rgba(9,14,20,0.75);
+}
+@media (max-width: 768px) {
+  .inicio-chart-head {
+    flex-direction: column;
+    padding: 18px 16px 8px;
+  }
+  .inicio-chart-legend {
+    justify-content: flex-start;
+  }
+  .inicio-chart-body {
+    padding: 0 14px 18px;
+  }
+  .inicio-chart-canvas {
+    height: 260px;
+  }
+}
+
 /* -- ABAS (Configurações) -- */
 .tabs-bar {
   display: flex;
@@ -3427,19 +3513,19 @@ main {
     </div>
 
     <!-- Gráfico Entradas x Saídas por mês -->
-    <div class="card" style="margin-bottom:24px">
-      <div style="padding:20px 24px 8px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px">
+    <div class="card inicio-chart-card">
+      <div class="inicio-chart-head">
         <div>
-          <div style="font-size:15px;font-weight:700;color:var(--text)">Entradas vs. Saídas</div>
-          <div style="font-size:12px;color:var(--text-muted);margin-top:2px">Ano atual por mês (data de competência) · Status neutro excluído</div>
+          <div class="inicio-chart-title">Entradas vs. Saídas</div>
+          <div class="inicio-chart-subtitle">Ano atual por mês (data de competência) · Status neutro excluído</div>
         </div>
-        <div style="display:flex;gap:16px;font-size:12px;font-weight:600">
-          <span style="display:flex;align-items:center;gap:5px"><span style="width:12px;height:12px;border-radius:3px;background:var(--accent);display:inline-block"></span>Entradas</span>
-          <span style="display:flex;align-items:center;gap:5px"><span style="width:12px;height:12px;border-radius:3px;background:var(--danger);display:inline-block"></span>Saídas</span>
+        <div class="inicio-chart-legend" aria-label="Legenda do gráfico">
+          <span class="inicio-legend-pill"><span class="inicio-legend-dot entrada"></span>Entradas</span>
+          <span class="inicio-legend-pill"><span class="inicio-legend-dot saida"></span>Saídas</span>
         </div>
       </div>
-      <div style="padding:0 24px 24px">
-        <div style="position:relative;height:280px">
+      <div class="inicio-chart-body">
+        <div class="inicio-chart-canvas">
           <canvas id="graficoMensal"></canvas>
         </div>
       </div>
@@ -8670,6 +8756,56 @@ function _contaParaScore(t) {
   return true;
 }
 
+function _inicioChartTheme() {
+  const dark = document.body.classList.contains('theme-dark');
+  return dark
+    ? {
+        axis: '#AEB8C5',
+        grid: 'rgba(207,225,255,0.13)',
+        tooltipBg: '#0D131A',
+        tooltipBorder: 'rgba(207,225,255,0.20)',
+        tooltipText: '#F3F6FA',
+        entradaTop: 'rgba(52,211,153,0.98)',
+        entradaBottom: 'rgba(5,150,105,0.72)',
+        entradaHover: 'rgba(110,231,183,0.98)',
+        entradaBorder: 'rgba(142,240,192,0.28)',
+        saidaTop: 'rgba(248,113,113,0.98)',
+        saidaBottom: 'rgba(185,28,28,0.72)',
+        saidaHover: 'rgba(252,165,165,0.98)',
+        saidaBorder: 'rgba(255,162,154,0.28)',
+      }
+    : {
+        axis: '#6B7A99',
+        grid: 'rgba(83,97,121,0.13)',
+        tooltipBg: '#101827',
+        tooltipBorder: 'rgba(216,221,230,0.30)',
+        tooltipText: '#FFFFFF',
+        entradaTop: 'rgba(16,185,129,0.95)',
+        entradaBottom: 'rgba(4,120,87,0.78)',
+        entradaHover: 'rgba(5,150,105,0.95)',
+        entradaBorder: 'rgba(0,168,107,0.26)',
+        saidaTop: 'rgba(239,68,68,0.95)',
+        saidaBottom: 'rgba(185,28,28,0.78)',
+        saidaHover: 'rgba(220,38,38,0.95)',
+        saidaBorder: 'rgba(217,48,37,0.26)',
+      };
+}
+
+function _inicioBarGradient(context, topColor, bottomColor) {
+  const chart = context.chart;
+  const area = chart.chartArea;
+  if (!area) return topColor;
+  const gradient = chart.ctx.createLinearGradient(0, area.top, 0, area.bottom);
+  gradient.addColorStop(0, topColor);
+  gradient.addColorStop(1, bottomColor);
+  return gradient;
+}
+
+function _inicioFmtSaldo(valor) {
+  const sinal = valor > 0 ? '+' : valor < 0 ? '-' : '';
+  return `${sinal}R$ ${fmtValor(Math.abs(valor))}`;
+}
+
 /* --------------------------------------------
    GRÁFICO DE BARRAS MENSAL
 -------------------------------------------- */
@@ -8706,6 +8842,8 @@ function renderGraficoMensal() {
   });
   const entradas = meses.map(m => mesesMap[m].entrada);
   const saidas   = meses.map(m => mesesMap[m].saida);
+  const saldos   = entradas.map((entrada, i) => entrada - saidas[i]);
+  const theme    = _inicioChartTheme();
 
   if (_graficoMensal) { _graficoMensal.destroy(); _graficoMensal = null; }
 
@@ -8717,36 +8855,84 @@ function renderGraficoMensal() {
         {
           label: 'Entradas',
           data: entradas,
-          backgroundColor: 'rgba(0,168,107,0.82)',
-          borderRadius: 5,
+          backgroundColor: ctx => _inicioBarGradient(ctx, theme.entradaTop, theme.entradaBottom),
+          hoverBackgroundColor: theme.entradaHover,
+          borderColor: theme.entradaBorder,
+          borderWidth: 1,
+          borderRadius: { topLeft: 10, topRight: 10, bottomLeft: 4, bottomRight: 4 },
           borderSkipped: false,
+          barPercentage: 0.7,
+          categoryPercentage: 0.68,
+          maxBarThickness: 46,
         },
         {
           label: 'Saídas',
           data: saidas,
-          backgroundColor: 'rgba(217,48,37,0.78)',
-          borderRadius: 5,
+          backgroundColor: ctx => _inicioBarGradient(ctx, theme.saidaTop, theme.saidaBottom),
+          hoverBackgroundColor: theme.saidaHover,
+          borderColor: theme.saidaBorder,
+          borderWidth: 1,
+          borderRadius: { topLeft: 10, topRight: 10, bottomLeft: 4, bottomRight: 4 },
           borderSkipped: false,
+          barPercentage: 0.7,
+          categoryPercentage: 0.68,
+          maxBarThickness: 46,
         }
       ]
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
+      animation: { duration: 750, easing: 'easeOutQuart' },
+      interaction: { mode: 'index', intersect: false },
+      layout: { padding: { top: 12, right: 10, bottom: 0, left: 4 } },
       plugins: {
         legend: { display: false },
         tooltip: {
+          backgroundColor: theme.tooltipBg,
+          titleColor: theme.tooltipText,
+          bodyColor: theme.tooltipText,
+          footerColor: theme.tooltipText,
+          borderColor: theme.tooltipBorder,
+          borderWidth: 1,
+          padding: 12,
+          cornerRadius: 10,
+          boxPadding: 6,
+          displayColors: true,
           callbacks: {
-            label: ctx => ` R$ ${fmtValor(ctx.parsed.y)}`
+            label: ctx => `${ctx.dataset.label}: R$ ${fmtValor(ctx.parsed.y)}`,
+            footer: items => {
+              if (!items.length) return '';
+              return `Saldo líquido: ${_inicioFmtSaldo(saldos[items[0].dataIndex] || 0)}`;
+            },
+            labelColor: ctx => ({
+              backgroundColor: ctx.dataset.label === 'Entradas' ? theme.entradaTop : theme.saidaTop,
+              borderColor: 'transparent',
+              borderWidth: 0,
+              borderRadius: 4,
+            })
           }
         }
       },
       scales: {
-        x: { grid: { display: false }, ticks: { font: { size: 12 } } },
-        y: {
-          grid: { color: '#EAEEF3' },
+        x: {
+          grid: { display: false },
+          border: { display: false },
           ticks: {
-            font: { size: 11 },
+            color: theme.axis,
+            font: { size: 12, weight: '700' },
+            padding: 8,
+          }
+        },
+        y: {
+          beginAtZero: true,
+          border: { display: false },
+          grid: { color: theme.grid, drawTicks: false },
+          ticks: {
+            color: theme.axis,
+            font: { size: 11, weight: '600' },
+            maxTicksLimit: 6,
+            padding: 10,
             callback: v => 'R$ ' + fmtValor(v)
           }
         }
