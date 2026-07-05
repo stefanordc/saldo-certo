@@ -5596,13 +5596,15 @@ main {
 
         <div class="form-group full">
           <label class="form-label">Descrição <span class="req">*</span></label>
-          <input type="text" class="form-input" id="f-descricao" placeholder="Descrição da movimentação">
+          <input type="text" class="form-input" id="f-descricao" placeholder="Descrição da movimentação"
+                 oninput="_transAplicarPixPorDescricao()" onchange="_transAplicarPixPorDescricao()" onblur="_transAplicarPixPorDescricao()">
           <span class="form-error" id="e-descricao"></span>
         </div>
 
         <div class="form-group full">
           <label class="form-label">Descrição tratada <span class="req">*</span></label>
-          <input type="text" class="form-input" id="f-descricao-tratada" placeholder="Descrição padronizada">
+          <input type="text" class="form-input" id="f-descricao-tratada" placeholder="Descrição padronizada"
+                 onfocus="_transAplicarPixPorDescricao()" oninput="_transAplicarPixPorDescricao()" onchange="_transAplicarPixPorDescricao()" onblur="_transAplicarPixPorDescricao()">
           <span class="form-error" id="e-descricao-tratada"></span>
         </div>
 
@@ -7751,7 +7753,13 @@ function _transAplicarPixPorDescricao() {
   const descricao = document.getElementById('f-descricao')?.value || '';
   const descricaoTratada = document.getElementById('f-descricao-tratada')?.value || '';
   if (_transDescricaoComecaComPix(descricao) || _transDescricaoComecaComPix(descricaoTratada)) {
+    const sel = document.getElementById('f-forma-pagamento');
+    const oldValue = sel?.value || '';
     _transSetSelectValue('f-forma-pagamento', 'formas', _transFormaIdPix());
+    if (sel && sel.value !== oldValue) {
+      sel.dispatchEvent(new Event('change', { bubbles: true }));
+      transRefreshSearchableSelect('f-forma-pagamento');
+    }
     return true;
   }
   return false;
