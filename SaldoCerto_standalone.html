@@ -5722,7 +5722,7 @@ function _dbSameId(a, b) {
 function dbSave(colecao, dados) {
   localStorage.setItem(STORAGE_KEYS[colecao], JSON.stringify(dados));
   // Supabase: sync em background, sem bloquear a UI
-  _sbSyncSave(colecao, dados);
+  _dbScheduleSyncSave(colecao, dados);
 }
 
 /* -- INSERE um registro -- */
@@ -5761,6 +5761,11 @@ function dbDelete(colecao, id) {
 }
 
 /* ==== SUPABASE SYNC — Background ==== */
+
+function _dbScheduleSyncSave(colecao, dados) {
+  const snapshot = dados.map(item => ({ ...item }));
+  setTimeout(() => _sbSyncSave(colecao, snapshot), 0);
+}
 
 /* Injeta user_id no objeto antes de enviar ao Supabase */
 function _sbInjectUser(obj) {
