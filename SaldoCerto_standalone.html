@@ -5648,6 +5648,11 @@ function dbLoad(colecao) {
   }
 }
 
+function _dbSameId(a, b) {
+  if (a === null || a === undefined || b === null || b === undefined) return false;
+  return String(a) === String(b);
+}
+
 /* -- SALVA no cache local + Supabase (assíncrono em background) -- */
 function dbSave(colecao, dados) {
   localStorage.setItem(STORAGE_KEYS[colecao], JSON.stringify(dados));
@@ -5675,7 +5680,7 @@ function dbInsert(colecao, registro) {
 /* -- ATUALIZA um registro -- */
 function dbUpdate(colecao, id, novosDados) {
   const dados = dbLoad(colecao).map(item =>
-    item.id === id ? { ...item, ...novosDados, updatedAt: new Date().toISOString() } : item
+    _dbSameId(item.id, id) ? { ...item, ...novosDados, updatedAt: new Date().toISOString() } : item
   );
   localStorage.setItem(STORAGE_KEYS[colecao], JSON.stringify(dados));
   _sbUpdate(colecao, id, { ...novosDados, updated_at: new Date().toISOString() });
@@ -5684,7 +5689,7 @@ function dbUpdate(colecao, id, novosDados) {
 
 /* -- REMOVE um registro -- */
 function dbDelete(colecao, id) {
-  const dados = dbLoad(colecao).filter(item => item.id !== id);
+  const dados = dbLoad(colecao).filter(item => !_dbSameId(item.id, id));
   localStorage.setItem(STORAGE_KEYS[colecao], JSON.stringify(dados));
   _sbDelete(colecao, id);
   return dados;
@@ -6828,7 +6833,7 @@ function atualizarChips(f) {
 
   const getNome = (colecao, id) => {
     if (!id) return '';
-    return dbLoad(colecao).find(x => x.id === id)?.nome || id;
+    return dbLoad(colecao).find(x => _dbSameId(x.id, id))?.nome || id;
   };
 
   if (f.dataDe || f.dataAte) {
@@ -6879,15 +6884,15 @@ function renderTransacoes() {
   const ordemInsercao = new Map(transacoesOriginais.map((t, i) => [t.id, i]));
   let dados = transacoesOriginais.map(t => ({
     ...t,
-    cartao:          dbLoad('cartoes').find(x => x.id === t.cartao_id)?.nome || '',
-    tipo_pagamento:  dbLoad('tipos').find(x => x.id === t.tipo_pagamento_id)?.nome || '',
-    forma_pagamento: dbLoad('formas').find(x => x.id === t.forma_pagamento_id)?.nome || '',
-    perfil_despesa:  dbLoad('perfis').find(x => x.id === t.perfil_despesa_id)?.nome || '',
+    cartao:          dbLoad('cartoes').find(x => _dbSameId(x.id, t.cartao_id))?.nome || '',
+    tipo_pagamento:  dbLoad('tipos').find(x => _dbSameId(x.id, t.tipo_pagamento_id))?.nome || '',
+    forma_pagamento: dbLoad('formas').find(x => _dbSameId(x.id, t.forma_pagamento_id))?.nome || '',
+    perfil_despesa:  dbLoad('perfis').find(x => _dbSameId(x.id, t.perfil_despesa_id))?.nome || '',
     natureza:        _transNatureza(t),
     decisao:         _transDecisao(t),
-    categoria:       dbLoad('categorias').find(x => x.id === t.categoria_id)?.nome || '',
-    subcategoria:    dbLoad('subcategorias').find(x => x.id === t.subcategoria_id)?.nome || '',
-    status_compra:   dbLoad('status').find(x => x.id === t.status_compra_id)?.nome || '',
+    categoria:       dbLoad('categorias').find(x => _dbSameId(x.id, t.categoria_id))?.nome || '',
+    subcategoria:    dbLoad('subcategorias').find(x => _dbSameId(x.id, t.subcategoria_id))?.nome || '',
+    status_compra:   dbLoad('status').find(x => _dbSameId(x.id, t.status_compra_id))?.nome || '',
     parcelas:        t.parcelado === 'Sim' ? `${t.parcela_atual}/${t.parcela_maxima}` : '—',
   }));
 
@@ -6904,13 +6909,13 @@ function renderTransacoes() {
   }
 
   // Filtros de selects (por ID)
-  if (fil.cartao)       dados = dados.filter(t => t.cartao_id        === fil.cartao);
-  if (fil.tipo)         dados = dados.filter(t => t.natureza_id       === fil.tipo);
-  if (fil.forma)        dados = dados.filter(t => t.forma_pagamento_id=== fil.forma);
-  if (fil.perfil)       dados = dados.filter(t => t.decisao_id        === fil.perfil);
-  if (fil.categoria)    dados = dados.filter(t => t.categoria_id      === fil.categoria);
-  if (fil.subcategoria) dados = dados.filter(t => t.subcategoria_id   === fil.subcategoria);
-  if (fil.status)       dados = dados.filter(t => t.status_compra_id  === fil.status);
+  if (fil.cartao)       dados = dados.filter(t => _dbSameId(t.cartao_id, fil.cartao));
+  if (fil.tipo)         dados = dados.filter(t => _dbSameId(t.natureza_id, fil.tipo));
+  if (fil.forma)        dados = dados.filter(t => _dbSameId(t.forma_pagamento_id, fil.forma));
+  if (fil.perfil)       dados = dados.filter(t => _dbSameId(t.decisao_id, fil.perfil));
+  if (fil.categoria)    dados = dados.filter(t => _dbSameId(t.categoria_id, fil.categoria));
+  if (fil.subcategoria) dados = dados.filter(t => _dbSameId(t.subcategoria_id, fil.subcategoria));
+  if (fil.status)       dados = dados.filter(t => _dbSameId(t.status_compra_id, fil.status));
 
   // Filtro de faixa de valor
   if (fil.valorDe  !== null) dados = dados.filter(t => (parseFloat(t.valor) || 0) >= fil.valorDe);
@@ -6959,10 +6964,10 @@ function renderTransacoes() {
   const naturezasData = dbLoad('naturezas');
   const todasTrans    = dbLoad('transacoes');
 
-  const nomeTipo   = t => (tiposData.find(x => x.id === t.tipo_pagamento_id)?.nome || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
-  const nomeStatus = t => (statusData.find(x => x.id === t.status_compra_id)?.nome || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
-  const nomeCat    = t => (categoriasData.find(x => x.id === t.categoria_id)?.nome || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
-  const nomeNatureza = t => (naturezasData.find(x => x.id === t.natureza_id)?.nome || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  const nomeTipo   = t => (tiposData.find(x => _dbSameId(x.id, t.tipo_pagamento_id))?.nome || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  const nomeStatus = t => (statusData.find(x => _dbSameId(x.id, t.status_compra_id))?.nome || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  const nomeCat    = t => (categoriasData.find(x => _dbSameId(x.id, t.categoria_id))?.nome || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  const nomeNatureza = t => (naturezasData.find(x => _dbSameId(x.id, t.natureza_id))?.nome || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
   const isEntrada  = t => nomeTipo(t) === 'entrada';
   const isSaida    = t => nomeTipo(t) === 'saida';
   const isNeutro   = t => { const s = nomeStatus(t); const n = nomeNatureza(t); return s === 'neutro' || s === '30' || n === 'neutro' || _transIsTransferenciaLancamento(t); };
@@ -7360,20 +7365,20 @@ function _transFormEhTransferencia() {
 
 function _transEnsureSubcategoriaTransferencia(categoriaId) {
   const itens = dbLoad('subcategorias').filter(item => _transIsTransferenciaNome(item.nome));
-  const existente = itens.find(item => !categoriaId || item.categoria_id === categoriaId) || itens[0];
+  const existente = itens.find(item => !categoriaId || _dbSameId(item.categoria_id, categoriaId)) || itens[0];
   if (existente) return existente.id;
   const dados = dbInsert('subcategorias', { nome: 'Transferência', categoria_id: categoriaId || '' });
-  return dados.find(item => _transIsTransferenciaNome(item.nome) && (!categoriaId || item.categoria_id === categoriaId))?.id || '';
+  return dados.find(item => _transIsTransferenciaNome(item.nome) && (!categoriaId || _dbSameId(item.categoria_id, categoriaId)))?.id || '';
 }
 
 function _transSetSelectValue(selectId, colecao, id) {
   const sel = document.getElementById(selectId);
   if (!sel || !id) return;
-  if (!Array.from(sel.options).some(opt => opt.value === id)) {
-    const item = dbLoad(colecao).find(x => x.id === id);
+  if (!Array.from(sel.options).some(opt => _dbSameId(opt.value, id))) {
+    const item = dbLoad(colecao).find(x => _dbSameId(x.id, id));
     if (item) sel.innerHTML += `<option value="${item.id}">${escHtml(item.nome)}</option>`;
   }
-  sel.value = id;
+  sel.value = String(id);
   transRefreshSearchableSelect(selectId);
 }
 
@@ -7579,7 +7584,8 @@ function _transResolverContaId(valor) {
   raw = (raw || '').toString().trim();
   if (!raw) return '';
   const contas = dbLoad('cartoes');
-  if (contas.some(c => _dbSameId(c.id, raw))) return raw;
+  const contaPorId = contas.find(c => _dbSameId(c.id, raw));
+  if (contaPorId) return contaPorId.id;
   const norm = _transNormTexto(raw);
   return contas.find(c => _transNormTexto(c.nome) === norm)?.id ||
          contas.find(c => _transNormTexto(c.nome).includes(norm) || norm.includes(_transNormTexto(c.nome)))?.id ||
@@ -7775,9 +7781,9 @@ function _transChaveDescricaoPar(t) {
 }
 
 function _transPontuarParTransferencia(a, b) {
-  if (!a || !b || a.id === b.id) return false;
+  if (!a || !b || _dbSameId(a.id, b.id)) return false;
   if (!_transIsTransferenciaLancamento(a) || !_transIsTransferenciaLancamento(b)) return false;
-  if (a.cartao_id && b.cartao_id && a.cartao_id === b.cartao_id) return false;
+  if (a.cartao_id && b.cartao_id && _dbSameId(a.cartao_id, b.cartao_id)) return false;
   if (Math.abs(parseFloat(a.valor) || 0) !== Math.abs(parseFloat(b.valor) || 0)) return false;
   const mesmaBaixa = _transDataCompetencia(a) && _transDataCompetencia(a) === _transDataCompetencia(b);
   const mesmaTransacao = _transDataContabil(a) && _transDataContabil(a) === _transDataContabil(b);
@@ -7790,7 +7796,7 @@ function _transPontuarParTransferencia(a, b) {
   const da = _transChaveDescricaoPar(a);
   const db = _transChaveDescricaoPar(b);
   if (da && db && da === db) score += 2;
-  if (a.forma_pagamento_id && a.forma_pagamento_id === b.forma_pagamento_id) score += 1;
+  if (a.forma_pagamento_id && _dbSameId(a.forma_pagamento_id, b.forma_pagamento_id)) score += 1;
   return score;
 }
 
@@ -7834,7 +7840,7 @@ function _transContaDestinoId(t) {
 function _transContaDestinoNome(t) {
   const destinoId = _transContaDestinoId(t);
   if (!destinoId) return '';
-  return dbLoad('cartoes').find(x => x.id === destinoId)?.nome || destinoId;
+  return dbLoad('cartoes').find(x => _dbSameId(x.id, destinoId))?.nome || destinoId;
 }
 
 function _transTextoContexto(t) {
@@ -8236,14 +8242,14 @@ function saveTransacao() {
   let dados = dbLoad('transacoes');
   if (editandoTransId) {
     if (transferenciaAtual) {
-      const original = dados.find(x => x.id === editandoTransId) || transacao;
+      const original = dados.find(x => _dbSameId(x.id, editandoTransId)) || transacao;
       const par = _transOrigemDestinoTransferencia(original);
       const origemId = par?.origem?.id || editandoTransId;
       const destinoId = par?.destino?.id || uid();
       const now = new Date().toISOString();
       let destinoExiste = false;
       dados = dados.map(x => {
-        if (x.id === origemId) {
+        if (_dbSameId(x.id, origemId)) {
           return {
             ...x,
             ...transacao,
@@ -8255,7 +8261,7 @@ function saveTransacao() {
             updatedAt: now,
           };
         }
-        if (x.id === destinoId) {
+        if (_dbSameId(x.id, destinoId)) {
           destinoExiste = true;
           return {
             ...x,
@@ -8284,7 +8290,7 @@ function saveTransacao() {
       dbSave('transacoes', dados);
       toast('Transferência atualizada com sucesso!');
     } else {
-      dados = dados.map(x => x.id === editandoTransId
+      dados = dados.map(x => _dbSameId(x.id, editandoTransId)
         ? { ...x, ...transacao, updatedAt: new Date().toISOString() }
         : x
       );
@@ -8400,7 +8406,7 @@ function _transObservacoesTexto(t) {
 }
 
 function _transNomeColecao(colecao, id) {
-  return dbLoad(colecao).find(x => x.id === id)?.nome || '';
+  return dbLoad(colecao).find(x => _dbSameId(x.id, id))?.nome || '';
 }
 
 function _transNatureza(t) {
@@ -9138,23 +9144,6 @@ const REL_CORES = [
 
 /* Instâncias dos gráficos — para destruir antes de recriar */
 const _relCharts = {};
-function _rc(id, cfg) {
-  if (_relCharts[id]) { _relCharts[id].destroy(); }
-  const el = document.getElementById(id);
-  if (!el) return;
-  _relCharts[id] = new Chart(el, _relApplyChartTheme(cfg));
-}
-
-/* --- HELPERS ------------------------------------------- */
-function _relNomeStatus(t) {
-  return (dbLoad('status').find(x=>x.id===t.status_compra_id)?.nome||'').toLowerCase()
-    .normalize('NFD').replace(/[\u0300-\u036f]/g,'');
-}
-function _relIsNeutro(t) { const s=_relNomeStatus(t); return s==='neutro'||s==='30'||_transIsTransferenciaLancamento(t); }
-function _relIsSaida(t) {
-  return (dbLoad('tipos').find(x=>x.id===t.tipo_pagamento_id)?.nome||'').toLowerCase()
-    .normalize('NFD').replace(/[\u0300-\u036f]/g,'') === 'saida';
-}
 
 function _relChartTheme() {
   const dark = document.body.classList.contains('theme-dark');
@@ -9313,6 +9302,23 @@ function _relApplyChartTheme(cfg) {
   };
 }
 
+function _rc(id, cfg) {
+  if (_relCharts[id]) { _relCharts[id].destroy(); }
+  const el = document.getElementById(id);
+  if (!el) return;
+  _relCharts[id] = new Chart(el, _relApplyChartTheme(cfg));
+}
+
+/* --- HELPERS ------------------------------------------- */
+function _relNomeStatus(t) {
+  return (_transNomeColecao('status', t.status_compra_id)||'').toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+}
+function _relIsNeutro(t) { const s=_relNomeStatus(t); return s==='neutro'||s==='30'||_transIsTransferenciaLancamento(t); }
+function _relIsSaida(t) {
+  return (_transNomeColecao('tipos', t.tipo_pagamento_id)||'').toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'') === 'saida';
+}
 
 /* Agrupa despesas por campo de lookup */
 function _agrupar(transacoes, colecao, id_field) {
@@ -9320,7 +9326,7 @@ function _agrupar(transacoes, colecao, id_field) {
   const mapa = {};
   transacoes.forEach(t => {
     const id = t[id_field] || '__sem__';
-    const nome = itens.find(x=>x.id===id)?.nome || '(Sem ' + colecao + ')';
+    const nome = itens.find(x=>_dbSameId(x.id, id))?.nome || '(Sem ' + colecao + ')';
     // Math.abs: saídas já foram filtradas, sempre exibir positivo
     mapa[nome] = (mapa[nome]||0) + Math.abs(parseFloat(t.valor)||0);
   });
@@ -9347,7 +9353,7 @@ function _relTabela(containerId, rows, totalGeral) {
             const pct = totalGeral > 0 ? (r.total/totalGeral*100) : 0;
             return `<tr>
               <td><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${r.cor};margin-right:6px;vertical-align:middle"></span>${escHtml(r.nome)}</td>
-              <td style="font-family:var(--font-mono);font-weight:600;color:#D93025">R$ ${fmtValor(Math.abs(r.total))}</td>
+              <td style="font-family:var(--font-mono);font-weight:600;color:var(--danger)">R$ ${fmtValor(Math.abs(r.total))}</td>
               <td>
                 <div class="rel-bar-inline">
                   <div class="rel-bar-bg"><div class="rel-bar-fill" style="width:${pct.toFixed(1)}%;background:${r.cor}"></div></div>
@@ -9456,10 +9462,10 @@ function _relAplicarFiltros(trans, f) {
   const dataFn = (f.tipoData === 'contabil') ? _transDataContabil : _transDataCompetencia;
   if (f.dataDe)  trans = trans.filter(t => dataFn(t) >= f.dataDe);
   if (f.dataAte) trans = trans.filter(t => dataFn(t) <= f.dataAte);
-  if (f.cat)     trans = trans.filter(t => t.categoria_id      === f.cat);
-  if (f.subcat)  trans = trans.filter(t => t.subcategoria_id   === f.subcat);
-  if (f.perfil)  trans = trans.filter(t => t.perfil_despesa_id === f.perfil);
-  if (f.status)  trans = trans.filter(t => t.status_compra_id  === f.status);
+  if (f.cat)     trans = trans.filter(t => _dbSameId(t.categoria_id, f.cat));
+  if (f.subcat)  trans = trans.filter(t => _dbSameId(t.subcategoria_id, f.subcat));
+  if (f.perfil)  trans = trans.filter(t => _dbSameId(t.perfil_despesa_id, f.perfil));
+  if (f.status)  trans = trans.filter(t => _dbSameId(t.status_compra_id, f.status));
   return trans;
 }
 
@@ -9482,7 +9488,7 @@ function renderRelCat() {
   const rows = _agrupar(trans, 'categorias', 'categoria_id');
   const catsD = dbLoad('categorias');
   rows.forEach(r => {
-    r.count = trans.filter(t => (catsD.find(x=>x.id===t.categoria_id)?.nome||'(Sem categorias)') === r.nome).length;
+    r.count = trans.filter(t => (catsD.find(x=>_dbSameId(x.id, t.categoria_id))?.nome||'(Sem categorias)') === r.nome).length;
   });
 
   const labels = rows.map(r=>r.nome);
@@ -9527,7 +9533,7 @@ function renderRelSubcat() {
   const rows = _agrupar(trans, 'subcategorias', 'subcategoria_id');
   const subcatsD = dbLoad('subcategorias');
   rows.forEach(r => {
-    r.count = trans.filter(t => (subcatsD.find(x=>x.id===t.subcategoria_id)?.nome||'(Sem subcategorias)') === r.nome).length;
+    r.count = trans.filter(t => (subcatsD.find(x=>_dbSameId(x.id, t.subcategoria_id))?.nome||'(Sem subcategorias)') === r.nome).length;
   });
 
   const labels = rows.map(r=>r.nome);
@@ -9616,10 +9622,10 @@ function renderRelSemana() {
 
   if (f.dataDe)  trans = trans.filter(t => _transDataCompetencia(t) >= f.dataDe);
   if (f.dataAte) trans = trans.filter(t => _transDataCompetencia(t) <= f.dataAte);
-  if (f.cat)     trans = trans.filter(t => t.categoria_id       === f.cat);
-  if (f.subcat)  trans = trans.filter(t => t.subcategoria_id    === f.subcat);
-  if (f.perfil)  trans = trans.filter(t => t.perfil_despesa_id  === f.perfil);
-  if (f.status)  trans = trans.filter(t => t.status_compra_id   === f.status);
+  if (f.cat)     trans = trans.filter(t => _dbSameId(t.categoria_id, f.cat));
+  if (f.subcat)  trans = trans.filter(t => _dbSameId(t.subcategoria_id, f.subcat));
+  if (f.perfil)  trans = trans.filter(t => _dbSameId(t.perfil_despesa_id, f.perfil));
+  if (f.status)  trans = trans.filter(t => _dbSameId(t.status_compra_id, f.status));
 
   /* Agrupa por dia da semana (0=Dom … 6=Sáb) */
   const totais  = Array(7).fill(0);
@@ -9694,7 +9700,7 @@ function renderRelPerfil() {
   const rows = _agrupar(trans, 'perfis', 'perfil_despesa_id');
   const perfisD = dbLoad('perfis');
   rows.forEach(r => {
-    r.count = trans.filter(t => (perfisD.find(x=>x.id===t.perfil_despesa_id)?.nome||'(Sem perfis)') === r.nome).length;
+    r.count = trans.filter(t => (perfisD.find(x=>_dbSameId(x.id, t.perfil_despesa_id))?.nome||'(Sem perfis)') === r.nome).length;
   });
 
   const labels = rows.map(r=>r.nome);
@@ -9738,7 +9744,7 @@ function renderRelStatus() {
   const rows = _agrupar(trans, 'status', 'status_compra_id');
   const statusD = dbLoad('status');
   rows.forEach(r => {
-    r.count = trans.filter(t => (statusD.find(x=>x.id===t.status_compra_id)?.nome||'(Sem status)') === r.nome).length;
+    r.count = trans.filter(t => (statusD.find(x=>_dbSameId(x.id, t.status_compra_id))?.nome||'(Sem status)') === r.nome).length;
   });
 
   const labels = rows.map(r=>r.nome);
@@ -14500,17 +14506,17 @@ function fecharViewDesejo() {
    COMPROVANTE DE TRANSAÇÃO
 ========================================================== */
 function verTransacao(id) {
-  const t = dbLoad('transacoes').find(x=>x.id===id);
+  const t = _transFindById(id);
   if (!t) return;
 
-  const tipoNome   = dbLoad('tipos').find(x=>x.id===t.tipo_pagamento_id)?.nome   || '—';
-  const formaNome  = dbLoad('formas').find(x=>x.id===t.forma_pagamento_id)?.nome || '—';
-  const cartaoNome = dbLoad('cartoes').find(x=>x.id===t.cartao_id)?.nome          || '—';
+  const tipoNome   = dbLoad('tipos').find(x=>_dbSameId(x.id, t.tipo_pagamento_id))?.nome   || '—';
+  const formaNome  = dbLoad('formas').find(x=>_dbSameId(x.id, t.forma_pagamento_id))?.nome || '—';
+  const cartaoNome = dbLoad('cartoes').find(x=>_dbSameId(x.id, t.cartao_id))?.nome          || '—';
   const contaDestinoNome = _transContaDestinoNome(t);
-  const catNome    = dbLoad('categorias').find(x=>x.id===t.categoria_id)?.nome    || '—';
-  const subcatNome = dbLoad('subcategorias').find(x=>x.id===t.subcategoria_id)?.nome || '—';
-  const perfilNome = dbLoad('perfis').find(x=>x.id===t.perfil_despesa_id)?.nome   || '—';
-  const statusNome = dbLoad('status').find(x=>x.id===t.status_compra_id)?.nome    || '—';
+  const catNome    = dbLoad('categorias').find(x=>_dbSameId(x.id, t.categoria_id))?.nome    || '—';
+  const subcatNome = dbLoad('subcategorias').find(x=>_dbSameId(x.id, t.subcategoria_id))?.nome || '—';
+  const perfilNome = dbLoad('perfis').find(x=>_dbSameId(x.id, t.perfil_despesa_id))?.nome   || '—';
+  const statusNome = dbLoad('status').find(x=>_dbSameId(x.id, t.status_compra_id))?.nome    || '—';
   const naturezaNome = _transNatureza(t) || '—';
   const decisaoNome = _transDecisao(t) || '—';
   const obsTexto   = _transObservacoesTexto(t);
@@ -16874,6 +16880,9 @@ function aplicarTema(tema, persistir = true) {
     btn.textContent = escuro ? '☀️ Tema claro' : '🌙 Tema escuro';
     btn.title = escuro ? 'Usar tema claro' : 'Usar tema escuro';
     btn.setAttribute('aria-pressed', String(escuro));
+  }
+  if (persistir && document.getElementById('page-relatorios')?.classList.contains('active') && typeof _relRenders !== 'undefined') {
+    setTimeout(() => _relRenders[_relTabAtiva]?.(), 40);
   }
 }
 
