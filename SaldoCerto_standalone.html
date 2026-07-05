@@ -35,6 +35,27 @@
   --transition:    0.18s ease;
 }
 
+body.theme-dark {
+  color-scheme: dark;
+  --primary:       #5DA8FF;
+  --primary-dark:  #2F7FE5;
+  --primary-light: rgba(93,168,255,0.16);
+  --accent:        #28D17C;
+  --accent-light:  rgba(40,209,124,0.14);
+  --danger:        #FF6B62;
+  --danger-light:  rgba(255,107,98,0.13);
+  --warning:       #FFBE55;
+  --bg:            #101417;
+  --card:          #181D22;
+  --border:        #2C333B;
+  --text:          #F3F6FA;
+  --text-muted:    #AEB8C5;
+  --text-light:    #7D8997;
+  --shadow-sm:     0 1px 3px rgba(0,0,0,0.42);
+  --shadow-md:     0 10px 28px rgba(0,0,0,0.34);
+  --shadow-lg:     0 18px 46px rgba(0,0,0,0.48);
+}
+
 /* -- RESET BÁSICO -- */
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -167,6 +188,8 @@ body { display: flex; }
   margin-left: 230px;
   flex: 1;
   min-width: 0;
+  width: calc(100vw - 230px);
+  max-width: calc(100vw - 230px);
   transition: margin-left 0.3s ease;
 }
 main { padding: 28px 28px 48px; }
@@ -181,7 +204,9 @@ main { padding: 28px 28px 48px; }
   box-shadow: none;
 }
 .sidebar-collapsed .app-content {
-  margin-left: 0;
+  margin-left: 68px;
+  width: calc(100vw - 68px);
+  max-width: calc(100vw - 68px);
 }
 
 /* -- Botão toggle -- */
@@ -308,8 +333,30 @@ main { padding: 28px 28px 48px; }
 .btn-icon { padding: 6px 10px; background: transparent; border: 1px solid var(--border); color: var(--text-muted); }
 .btn-icon:hover { background: var(--bg); color: var(--text); }
 .btn-icon.edit:hover { border-color: var(--primary); color: var(--primary); background: var(--primary-light); }
+.btn-icon.dup:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
 .btn-icon.del:hover  { border-color: var(--danger);  color: var(--danger);  background: var(--danger-light); }
 .btn-sm { padding: 5px 10px; font-size: 12.5px; }
+.theme-toggle-btn {
+  width: 100%;
+  margin-bottom: 8px;
+  padding: 7px 10px;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 7px;
+  color: rgba(255,255,255,0.78);
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: var(--transition);
+  font-family: inherit;
+}
+.theme-toggle-btn:hover {
+  background: rgba(255,255,255,0.14);
+  color: #fff;
+}
 
 /* -- TABELA -- */
 .table-wrap { overflow-x: auto; border-radius: var(--radius); border: 1px solid var(--border); }
@@ -2344,6 +2391,246 @@ tr.trans-selected td { background: transparent; }
 .perfil-status.error   { background: #FEE2E2; color: #991B1B; }
 
 /* ================================================================
+   TEMA ESCURO
+================================================================ */
+body.theme-dark .sidebar,
+body.theme-dark .sidebar-footer {
+  background: #0A1015;
+}
+body.theme-dark .sidebar {
+  box-shadow: 3px 0 24px rgba(0,0,0,0.58);
+}
+body.theme-dark .sidebar-brand,
+body.theme-dark .sidebar-footer {
+  border-color: rgba(255,255,255,0.10);
+}
+body.theme-dark .nav-btn {
+  color: rgba(243,246,250,0.78);
+}
+body.theme-dark .nav-btn:hover {
+  background: rgba(93,168,255,0.11);
+}
+body.theme-dark .nav-btn.active {
+  background: linear-gradient(90deg,rgba(40,209,124,0.28) 0%,rgba(93,168,255,0.08) 100%);
+}
+body.theme-dark .sidebar-toggle-btn {
+  background: #2F7FE5;
+  box-shadow: 0 10px 26px rgba(0,0,0,0.48);
+}
+body.theme-dark .sidebar-toggle-btn:hover {
+  background: #5DA8FF;
+}
+body.theme-dark .theme-toggle-btn {
+  background: rgba(93,168,255,0.10);
+  border-color: rgba(93,168,255,0.25);
+  color: #EAF3FF;
+}
+body.theme-dark .theme-toggle-btn:hover {
+  background: rgba(93,168,255,0.18);
+}
+body.theme-dark .card,
+body.theme-dark .stat-card,
+body.theme-dark .modal,
+body.theme-dark .tab-content,
+body.theme-dark .table-wrap,
+body.theme-dark .filtros-panel,
+body.theme-dark .auth-card,
+body.theme-dark .search-select-menu,
+body.theme-dark .meta-card,
+body.theme-dark .orc-card,
+body.theme-dark .cta-card,
+body.theme-dark .desejo-card,
+body.theme-dark .inv-card {
+  background: var(--card);
+  border-color: var(--border);
+  color: var(--text);
+  box-shadow: var(--shadow-sm);
+}
+body.theme-dark thead tr,
+body.theme-dark .rel-summary-table thead tr {
+  background: #151B21;
+  border-color: var(--border);
+}
+body.theme-dark th,
+body.theme-dark td {
+  border-color: var(--border);
+}
+body.theme-dark tbody tr:hover,
+body.theme-dark .rel-summary-table tbody tr:hover {
+  background: #151B21;
+}
+body.theme-dark .form-input,
+body.theme-dark .form-select,
+body.theme-dark .filtro-input,
+body.theme-dark .filtro-select,
+body.theme-dark .search-input,
+body.theme-dark .auth-input,
+body.theme-dark textarea,
+body.theme-dark select,
+body.theme-dark input[type="text"],
+body.theme-dark input[type="email"],
+body.theme-dark input[type="password"],
+body.theme-dark input[type="number"],
+body.theme-dark input[type="date"] {
+  background: #11171E;
+  color: var(--text);
+  border-color: var(--border);
+}
+body.theme-dark .form-input::placeholder,
+body.theme-dark .filtro-input::placeholder,
+body.theme-dark .search-input::placeholder,
+body.theme-dark .auth-input::placeholder {
+  color: #6F7B89;
+}
+body.theme-dark .btn-ghost,
+body.theme-dark .btn-icon,
+body.theme-dark .trans-page-btn,
+body.theme-dark .tab-btn,
+body.theme-dark .filtro-chip,
+body.theme-dark .auth-tab {
+  background: rgba(255,255,255,0.035);
+  border-color: var(--border);
+  color: var(--text-muted);
+}
+body.theme-dark .btn-ghost:hover,
+body.theme-dark .btn-icon:hover,
+body.theme-dark .trans-page-btn:hover:not(:disabled),
+body.theme-dark .tab-btn:hover {
+  background: #202832;
+  color: var(--text);
+}
+body.theme-dark .trans-page-btn.active,
+body.theme-dark .auth-tab.active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #071018;
+}
+body.theme-dark .modal-overlay {
+  background: rgba(3,7,12,0.78);
+}
+body.theme-dark .search-select-option:hover,
+body.theme-dark .search-select-option.active {
+  background: var(--primary-light);
+  color: var(--text);
+}
+body.theme-dark .auth-card-body {
+  background: var(--card);
+}
+body.theme-dark .auth-card-header {
+  background: linear-gradient(135deg,#0A1015 0%,#17324B 100%);
+}
+body.theme-dark .btn-filtros,
+body.theme-dark .btn-mes-anterior,
+body.theme-dark .cta-tab,
+body.theme-dark .ad-periodo-btn,
+body.theme-dark .desejo-btn-ver {
+  background: rgba(255,255,255,0.035);
+  border-color: var(--border);
+  color: var(--text-muted);
+}
+body.theme-dark .btn-filtros:hover,
+body.theme-dark .btn-filtros.ativo,
+body.theme-dark .btn-mes-anterior:hover,
+body.theme-dark .ad-periodo-btn:hover,
+body.theme-dark .cta-tab:hover,
+body.theme-dark .desejo-btn-ver:hover {
+  background: var(--primary-light);
+  border-color: var(--primary);
+  color: var(--primary);
+}
+body.theme-dark .inv-tabs,
+body.theme-dark .rel-chart-box,
+body.theme-dark .rel-filtros,
+body.theme-dark .desejo-card-footer,
+body.theme-dark .desejo-card-img {
+  background: #151B21;
+  border-color: var(--border);
+}
+body.theme-dark .ad-card.highlight-green {
+  background: linear-gradient(135deg,rgba(40,209,124,0.15),rgba(40,209,124,0.06));
+  border-color: rgba(40,209,124,0.28);
+}
+body.theme-dark .ad-card.highlight-red {
+  background: linear-gradient(135deg,rgba(255,107,98,0.14),rgba(255,107,98,0.05));
+  border-color: rgba(255,107,98,0.25);
+}
+body.theme-dark .score-item-bar-wrap,
+body.theme-dark .orc-progress-wrap,
+body.theme-dark .ad-prop-bar-wrap,
+body.theme-dark .rel-bar-bg,
+body.theme-dark .meta-progress-bar-wrap {
+  background: #2A333D;
+}
+body.theme-dark .badge-gray,
+body.theme-dark .desejo-parcela-badge,
+body.theme-dark .desejo-badge-neutro {
+  background: #202832;
+  border-color: var(--border);
+  color: var(--text-muted);
+}
+body.theme-dark .desejo-aviso,
+body.theme-dark .cta-btn-cancelar {
+  background: rgba(255,107,98,0.12);
+  border-color: rgba(255,107,98,0.35);
+  color: #FF9C95;
+}
+body.theme-dark tr.trans-selected {
+  background: rgba(93,168,255,0.16) !important;
+}
+body.theme-dark .search-select-option.disabled {
+  background: #151B21;
+  color: var(--text-light);
+}
+body.theme-dark [style*="background:#fff"],
+body.theme-dark [style*="background: #fff"],
+body.theme-dark [style*="background:#FFFFFF"],
+body.theme-dark [style*="background: #FFFFFF"],
+body.theme-dark [style*="background:#F8FAFD"],
+body.theme-dark [style*="background:#F8FAFC"],
+body.theme-dark [style*="background:#F9FAFB"],
+body.theme-dark [style*="background:#F2F5F9"],
+body.theme-dark [style*="background:#EEF2FF"],
+body.theme-dark [style*="background:#F8FAFF"],
+body.theme-dark [style*="background:#FAFAFA"],
+body.theme-dark [style*="background:#EFF6FF"],
+body.theme-dark [style*="background:#E5E7EB"],
+body.theme-dark [style*="background:#EAEEF3"] {
+  background: #151B21 !important;
+}
+body.theme-dark [style*="color:#1558B0"],
+body.theme-dark [style*="color: #1558B0"] {
+  color: var(--primary) !important;
+}
+body.theme-dark [style*="color:#6B7280"],
+body.theme-dark [style*="color:#6B7A99"],
+body.theme-dark [style*="color: #6B7280"],
+body.theme-dark [style*="color: #6B7A99"],
+body.theme-dark [style*="color:#374151"],
+body.theme-dark [style*="color:#334155"],
+body.theme-dark [style*="color:#475569"],
+body.theme-dark [style*="color:#9CA3AF"],
+body.theme-dark [style*="color:#0B1F3A"],
+body.theme-dark [style*="color: #374151"],
+body.theme-dark [style*="color: #334155"],
+body.theme-dark [style*="color: #475569"],
+body.theme-dark [style*="color: #9CA3AF"],
+body.theme-dark [style*="color: #0B1F3A"] {
+  color: var(--text-muted) !important;
+}
+body.theme-dark [style*="color:#4F46E5"],
+body.theme-dark [style*="color: #4F46E5"] {
+  color: #B9C8FF !important;
+}
+body.theme-dark [style*="border-color:#C7D2FE"],
+body.theme-dark [style*="border-color: #C7D2FE"] {
+  border-color: rgba(185,200,255,0.35) !important;
+}
+body.theme-dark [style*="border-top:1px solid var(--border)"],
+body.theme-dark [style*="border-bottom:1px solid var(--border)"] {
+  border-color: var(--border) !important;
+}
+
+/* ================================================================
    RESPONSIVIDADE MOBILE
    Breakpoints: 768px (tablet) e 480px (celular)
 ================================================================ */
@@ -2363,6 +2650,8 @@ tr.trans-selected td { background: transparent; }
   /* Conteúdo ocupa 100% sempre no mobile */
   .app-content {
     margin-left: 0 !important;
+    width: 100vw !important;
+    max-width: 100vw !important;
   }
   /* Overlay escuro quando sidebar aberto */
   #app-wrapper:not(.sidebar-collapsed)::before {
@@ -2484,7 +2773,7 @@ tr.trans-selected td { background: transparent; }
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 </head>
-<body>
+<body class="theme-dark">
 
 <!-- ==== TELA DE AUTH ==== -->
 <div id="auth-screen" style="display:flex"></div>
@@ -2558,6 +2847,9 @@ tr.trans-selected td { background: transparent; }
   <div id="sidebarUserName" style="font-size:11px;color:rgba(255,255,255,0.5);margin-bottom:6px">
     Saldo Certo v1.0
   </div>
+  <button class="theme-toggle-btn" id="themeToggleBtn" onclick="toggleTheme()" title="Alternar tema">
+    🌙 Tema escuro
+  </button>
   <button class="auth-logout-btn" onclick="authLogout()" style="
     width:100%;padding:7px 10px;
     background:rgba(255,255,255,0.08);
@@ -2741,15 +3033,6 @@ tr.trans-selected td { background: transparent; }
         <div class="page-subtitle">Histórico e controle de todas as movimentações financeiras</div>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <button class="btn btn-ghost" onclick="abrirImportacao()" title="Importar transações de CSV ou XLSX">
-          📥 Importar
-        </button>
-        <button class="btn btn-ghost" onclick="exportarTransacoes()" title="Exportar transações filtradas">
-          📤 Exportar
-        </button>
-        <button class="btn btn-ghost" onclick="limparTransacoes()" title="Apagar somente as transações, mantendo configurações">
-          🧹 Zerar transações
-        </button>
         <button class="btn btn-primary" onclick="openTransacaoModal()">
           <span>＋</span> Adicionar Movimentação
         </button>
@@ -6333,7 +6616,7 @@ function renderTransacoes() {
 
   const thAcoes = document.createElement('th');
   thAcoes.textContent = 'Ações';
-  thAcoes.style.cssText = 'width:120px;min-width:120px;text-align:right';
+  thAcoes.style.cssText = 'width:160px;min-width:160px;text-align:right';
   th.appendChild(thAcoes);
 
   initResizable(th);
@@ -6376,6 +6659,8 @@ function renderTransacoes() {
           <button class="btn btn-icon btn-sm" title="Visualizar" onclick="verTransacao('${t.id}')" style="background:#EEF2FF;color:#4F46E5;border-color:#C7D2FE">👁</button>
           <button class="btn btn-icon btn-sm edit" title="Editar"
                   onclick="editarTransacao('${t.id}')">✎</button>
+          <button class="btn btn-icon btn-sm dup" title="Duplicar"
+                  onclick="duplicarTransacao('${t.id}')">&#10697;</button>
           <button class="btn btn-icon btn-sm del"  title="Excluir"
                   onclick="excluirTransacao('${t.id}')">🗑</button>
         </div>
@@ -6412,6 +6697,46 @@ function closeTransModal() {
    EDITAR / EXCLUIR
 -------------------------------------------- */
 function editarTransacao(id)  { openTransacaoModal(id); }
+
+function _transCriarDuplicata(t, createdAt) {
+  const copia = { ...t, id: uid(), createdAt };
+  delete copia.created_at;
+  delete copia.updatedAt;
+  delete copia.updated_at;
+  delete copia.user_id;
+  return copia;
+}
+
+function duplicarTransacao(id) {
+  const dados = dbLoad('transacoes');
+  const item = dados.find(x => x.id === id);
+  if (!item) {
+    toast('Movimentação não encontrada.', 'error');
+    return;
+  }
+
+  const createdAt = new Date().toISOString();
+  const duplicatas = [];
+  const idsOriginais = new Set();
+
+  if (_transIsTransferenciaLancamento(item)) {
+    const par = _transOrigemDestinoTransferencia(item);
+    [par?.origem, par?.destino].filter(Boolean).forEach(orig => {
+      if (!idsOriginais.has(orig.id)) {
+        idsOriginais.add(orig.id);
+        duplicatas.push(_transCriarDuplicata(orig, createdAt));
+      }
+    });
+  }
+
+  if (!duplicatas.length) {
+    duplicatas.push(_transCriarDuplicata(item, createdAt));
+  }
+
+  dbSave('transacoes', [...dados, ...duplicatas]);
+  renderTransacoes();
+  toast(duplicatas.length > 1 ? 'Transferência duplicada com sucesso!' : 'Movimentação duplicada com sucesso!');
+}
 
 function excluirTransacao(id) {
   const item = dbLoad('transacoes').find(x => x.id === id);
@@ -15618,6 +15943,30 @@ function perfilStatus(msg, tipo) {
   el.className = `perfil-status show ${tipo}`;
   setTimeout(() => el.classList.remove('show'), 4000);
 }
+
+/* -- Tema claro/escuro -- */
+function aplicarTema(tema, persistir = true) {
+  const escuro = tema !== 'light';
+  document.body.classList.toggle('theme-dark', escuro);
+  if (persistir) localStorage.setItem('sc_theme', escuro ? 'dark' : 'light');
+
+  const btn = document.getElementById('themeToggleBtn');
+  if (btn) {
+    btn.textContent = escuro ? '☀️ Tema claro' : '🌙 Tema escuro';
+    btn.title = escuro ? 'Usar tema claro' : 'Usar tema escuro';
+    btn.setAttribute('aria-pressed', String(escuro));
+  }
+}
+
+function toggleTheme() {
+  aplicarTema(document.body.classList.contains('theme-dark') ? 'light' : 'dark');
+}
+
+function restaurarTema() {
+  aplicarTema(localStorage.getItem('sc_theme') || 'dark', false);
+}
+
+restaurarTema();
 
 /* -- Toggle Sidebar -- */
 function toggleSidebar() {
