@@ -16288,13 +16288,56 @@ function impExecutar() {
 /* ===========================================
    EXPORTAÇÃO: CSV / XLSX
 =========================================== */
+function _transContaExportacaoOptions() {
+  return dbLoad('cartoes')
+    .map(c => `<option value="${escHtml(c.id)}">${escHtml(c.nome || 'Conta sem nome')}</option>`)
+    .join('');
+}
+
+function _transSinalTransferenciaConta(t, contaReferenciaId) {
+  const fluxo = _transOrigemDestinoTransferencia(t);
+  const origemId = fluxo?.origem?.cartao_id || '';
+  const destinoId = fluxo?.destinoId || fluxo?.destino?.cartao_id || '';
+
+  if (destinoId && _dbSameId(destinoId, contaReferenciaId)) return 1;
+  if (origemId && _dbSameId(origemId, contaReferenciaId)) return -1;
+
+  const contaMovimentoId = t?.cartao_id || '';
+  const contaDestinoDiretaId = _transContaDestinoLegadaId(t);
+  if (_transIsEntradaOperacional(t)) {
+    if (contaMovimentoId && _dbSameId(contaMovimentoId, contaReferenciaId)) return 1;
+    if (contaDestinoDiretaId && _dbSameId(contaDestinoDiretaId, contaReferenciaId)) return -1;
+  } else {
+    if (contaDestinoDiretaId && _dbSameId(contaDestinoDiretaId, contaReferenciaId)) return 1;
+    if (contaMovimentoId && _dbSameId(contaMovimentoId, contaReferenciaId)) return -1;
+  }
+  return 0;
+}
+
+function _transValorExportacaoConta(t, contaReferenciaId) {
+  const valorBruto = parseFloat(t?.valor || 0) || 0;
+  const valor = Math.abs(valorBruto);
+  if (!valor) return 0;
+
+  if (contaReferenciaId && _transIsTransferenciaLancamento(t)) {
+    const sinalTransferencia = _transSinalTransferenciaConta(t, contaReferenciaId);
+    if (sinalTransferencia) return valor * sinalTransferencia;
+  }
+
+  const tipoNome = _transNomeColecao('tipos', t?.tipo_pagamento_id) || t?.tipo_pagamento || '';
+  if (_transTipoNomeEhEntrada(tipoNome)) return valor;
+  if (_transTipoNomeEhSaida(tipoNome)) return -valor;
+  return valorBruto < 0 ? -valor : valor;
+}
+
 function exportarTransacoes() {
   // Criar mini-modal de escolha de formato
+  const contasOptions = _transContaExportacaoOptions();
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay open';
   overlay.style.zIndex = '9999';
   overlay.innerHTML = `
-    <div class="modal" style="max-width:360px;padding:0">
+    <div class="modal" style="max-width:390px;padding:0">
       <div class="modal-header">
         <div class="modal-title">📤 Exportar Transações</div>
         <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">✕</button>
@@ -16303,11 +16346,16 @@ function exportarTransacoes() {
         <div style="font-size:13px;color:var(--text-muted);margin-bottom:16px">
           Serão exportadas todas as transações que respeitam os filtros atuais, incluindo registros de todas as páginas.
         </div>
+        <label class="form-label" for="exp-conta-referencia" style="display:block;margin-bottom:6px">Conta de referência</label>
+        <select class="form-select" id="exp-conta-referencia" style="margin-bottom:16px">
+          <option value="">Escolha a conta</option>
+          ${contasOptions || '<option value="" disabled>Nenhuma conta cadastrada</option>'}
+        </select>
         <div style="display:flex;flex-direction:column;gap:10px">
-          <button class="btn btn-primary" style="justify-content:center" onclick="exportarTransacoesFormato('xlsx');this.closest('.modal-overlay').remove()">
+          <button class="btn btn-primary" style="justify-content:center" onclick="if(exportarTransacoesFormato('xlsx', document.getElementById('exp-conta-referencia')?.value)){this.closest('.modal-overlay').remove()}">
             📊 Exportar como XLSX (Excel)
           </button>
-          <button class="btn btn-ghost" style="justify-content:center" onclick="exportarTransacoesFormato('csv');this.closest('.modal-overlay').remove()">
+          <button class="btn btn-ghost" style="justify-content:center" onclick="if(exportarTransacoesFormato('csv', document.getElementById('exp-conta-referencia')?.value)){this.closest('.modal-overlay').remove()}">
             📄 Exportar como CSV
           </button>
         </div>
@@ -16317,12 +16365,22 @@ function exportarTransacoes() {
   document.body.appendChild(overlay);
 }
 
-function exportarTransacoesFormato(formato) {
+function exportarTransacoesFormato(formato, contaReferenciaId = '') {
+  if (!contaReferenciaId) {
+    toast('Escolha a conta de referência para exportar.', 'warn');
+    return false;
+  }
+  const contaReferencia = dbLoad('cartoes').find(c => _dbSameId(c.id, contaReferenciaId));
+  if (!contaReferencia) {
+    toast('Escolha uma conta cadastrada para exportar.', 'warn');
+    return false;
+  }
+
   const busca = (document.getElementById('transSearch')?.value || '').toLowerCase();
   const trans = _transDadosTabelaFiltrados(busca, coletarFiltros());
   if (!trans.length) {
     toast('Nenhuma transação encontrada para exportar.', 'warn');
-    return;
+    return false;
   }
 
   const linhas = trans.map(t => ({
@@ -16341,7 +16399,7 @@ function exportarTransacoesFormato(formato) {
     'Status':            t.status_compra || '',
     'Parcelado':         t.parcelado === 'Sim' ? 'Sim' : 'Não',
     'Parcela':           t.parcelado === 'Sim' ? `${t.parcela_atual||1}/${t.parcela_maxima||1}` : '',
-    'Valor (R$)':        parseFloat(t.valor||0).toFixed(2).replace('.',','),
+    'Valor (R$)':        _transValorExportacaoConta(t, contaReferenciaId).toFixed(2).replace('.',','),
     'Observações':       _transObservacoesTexto(t),
   }));
 
@@ -16352,6 +16410,7 @@ function exportarTransacoesFormato(formato) {
     const blob = new Blob(['\ufeff'+csv], { type:'text/csv;charset=utf-8' });
     _impDownload(blob, nomeArquivo+'.csv');
     toast(`Exportação CSV concluída: ${linhas.length} registro(s).`);
+    return true;
   } else {
     const ws  = XLSX.utils.json_to_sheet(linhas);
     const wb  = XLSX.utils.book_new();
@@ -16361,6 +16420,7 @@ function exportarTransacoesFormato(formato) {
     ws['!cols'] = cols.map(c => ({ wch: Math.max(c.length, 14) }));
     XLSX.writeFile(wb, nomeArquivo+'.xlsx');
     toast(`Exportação XLSX concluída: ${linhas.length} registro(s).`);
+    return true;
   }
 }
 
