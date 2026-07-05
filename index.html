@@ -2192,6 +2192,22 @@ body.theme-dark #page-relatorios .tab-btn.active::after {
 .rel-summary-table tbody tr { border-bottom: 1px solid var(--border); transition: background 0.15s; }
 .rel-summary-table tbody tr:hover { background: #F8FAFD; }
 .rel-summary-table td { padding: 9px 12px; }
+.rel-score-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 68px;
+  padding: 5px 12px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
+  box-shadow: 0 8px 18px rgba(22,33,62,0.12);
+}
+body.theme-dark .rel-score-badge {
+  box-shadow: 0 8px 18px rgba(0,0,0,0.28);
+}
 .rel-bar-inline {
   display: flex;
   align-items: center;
@@ -9757,10 +9773,10 @@ function _relScoreData(t) {
 }
 
 function _relScoreFaixa(score) {
-  if (score >= 80) return { label:'Excelente', cor:'#00875A', bg:'#E6F7F1' };
-  if (score >= 60) return { label:'Bom',       cor:'#1558B0', bg:'#E8F0FB' };
-  if (score >= 40) return { label:'Regular',   cor:'#B8860B', bg:'#FFF8E6' };
-  return { label:'Crítico', cor:'#D93025', bg:'#FDECEA' };
+  if (score >= 80) return { label:'Excelente', cor:'#00875A', bg:'#E6F7F1', badgeBg:'#007A52', badgeColor:'#FFFFFF', badgeBorder:'rgba(45,212,150,0.42)' };
+  if (score >= 60) return { label:'Bom',       cor:'#1558B0', bg:'#E8F0FB', badgeBg:'#1558B0', badgeColor:'#FFFFFF', badgeBorder:'rgba(93,168,255,0.45)' };
+  if (score >= 40) return { label:'Regular',   cor:'#B8860B', bg:'#FFF8E6', badgeBg:'#8A5F00', badgeColor:'#FFFFFF', badgeBorder:'rgba(250,204,21,0.42)' };
+  return { label:'Crítico', cor:'#D93025', bg:'#FDECEA', badgeBg:'#B3261E', badgeColor:'#FFFFFF', badgeBorder:'rgba(248,113,113,0.42)' };
 }
 
 function _relScoreAnosDisponiveis() {
@@ -9916,7 +9932,7 @@ function renderRelScore() {
             return `<tr>
               <td>${d.mes}/${String(_relScoreAnoSelecionado).slice(2)}</td>
               <td style="font-family:var(--font-mono);font-weight:800;color:${faixa.cor}">${d.score}</td>
-              <td><span class="score-label-band" style="background:${faixa.bg};color:${faixa.cor};margin:0">${faixa.label}</span></td>
+              <td><span class="rel-score-badge" style="background:${faixa.badgeBg};color:${faixa.badgeColor};border-color:${faixa.badgeBorder}">${faixa.label}</span></td>
               <td style="color:var(--text-muted)">${d.count}</td>
             </tr>`;
           }).join('')}
