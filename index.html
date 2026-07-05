@@ -7600,6 +7600,8 @@ function openTransacaoModal(id = null) {
   limparFormTransacao();
 
   if (transacaoEditada) preencherFormTransacao(transacaoEditada);
+  _transBindDescricaoPixAuto();
+  _transAplicarPixPorDescricao();
 
   document.getElementById('transModal').classList.add('open');
   if (!isEdicao) transFocarDataTransacaoAoAbrir();
@@ -7739,6 +7741,30 @@ function _transPerfilIdTransferencia() {
 
 function _transFormaIdPix() {
   return _transEnsureConfigId('formas', 'Pix', ['PIX']);
+}
+
+function _transDescricaoComecaComPix(valor) {
+  return _transNormTexto(valor).startsWith('pix');
+}
+
+function _transAplicarPixPorDescricao() {
+  const descricao = document.getElementById('f-descricao')?.value || '';
+  const descricaoTratada = document.getElementById('f-descricao-tratada')?.value || '';
+  if (_transDescricaoComecaComPix(descricao) || _transDescricaoComecaComPix(descricaoTratada)) {
+    _transSetSelectValue('f-forma-pagamento', 'formas', _transFormaIdPix());
+    return true;
+  }
+  return false;
+}
+
+function _transBindDescricaoPixAuto() {
+  ['f-descricao', 'f-descricao-tratada'].forEach(id => {
+    const input = document.getElementById(id);
+    if (!input || input.dataset.pixAutoBound === '1') return;
+    input.dataset.pixAutoBound = '1';
+    input.addEventListener('input', _transAplicarPixPorDescricao);
+    input.addEventListener('blur', _transAplicarPixPorDescricao);
+  });
 }
 
 function _transFormaIdDebito() {
@@ -8552,6 +8578,8 @@ function toggleRecorrenciaTransacao() {
 function saveTransacao() {
   limparErros();
   _transAplicarPixQuandoPerfilTransferencia();
+  _transAplicarPixPorDescricao();
+  const isNovaTransacao = !editandoTransId;
 
   // Campos obrigatórios
   const obrigatorios = {
@@ -8787,6 +8815,7 @@ function saveTransacao() {
   }
 
   closeTransModal();
+  if (isNovaTransacao) transPaginaAtual = 1;
   renderTransacoes();
 }
 
@@ -15609,7 +15638,12 @@ function impExecutar() {
       const perfilId = findId(perfis, get('perfil')) || (transferenciaImportada ? _transPerfilIdTransferencia() : '');
       const subcategoriaId = findId(subcat, get('subcategoria')) || (transferenciaImportada ? _transEnsureSubcategoriaTransferencia(categoriaId) : '');
       const perfilImportadoEhTransferencia = transferenciaImportada || _transIsTransferenciaNome(dbLoad('perfis').find(x => x.id === perfilId)?.nome || get('perfil'));
-      const formaPagamentoId = perfilImportadoEhTransferencia ? pixFormaId : findId(formas, get('forma'));
+      const descricao = get('descricao') || get('descricao_tratada') || 'Importado';
+      const descricaoTratada = get('descricao_tratada') || descricao;
+      const descricaoImportadaEhPix = _transDescricaoComecaComPix(descricao) || _transDescricaoComecaComPix(descricaoTratada);
+      const formaPagamentoId = (perfilImportadoEhTransferencia || descricaoImportadaEhPix)
+        ? pixFormaId
+        : findId(formas, get('forma'));
 
       /* -- Tipo operacional: Entrada/Saída para saldo; Natureza é campo separado -- */
       const tipoRawOrig = get('tipo');
@@ -15640,9 +15674,6 @@ function impExecutar() {
         else if (tipos.length)              tipoId = tipos[0].id;
       }
       if (!tipoId) tipoId = _transTipoOperacionalId(naturezaId, categoriaId);
-
-      const descricao = get('descricao') || get('descricao_tratada') || 'Importado';
-      const descricaoTratada = get('descricao_tratada') || descricao;
 
       /* -- Campos de lookup — usar os nomes corretos do sistema -- */
       const nova = {
