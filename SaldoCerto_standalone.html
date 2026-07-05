@@ -7479,6 +7479,50 @@ function _transSubcategoriaReembolsoId(categoriaId) {
   return _transEnsureSubcategoriaPorNome('Reembolso', categoriaId);
 }
 
+function _transCategoriaOutrosId() {
+  return _transEnsureConfigId('categorias', 'Outros');
+}
+
+function _transCategoriaNomeEhOutros(valor) {
+  return _transNormTexto(valor) === 'outros';
+}
+
+function _transNaturezaNeutroId() {
+  return _transEnsureConfigId('naturezas', 'Neutro');
+}
+
+function _transSubcategoriaNaoIdentificadoId(categoriaId) {
+  return _transEnsureSubcategoriaPorNome('Não identificado', categoriaId, ['Nao identificado']);
+}
+
+function _transClassificacaoCategoriaOutrosIds(categoriaId = '') {
+  const categoriaFinalId = categoriaId || _transCategoriaOutrosId();
+  return {
+    categoriaId: categoriaFinalId,
+    subcategoriaId: _transSubcategoriaNaoIdentificadoId(categoriaFinalId),
+    naturezaId: _transNaturezaNeutroId(),
+    decisaoId: _transDecisaoEventualId(),
+  };
+}
+
+function _transCategoriaSelecionadaEhOutros() {
+  const sel = document.getElementById('f-categoria');
+  if (!sel?.value) return false;
+  const nome = sel.selectedOptions?.[0]?.textContent || _transNomeColecao('categorias', sel.value);
+  return _transCategoriaNomeEhOutros(nome);
+}
+
+function _transAplicarClassificacaoCategoriaOutros() {
+  if (!_transCategoriaSelecionadaEhOutros() || _transSelectEhTransferencia('f-categoria')) return false;
+  const categoriaId = document.getElementById('f-categoria')?.value || _transCategoriaOutrosId();
+  const ids = _transClassificacaoCategoriaOutrosIds(categoriaId);
+  _transSetSelectValue('f-subcategoria', 'subcategorias', ids.subcategoriaId);
+  _transSetSelectValue('f-natureza', 'naturezas', ids.naturezaId);
+  _transSetSelectValue('f-decisao', 'decisoes', ids.decisaoId);
+  toggleContaDestinoTransacao(_transFormEhTransferencia());
+  return true;
+}
+
 function _transAplicarClassificacaoPixRecebido() {
   const perfilId = _transPerfilReceitaVariavelId();
   const categoriaId = _transCategoriaFinanceiroId();
@@ -7939,6 +7983,7 @@ function onTransTransferenciaFieldChange(changedId = '') {
 
 function onTransCategoriaChange() {
   onTransTransferenciaFieldChange('f-categoria');
+  _transAplicarClassificacaoCategoriaOutros();
 }
 
 function _transTipoNomeNorm(t) {
@@ -8090,6 +8135,7 @@ function preencherSelects() {
   _transTipoSaidaId();
   _transFormaIdDebito();
   _transPerfilDespesaVariavelId();
+  _transCategoriaOutrosId();
 
   const mapa = {
     'f-cartao':          'cartoes',
@@ -8303,6 +8349,7 @@ function saveTransacao() {
   limparErros();
   _transAplicarPixQuandoPerfilTransferencia();
   _transAplicarPixPorDescricao();
+  _transAplicarClassificacaoCategoriaOutros();
   const isNovaTransacao = !editandoTransId;
 
   // Campos obrigatórios
@@ -15354,6 +15401,10 @@ function impExecutar() {
         categoriaId = _transCategoriaIdTransferencia();
         categoriaNome = 'Transferência';
       }
+      if (!transferenciaImportada && _transCategoriaNomeEhOutros(categoriaNome)) {
+        categoriaId = categoriaId || _transCategoriaOutrosId();
+        categoriaNome = 'Outros';
+      }
       const descricao = get('descricao') || get('descricao_tratada') || 'Importado';
       const descricaoTratada = get('descricao_tratada') || descricao;
       const descricaoImportadaEhPix = _transDescricaoComecaComPix(descricao) || _transDescricaoComecaComPix(descricaoTratada);
@@ -15369,6 +15420,13 @@ function impExecutar() {
         naturezaId = _transNaturezaRecuperacaoId();
         decisaoId = _transDecisaoEventualId();
         subcategoriaId = _transSubcategoriaReembolsoId(categoriaId);
+      } else if (!transferenciaImportada && _transCategoriaNomeEhOutros(categoriaNome)) {
+        const classificacaoOutros = _transClassificacaoCategoriaOutrosIds(categoriaId);
+        categoriaId = classificacaoOutros.categoriaId;
+        categoriaNome = 'Outros';
+        naturezaId = classificacaoOutros.naturezaId;
+        decisaoId = classificacaoOutros.decisaoId;
+        subcategoriaId = classificacaoOutros.subcategoriaId;
       }
       const perfilImportadoEhTransferencia = transferenciaImportada || _transIsTransferenciaNome(dbLoad('perfis').find(x => x.id === perfilId)?.nome || get('perfil'));
       const formaPagamentoId = (perfilImportadoEhTransferencia || descricaoImportadaEhPix)
