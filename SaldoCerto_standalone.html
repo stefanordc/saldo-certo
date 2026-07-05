@@ -3369,6 +3369,12 @@ body.theme-dark #page-relatorios .rel-summary-table tbody tr:hover {
         <div class="page-subtitle">Histórico e controle de todas as movimentações financeiras</div>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-ghost" onclick="abrirImportacao()" title="Importar transações em CSV ou XLSX">
+          <span>&#8593;</span> Importar
+        </button>
+        <button class="btn btn-ghost" onclick="exportarTransacoes()" title="Exportar transações filtradas em CSV ou XLSX">
+          <span>&#8595;</span> Exportar
+        </button>
         <button class="btn btn-primary" onclick="openTransacaoModal()">
           <span>＋</span> Adicionar Movimentação
         </button>
@@ -3393,6 +3399,12 @@ body.theme-dark #page-relatorios .rel-summary-table tbody tr:hover {
           </button>
           <button class="btn-mes-anterior" id="btnMesAnterior" onclick="filtroMesAnterior()">
             ◀ Mês Anterior
+          </button>
+          <button class="btn btn-ghost btn-sm" onclick="abrirImportacao()" title="Importar transações em CSV ou XLSX">
+            &#8593; Importar
+          </button>
+          <button class="btn btn-primary btn-sm" onclick="exportarTransacoes()" title="Exportar transações filtradas em CSV ou XLSX">
+            &#8595; Exportar
           </button>
           <span class="records-count" id="transCount" style="margin-left:auto"></span>
         </div>
@@ -7058,17 +7070,7 @@ function atualizarChips(f) {
   window._chipClear = chips.map(c => c.clear);
 }
 
-/* --------------------------------------------
-   RENDERIZA LISTA DE TRANSAÇÕES
--------------------------------------------- */
-function renderTransacoes(opcoes = {}) {
-  // Resetar seleção ao re-renderizar
-  document.getElementById('transBulkBar')?.classList.remove('visible');
-  const busca = (document.getElementById('transSearch')?.value || '').toLowerCase();
-  const fil = coletarFiltros();
-  _transAtualizarPaginaPorFiltro(busca, fil);
-
-  // Carrega e enriquece com nomes das tabelas de apoio
+function _transDadosTabelaFiltrados(busca = '', fil = coletarFiltros()) {
   const transacoesOriginais = dbLoad('transacoes');
   const ordemInsercao = new Map(transacoesOriginais.map((t, i) => [t.id, i]));
   let dados = transacoesOriginais.map(t => ({
@@ -7085,19 +7087,16 @@ function renderTransacoes(opcoes = {}) {
     parcelas:        t.parcelado === 'Sim' ? `${t.parcela_atual}/${t.parcela_maxima}` : '—',
   }));
 
-  // Filtra pela busca textual
   if (busca) {
     dados = dados.filter(t =>
       Object.values(t).some(v => String(v).toLowerCase().includes(busca))
     );
   }
 
-  // Filtro de data de competência
   if (fil.dataDe || fil.dataAte) {
     dados = dados.filter(t => _transDentroPeriodo(t, fil.dataDe, fil.dataAte));
   }
 
-  // Filtros de selects (por ID)
   if (fil.cartao)       dados = dados.filter(t => _dbSameId(t.cartao_id, fil.cartao));
   if (fil.tipo)         dados = dados.filter(t => _dbSameId(t.natureza_id, fil.tipo));
   if (fil.forma)        dados = dados.filter(t => _dbSameId(t.forma_pagamento_id, fil.forma));
@@ -7106,22 +7105,9 @@ function renderTransacoes(opcoes = {}) {
   if (fil.subcategoria) dados = dados.filter(t => _dbSameId(t.subcategoria_id, fil.subcategoria));
   if (fil.status)       dados = dados.filter(t => _dbSameId(t.status_compra_id, fil.status));
 
-  // Filtro de faixa de valor
   if (fil.valorDe  !== null) dados = dados.filter(t => (parseFloat(t.valor) || 0) >= fil.valorDe);
   if (fil.valorAte !== null) dados = dados.filter(t => (parseFloat(t.valor) || 0) <= fil.valorAte);
 
-  // Atualiza badge e chips
-  const totalFiltros = contarFiltrosAtivos(fil);
-  const badge = document.getElementById('filtrosBadge');
-  if (badge) {
-    badge.style.display = totalFiltros > 0 ? 'inline-block' : 'none';
-    badge.textContent = totalFiltros;
-  }
-  const btnF = document.getElementById('btnFiltros');
-  if (btnF) btnF.classList.toggle('ativo', totalFiltros > 0 || document.getElementById('filtrosPanel')?.classList.contains('aberto'));
-  atualizarChips(fil);
-
-  // Ordena
   dados.sort((a, b) => {
     const ord = transOrdenacao;
     if (ord.col === 'valor') {
@@ -7145,6 +7131,32 @@ function renderTransacoes(opcoes = {}) {
     const bv = (b[ord.col] || '').toString().toLowerCase();
     return ord.dir === 'asc' ? av.localeCompare(bv, 'pt') : bv.localeCompare(av, 'pt');
   });
+
+  return dados;
+}
+
+/* --------------------------------------------
+   RENDERIZA LISTA DE TRANSAÇÕES
+-------------------------------------------- */
+function renderTransacoes(opcoes = {}) {
+  // Resetar seleção ao re-renderizar
+  document.getElementById('transBulkBar')?.classList.remove('visible');
+  const busca = (document.getElementById('transSearch')?.value || '').toLowerCase();
+  const fil = coletarFiltros();
+  _transAtualizarPaginaPorFiltro(busca, fil);
+
+  const dados = _transDadosTabelaFiltrados(busca, fil);
+
+  // Atualiza badge e chips
+  const totalFiltros = contarFiltrosAtivos(fil);
+  const badge = document.getElementById('filtrosBadge');
+  if (badge) {
+    badge.style.display = totalFiltros > 0 ? 'inline-block' : 'none';
+    badge.textContent = totalFiltros;
+  }
+  const btnF = document.getElementById('btnFiltros');
+  if (btnF) btnF.classList.toggle('ativo', totalFiltros > 0 || document.getElementById('filtrosPanel')?.classList.contains('aberto'));
+  atualizarChips(fil);
 
   if (opcoes.rapido) {
     _transRenderTabelaTransacoes(dados);
@@ -15936,7 +15948,7 @@ function exportarTransacoes() {
       </div>
       <div style="padding:20px 24px">
         <div style="font-size:13px;color:var(--text-muted);margin-bottom:16px">
-          Serão exportadas as transações atualmente exibidas na tabela (com filtros aplicados).
+          Serão exportadas todas as transações que respeitam os filtros atuais, incluindo registros de todas as páginas.
         </div>
         <div style="display:flex;flex-direction:column;gap:10px">
           <button class="btn btn-primary" style="justify-content:center" onclick="exportarTransacoesFormato('xlsx');this.closest('.modal-overlay').remove()">
@@ -15953,46 +15965,27 @@ function exportarTransacoes() {
 }
 
 function exportarTransacoesFormato(formato) {
-  const cartoes    = dbLoad('cartoes');
-  const categorias = dbLoad('categorias');
-  const subcat     = dbLoad('subcategorias');
-  const formas     = dbLoad('formas');
-  const perfis     = dbLoad('perfis');
-  const naturezas  = dbLoad('naturezas');
-  const decisoes   = dbLoad('decisoes');
-  const statuses   = dbLoad('status');
-  const tipos      = dbLoad('tipos');
-
-  const findNome = (lista, id) => lista.find(x=>x.id===id)?.nome || '';
-
-  // Pegar transações atualmente filtradas (usando a mesma lógica de renderTransacoes)
-  let trans = dbLoad('transacoes');
-  const busca = (document.getElementById('transSearch')?.value||'').toLowerCase().trim();
-  if (busca) trans = trans.filter(t =>
-    (t.descricao||'').toLowerCase().includes(busca)||
-    (t.descricao_tratada||'').toLowerCase().includes(busca)||
-    (t.observacoes||'').toLowerCase().includes(busca)
-  );
-  // Aplicar outros filtros visíveis
-  const fDe  = document.getElementById('fil-data-de')?.value;
-  const fAte = document.getElementById('fil-data-ate')?.value;
-  if (fDe)  trans = trans.filter(t => _transDataCompetencia(t) >= fDe);
-  if (fAte) trans = trans.filter(t => _transDataCompetencia(t) <= fAte);
+  const busca = (document.getElementById('transSearch')?.value || '').toLowerCase();
+  const trans = _transDadosTabelaFiltrados(busca, coletarFiltros());
+  if (!trans.length) {
+    toast('Nenhuma transação encontrada para exportar.', 'warn');
+    return;
+  }
 
   const linhas = trans.map(t => ({
     'Data Contábil':     fmtDateStr(_transDataContabil(t)),
     'Data Competência':  fmtDateStr(_transDataCompetencia(t)),
     'Descrição':         t.descricao          || '',
     'Descrição Tratada': t.descricao_tratada  || '',
-    'Tipo':              findNome(tipos,     t.tipo_pagamento_id),
-    'Cartão/Conta':      findNome(cartoes,   t.cartao_id),
-    'Forma de Pagamento':findNome(formas,    t.forma_pagamento_id),
-    'Perfil':            findNome(perfis,    t.perfil_despesa_id),
-    'Natureza':          findNome(naturezas, t.natureza_id) || _transNatureza(t),
-    'Decisão':           findNome(decisoes,  t.decisao_id)  || _transDecisao(t),
-    'Categoria':         findNome(categorias,t.categoria_id),
-    'Subcategoria':      findNome(subcat,    t.subcategoria_id),
-    'Status':            findNome(statuses,  t.status_compra_id),
+    'Tipo':              t.tipo_pagamento || '',
+    'Cartão/Conta':      t.cartao || '',
+    'Forma de Pagamento':t.forma_pagamento || '',
+    'Perfil':            t.perfil_despesa || '',
+    'Natureza':          t.natureza || '',
+    'Decisão':           t.decisao || '',
+    'Categoria':         t.categoria || '',
+    'Subcategoria':      t.subcategoria || '',
+    'Status':            t.status_compra || '',
     'Parcelado':         t.parcelado === 'Sim' ? 'Sim' : 'Não',
     'Parcela':           t.parcelado === 'Sim' ? `${t.parcela_atual||1}/${t.parcela_maxima||1}` : '',
     'Valor (R$)':        parseFloat(t.valor||0).toFixed(2).replace('.',','),
@@ -16005,7 +15998,7 @@ function exportarTransacoesFormato(formato) {
     const csv = Papa.unparse(linhas, { quotes:true, delimiter:';' });
     const blob = new Blob(['\ufeff'+csv], { type:'text/csv;charset=utf-8' });
     _impDownload(blob, nomeArquivo+'.csv');
-    toast('Exportação CSV concluída!');
+    toast(`Exportação CSV concluída: ${linhas.length} registro(s).`);
   } else {
     const ws  = XLSX.utils.json_to_sheet(linhas);
     const wb  = XLSX.utils.book_new();
@@ -16014,7 +16007,7 @@ function exportarTransacoesFormato(formato) {
     const cols = Object.keys(linhas[0]||{});
     ws['!cols'] = cols.map(c => ({ wch: Math.max(c.length, 14) }));
     XLSX.writeFile(wb, nomeArquivo+'.xlsx');
-    toast('Exportação XLSX concluída!');
+    toast(`Exportação XLSX concluída: ${linhas.length} registro(s).`);
   }
 }
 
