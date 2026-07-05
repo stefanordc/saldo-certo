@@ -6579,12 +6579,52 @@ function _transRenderPaginacao(total, totalPaginas, inicio, fim) {
   `;
 }
 
+function _transDateInputValue(value) {
+  if (!value) return '';
+  if (value instanceof Date && !isNaN(value)) {
+    const y = value.getFullYear();
+    const m = String(value.getMonth() + 1).padStart(2, '0');
+    const d = String(value.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+
+  const s = String(value).trim();
+  if (!s || s === 'undefined' || s === 'null') return '';
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+
+  const br = s.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})$/);
+  if (br) {
+    let [, p1, p2, y] = br;
+    y = y.length === 2 ? '20' + y : y;
+    const dia = parseInt(p1, 10) > 12 ? p1 : (parseInt(p2, 10) > 12 ? p2 : p1);
+    const mes = dia === p1 ? p2 : p1;
+    return `${y}-${String(mes).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
+  }
+
+  const dt = new Date(s);
+  return isNaN(dt) ? '' : dt.toISOString().slice(0, 10);
+}
+
 function _transDataContabil(t) {
-  return t.data_competencia || t.data_contabil || '';
+  return _transDateInputValue(
+    t?.data_competencia ||
+    t?.data_transacao ||
+    t?.data_lancamento ||
+    t?.data ||
+    t?.data_contabil
+  );
 }
 
 function _transDataCompetencia(t) {
-  return t.data_contabil || t.data_competencia || '';
+  return _transDateInputValue(
+    t?.data_contabil ||
+    t?.data_baixa ||
+    t?.baixa ||
+    t?.competencia ||
+    t?.data_competencia ||
+    t?.data_transacao ||
+    t?.data
+  );
 }
 
 function _transDataReferencia(t) {
@@ -7114,18 +7154,21 @@ function renderTransacoes() {
    ABRE O MODAL
 -------------------------------------------- */
 function openTransacaoModal(id = null) {
-  editandoTransId = id;
+  const isEdicao = id !== null && id !== undefined && String(id).trim() !== '';
+  const transacaoEditada = isEdicao ? _transFindById(id) : null;
+  if (isEdicao && !transacaoEditada) {
+    toast('Movimentação não encontrada. Atualize a página e tente novamente.', 'error');
+    return;
+  }
+  editandoTransId = transacaoEditada ? transacaoEditada.id : null;
 
   document.getElementById('transModalTitle').textContent =
-    id ? 'Editar Movimentação' : 'Adicionar Movimentação';
+    isEdicao ? 'Editar Movimentação' : 'Adicionar Movimentação';
 
   preencherSelects();
   limparFormTransacao();
 
-  if (id) {
-    const t = dbLoad('transacoes').find(x => x.id === id);
-    if (t) preencherFormTransacao(t);
-  }
+  if (transacaoEditada) preencherFormTransacao(transacaoEditada);
 
   document.getElementById('transModal').classList.add('open');
 }
@@ -7140,6 +7183,10 @@ function closeTransModal() {
 -------------------------------------------- */
 function editarTransacao(id)  { openTransacaoModal(id); }
 
+function _transFindById(id) {
+  return dbLoad('transacoes').find(x => _dbSameId(x.id, id));
+}
+
 function _transCriarDuplicata(t, createdAt) {
   const copia = { ...t, id: uid(), createdAt };
   delete copia.created_at;
@@ -7151,7 +7198,7 @@ function _transCriarDuplicata(t, createdAt) {
 
 function duplicarTransacao(id) {
   const dados = dbLoad('transacoes');
-  const item = dados.find(x => x.id === id);
+  const item = _transFindById(id);
   if (!item) {
     toast('Movimentação não encontrada.', 'error');
     return;
@@ -7181,9 +7228,13 @@ function duplicarTransacao(id) {
 }
 
 function excluirTransacao(id) {
-  const item = dbLoad('transacoes').find(x => x.id === id);
+  const item = _transFindById(id);
+  if (!item) {
+    toast('Movimentação não encontrada.', 'error');
+    return;
+  }
   openConfirm(`Excluir "${item?.descricao || ''}"?`, () => {
-    dbDelete('transacoes', id);
+    dbDelete('transacoes', item.id);
     renderTransacoes();
     toast('Movimentação excluída.', 'warn');
   });
@@ -7514,11 +7565,82 @@ function _transResolverContaId(valor) {
   raw = (raw || '').toString().trim();
   if (!raw) return '';
   const contas = dbLoad('cartoes');
-  if (contas.some(c => c.id === raw)) return raw;
+  if (contas.some(c => _dbSameId(c.id, raw))) return raw;
   const norm = _transNormTexto(raw);
   return contas.find(c => _transNormTexto(c.nome) === norm)?.id ||
          contas.find(c => _transNormTexto(c.nome).includes(norm) || norm.includes(_transNormTexto(c.nome)))?.id ||
          '';
+}
+
+function _transFirstValue(obj, keys) {
+  for (const key of keys) {
+    if (!obj || !(key in obj)) continue;
+    const value = obj[key];
+    if (value === null || value === undefined) continue;
+    if (typeof value === 'string' && value.trim() === '') continue;
+    return value;
+  }
+  return '';
+}
+
+function _transLookupIdByValues(colecao, ...valores) {
+  const itens = dbLoad(colecao);
+  for (const valor of valores.flat()) {
+    let raw = valor;
+    if (raw && typeof raw === 'object') {
+      raw = raw.id || raw[`${colecao}_id`] || raw.nome || raw.name || raw.titulo || '';
+    }
+    raw = (raw || '').toString().trim();
+    if (!raw) continue;
+
+    const porId = itens.find(item => _dbSameId(item.id, raw));
+    if (porId) return porId.id;
+
+    const norm = _transNormTexto(raw);
+    const exato = itens.find(item => _transNormTexto(item.nome) === norm);
+    if (exato) return exato.id;
+
+    const parcial = itens.find(item => {
+      const nome = _transNormTexto(item.nome);
+      return nome && (nome.includes(norm) || norm.includes(nome));
+    });
+    if (parcial) return parcial.id;
+  }
+  return '';
+}
+
+function _transSetSelectByLookup(selectId, colecao, ...valores) {
+  const sel = document.getElementById(selectId);
+  if (!sel) return '';
+  const id = _transLookupIdByValues(colecao, ...valores);
+  sel.value = id || '';
+  transRefreshSearchableSelect(selectId);
+  return id;
+}
+
+function _transParseValorForm(value) {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
+  let s = String(value ?? '').replace(/[R$\s\u00a0]/g, '').trim();
+  if (!s) return 0;
+  const hasDot = s.includes('.');
+  const hasComma = s.includes(',');
+  if (hasDot && hasComma) {
+    s = s.lastIndexOf(',') > s.lastIndexOf('.')
+      ? s.replace(/\./g, '').replace(',', '.')
+      : s.replace(/,/g, '');
+  } else if (hasComma) {
+    s = s.replace(',', '.');
+  }
+  return parseFloat(s) || 0;
+}
+
+function _transParceladoValue(value, base) {
+  const raw = (value ?? '').toString().trim();
+  const norm = _transNormTexto(raw);
+  const maxParcelas = parseInt(base?.parcela_maxima || base?.parcelas || base?.total_parcelas || 0, 10);
+  if (value === true || ['sim','s','yes','true'].includes(norm) || maxParcelas > 1) return 'Sim';
+  if (value === false || ['nao','n','no','false'].includes(norm)) return 'Não';
+  return raw || 'Não';
 }
 
 function _transContaDestinoLegadaId(t) {
@@ -7846,31 +7968,77 @@ function limparFormTransacao() {
 -------------------------------------------- */
 function preencherFormTransacao(t) {
   const transf = _transIsTransferenciaLancamento(t) ? _transOrigemDestinoTransferencia(t) : null;
-  const base = transf?.origem || t;
+  const base = transf?.origem || t || {};
+  const setValue = (id, value) => {
+    const el = document.getElementById(id);
+    if (el) el.value = value ?? '';
+  };
 
-  document.getElementById('f-data-contabil').value     = _transDataContabil(base);
-  document.getElementById('f-data-competencia').value  = _transDataCompetencia(base);
-  document.getElementById('f-cartao').value            = base.cartao_id || '';
-  document.getElementById('f-tipo-pagamento').value    = base.tipo_pagamento_id || '';
-  document.getElementById('f-forma-pagamento').value   = base.forma_pagamento_id || '';
-  document.getElementById('f-descricao').value         = base.descricao || '';
-  document.getElementById('f-descricao-tratada').value = base.descricao_tratada || '';
-  document.getElementById('f-perfil-despesa').value    = base.perfil_despesa_id || '';
-  document.getElementById('f-categoria').value         = base.categoria_id || '';
-  document.getElementById('f-subcategoria').value      = base.subcategoria_id || '';
-  document.getElementById('f-natureza').value           = base.natureza_id || _transFindConfigId('naturezas', [_transNatureza(base)]);
-  document.getElementById('f-status-compra').value     = base.status_compra_id || '';
-  document.getElementById('f-valor').value             = base.valor ? fmtValor(parseFloat(base.valor)) : '';
-  document.getElementById('f-parcelado').value         = base.parcelado || '';
-  document.getElementById('f-conta-destino').value      = transf?.destinoId || '';
-  toggleContaDestinoTransacao(!!transf);
+  const descricao = _transFirstValue(base, ['descricao','descrição','historico','histórico','lancamento','lançamento','memo']);
+  const descricaoTratada = _transFirstValue(base, ['descricao_tratada','descrição_tratada','descricaoTratada','descricaotratada','descricao tratada','descrição tratada']) || descricao;
+  const valor = _transParseValorForm(_transFirstValue(base, ['valor','value','amount','montante','vlr']));
+  const parcelado = _transParceladoValue(_transFirstValue(base, ['parcelado','parcela','installment']), base);
+  const cartaoId = _transResolverContaId(_transFirstValue(base, ['cartao_id','conta_id','cartao','cartão','conta','banco','card']));
+  const destinoId = _transResolverContaId(transf?.destinoId || _transFirstValue(base, [
+    'conta_destino_id','contaDestinoId','contaDestino_id','conta_destino','contaDestino',
+    'cartao_destino_id','cartaoDestinoId','cartao_destino','cartaoDestino','destino_id','destino'
+  ]));
 
-  document.getElementById('f-decisao').value = base.decisao_id || _transFindConfigId('decisoes', [_transDecisao(base)]);
-  document.getElementById('f-obs').value = _transObservacoesTexto(base);
-  if (base.parcelado === 'Sim') {
+  setValue('f-data-contabil', _transDataContabil(base));
+  setValue('f-data-competencia', _transDataCompetencia(base));
+  setValue('f-descricao', descricao);
+  setValue('f-descricao-tratada', descricaoTratada);
+  setValue('f-valor', valor ? fmtValor(valor) : '');
+  setValue('f-parcelado', parcelado);
+  setValue('f-conta-destino', destinoId);
+
+  if (cartaoId) _transSetSelectValue('f-cartao', 'cartoes', cartaoId);
+  else setValue('f-cartao', '');
+
+  _transSetSelectByLookup('f-tipo-pagamento', 'tipos',
+    _transFirstValue(base, ['tipo_pagamento_id','tipo_id','tipo_pagamento','tipo','type']),
+    base.tipo_pagamento,
+    base.tipo
+  );
+  _transSetSelectByLookup('f-forma-pagamento', 'formas',
+    _transFirstValue(base, ['forma_pagamento_id','forma_id','forma_pagamento','forma','pagamento','payment_method']),
+    base.forma_pagamento,
+    base.forma
+  );
+  _transSetSelectByLookup('f-perfil-despesa', 'perfis',
+    _transFirstValue(base, ['perfil_despesa_id','perfil_id','perfil_despesa','perfil','profile']),
+    base.perfil_despesa,
+    base.perfil
+  );
+  _transSetSelectByLookup('f-categoria', 'categorias',
+    _transFirstValue(base, ['categoria_id','categoria','category','cat']),
+    base.categoria
+  );
+  _transSetSelectByLookup('f-subcategoria', 'subcategorias',
+    _transFirstValue(base, ['subcategoria_id','subcategoria','subcategory','subcat']),
+    base.subcategoria
+  );
+  _transSetSelectByLookup('f-natureza', 'naturezas',
+    _transFirstValue(base, ['natureza_id','natureza','nature']),
+    _transNatureza(base)
+  );
+  _transSetSelectByLookup('f-decisao', 'decisoes',
+    _transFirstValue(base, ['decisao_id','decisão_id','decisao','decisão','decision']),
+    _transDecisao(base)
+  );
+  _transSetSelectByLookup('f-status-compra', 'status',
+    _transFirstValue(base, ['status_compra_id','status_id','status_compra','status','situacao','situação','state']),
+    base.status_compra
+  );
+
+  toggleContaDestinoTransacao(!!transf || _transFormEhTransferencia());
+  if (destinoId) setValue('f-conta-destino', destinoId);
+  setValue('f-obs', _transObservacoesTexto(base) || _transFirstValue(base, ['observacoes','observações','observacao','observação','obs','notes','nota']));
+
+  if (parcelado === 'Sim') {
     document.getElementById('parcelasSection').classList.add('visible');
-    document.getElementById('f-parcela-atual').value  = base.parcela_atual || '';
-    document.getElementById('f-parcela-maxima').value = base.parcela_maxima || '';
+    setValue('f-parcela-atual', _transFirstValue(base, ['parcela_atual','parcela','installment_current']));
+    setValue('f-parcela-maxima', _transFirstValue(base, ['parcela_maxima','parcelas','total_parcelas','installments']));
   }
   const chkRec = document.getElementById('f-recorrente');
   if (chkRec) {
