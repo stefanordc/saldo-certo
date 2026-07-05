@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Saldo Certo</title>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
 <style>
 /* ============================================================
    style.css  —  Saldo Certo
@@ -33,17 +33,19 @@
   --radius:        8px;
   --radius-lg:     12px;
   --transition:    0.18s ease;
+  --font-ui:        'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono:      'JetBrains Mono', 'SFMono-Regular', Consolas, monospace;
 }
 
 body.theme-dark {
   color-scheme: dark;
-  --primary:       #5DA8FF;
-  --primary-dark:  #2F7FE5;
-  --primary-light: rgba(93,168,255,0.16);
-  --accent:        #28D17C;
-  --accent-light:  rgba(40,209,124,0.14);
-  --danger:        #FF6B62;
-  --danger-light:  rgba(255,107,98,0.13);
+  --primary:       #A8D4FF;
+  --primary-dark:  #74B9FF;
+  --primary-light: rgba(168,212,255,0.16);
+  --accent:        #8EF0C0;
+  --accent-light:  rgba(142,240,192,0.14);
+  --danger:        #FFA29A;
+  --danger-light:  rgba(255,162,154,0.14);
   --warning:       #FFBE55;
   --bg:            #101417;
   --card:          #181D22;
@@ -60,7 +62,7 @@ body.theme-dark {
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 body {
-  font-family: 'DM Sans', sans-serif;
+  font-family: var(--font-ui);
   background: var(--bg);
   color: var(--text);
   min-height: 100vh;
@@ -665,7 +667,7 @@ td.actions { white-space: nowrap; text-align: right; }
   box-shadow: var(--shadow-sm);
 }
 .stat-label { font-size: 12px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.4px; }
-.stat-value { font-size: 22px; font-weight: 700; color: var(--text); margin-top: 4px; font-family: 'DM Mono', monospace; }
+.stat-value { font-size: 22px; font-weight: 700; color: var(--text); margin-top: 4px; font-family: var(--font-mono); }
 .stat-value.green  { color: var(--accent); }
 .stat-value.blue   { color: var(--primary); }
 .stat-value.danger { color: var(--danger); }
@@ -728,9 +730,9 @@ td.actions { white-space: nowrap; text-align: right; }
 .records-count { font-size: 12.5px; color: var(--text-muted); margin-left: auto; }
 
 /* -- FORMATAÇÃO DE VALORES -- */
-.val-positive { color: var(--accent); font-family: 'DM Mono', monospace; font-weight: 500; }
-.val-negative { color: var(--danger); font-family: 'DM Mono', monospace; font-weight: 500; }
-.val-neutral  { font-family: 'DM Mono', monospace; font-weight: 500; }
+.val-positive { color: var(--accent); font-family: var(--font-mono); font-weight: 500; }
+.val-negative { color: var(--danger); font-family: var(--font-mono); font-weight: 500; }
+.val-neutral  { font-family: var(--font-mono); font-weight: 500; }
 
 /* -- CHECKBOX -- */
 .checkbox-row {
@@ -920,7 +922,7 @@ td.actions { white-space: nowrap; text-align: right; }
   transform: translateX(-50%);
   font-size: 28px;
   font-weight: 800;
-  font-family: 'DM Mono', monospace;
+  font-family: var(--font-mono);
   color: var(--text);
   white-space: nowrap;
 }
@@ -1004,7 +1006,7 @@ td.actions { white-space: nowrap; text-align: right; }
 .cta-item-valor {
   font-size: 18px;
   font-weight: 800;
-  font-family: 'DM Mono', monospace;
+  font-family: var(--font-mono);
   color: var(--text);
   white-space: nowrap;
 }
@@ -1049,7 +1051,7 @@ td.actions { white-space: nowrap; text-align: right; }
   box-shadow: var(--shadow-sm);
 }
 .rel-kpi-label { font-size: 11.5px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 6px; }
-.rel-kpi-value { font-size: 22px; font-weight: 800; font-family: 'DM Mono', monospace; }
+.rel-kpi-value { font-size: 22px; font-weight: 800; font-family: var(--font-mono); }
 .rel-kpi-sub   { font-size: 11.5px; color: var(--text-light); margin-top: 3px; }
 
 /* Summary cards contas */
@@ -1063,7 +1065,7 @@ td.actions { white-space: nowrap; text-align: right; }
 .cta-summary-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
 .cta-summary-title  { font-size: 13px; font-weight: 600; color: var(--text-muted); }
 .cta-summary-icon   { font-size: 18px; }
-.cta-summary-value  { font-size: 24px; font-weight: 800; font-family: 'DM Mono', monospace; }
+.cta-summary-value  { font-size: 24px; font-weight: 800; font-family: var(--font-mono); }
 .cta-summary-sub    { font-size: 12px; color: var(--text-light); margin-top: 3px; }
 
 
@@ -1210,7 +1212,7 @@ tr.trans-selected td { background: transparent; }
 .inv-mov-ticker { font-size: 15px; font-weight: 800; color: var(--text); }
 .inv-mov-meta   { font-size: 12px; color: var(--text-muted); display: flex; flex-wrap: wrap; gap: 8px; margin-top: 3px; }
 .inv-mov-right  { text-align: right; flex-shrink: 0; }
-.inv-mov-total  { font-size: 17px; font-weight: 800; font-family: 'DM Mono', monospace; }
+.inv-mov-total  { font-size: 17px; font-weight: 800; font-family: var(--font-mono); }
 .inv-mov-unitario { font-size: 11.5px; color: var(--text-muted); margin-top: 2px; }
 
 .inv-config-section { margin-bottom: 28px; }
@@ -1261,14 +1263,14 @@ tr.trans-selected td { background: transparent; }
 
 .inv-carteira-table th, .inv-carteira-table td { padding: 10px 14px; font-size: 13px; }
 .inv-carteira-table tbody tr:hover { background: var(--primary-light); }
-.val-positive { color: #00875A; font-weight: 700; font-family: 'DM Mono', monospace; }
-.val-negative { color: #D93025; font-weight: 700; font-family: 'DM Mono', monospace; }
-.val-neutral  { color: #1558B0; font-weight: 600; font-family: 'DM Mono', monospace; }
+.val-positive { color: #00875A; font-weight: 700; font-family: var(--font-mono); }
+.val-negative { color: #D93025; font-weight: 700; font-family: var(--font-mono); }
+.val-neutral  { color: #1558B0; font-weight: 600; font-family: var(--font-mono); }
 .inv-upside   { color: #00875A; font-weight: 700; }
 .inv-downside { color: #D93025; font-weight: 700; }
 .inv-neutral  { color: var(--text-muted); font-weight: 600; }
 .inv-preco-live {
-  font-family: 'DM Mono', monospace;
+  font-family: var(--font-mono);
   font-weight: 700;
 }
 .inv-spinner {
@@ -1348,7 +1350,7 @@ tr.trans-selected td { background: transparent; }
 .desejo-preco {
   font-size: 22px;
   font-weight: 800;
-  font-family: 'DM Mono', monospace;
+  font-family: var(--font-mono);
   color: var(--text);
   letter-spacing: -0.5px;
   margin-bottom: 4px;
@@ -1440,7 +1442,7 @@ tr.trans-selected td { background: transparent; }
 .comprovante-logo { font-size: 32px; margin-bottom: 6px; }
 .comprovante-empresa { font-size: 13px; font-weight: 700; color: var(--primary); }
 .comprovante-titulo { font-size: 18px; font-weight: 800; color: var(--text); margin: 6px 0 2px; }
-.comprovante-id { font-size: 11px; color: var(--text-light); font-family: 'DM Mono', monospace; }
+.comprovante-id { font-size: 11px; color: var(--text-light); font-family: var(--font-mono); }
 .comprovante-row {
   display: flex;
   justify-content: space-between;
@@ -1451,7 +1453,7 @@ tr.trans-selected td { background: transparent; }
 }
 .comprovante-row:last-child { border-bottom: none; }
 .comprovante-row-label { color: var(--text-muted); font-weight: 500; }
-.comprovante-row-val   { font-weight: 700; color: var(--text); font-family: 'DM Mono', monospace; }
+.comprovante-row-val   { font-weight: 700; color: var(--text); font-family: var(--font-mono); }
 .comprovante-total {
   background: var(--primary);
   color: #fff;
@@ -1474,7 +1476,7 @@ tr.trans-selected td { background: transparent; }
   border-radius: 10px;
   margin-bottom: 14px;
 }
-.saude-score-num { font-size: 48px; font-weight: 900; color: #D93025; font-family: 'DM Mono', monospace; }
+.saude-score-num { font-size: 48px; font-weight: 900; color: #D93025; font-family: var(--font-mono); }
 .saude-score-label { font-size: 13px; color: #991B1B; font-weight: 600; margin-top: 4px; }
 
 
@@ -1513,7 +1515,7 @@ tr.trans-selected td { background: transparent; }
 .sim-ctx-value {
   font-size: 22px;
   font-weight: 800;
-  font-family: 'DM Mono', monospace;
+  font-family: var(--font-mono);
   letter-spacing: -0.5px;
   line-height: 1.1;
 }
@@ -1561,7 +1563,7 @@ tr.trans-selected td { background: transparent; }
 .sim-prev-value {
   font-size: 28px;
   font-weight: 800;
-  font-family: 'DM Mono', monospace;
+  font-family: var(--font-mono);
   letter-spacing: -0.5px;
   margin-bottom: 6px;
 }
@@ -1647,7 +1649,7 @@ tr.trans-selected td { background: transparent; }
   padding: 12px 14px;
 }
 .sim-resultado-item-label { font-size: 11.5px; color: #475569; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 4px; }
-.sim-resultado-item-val   { font-size: 17px; font-weight: 800; font-family: 'DM Mono', monospace; }
+.sim-resultado-item-val   { font-size: 17px; font-weight: 800; font-family: var(--font-mono); }
 
 .sim-alerta-box {
   border-radius: 10px;
@@ -1717,7 +1719,7 @@ tr.trans-selected td { background: transparent; }
 }
 .metas-resumo-icon { font-size: 20px; margin-bottom: 4px; }
 .metas-resumo-label { font-size: 11.5px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.4px; }
-.metas-resumo-value { font-size: 22px; font-weight: 800; font-family: 'DM Mono', monospace; letter-spacing: -0.5px; }
+.metas-resumo-value { font-size: 22px; font-weight: 800; font-family: var(--font-mono); letter-spacing: -0.5px; }
 
 .metas-grid {
   display: grid;
@@ -1784,7 +1786,7 @@ tr.trans-selected td { background: transparent; }
 }
 .meta-row:last-child { border-bottom: none; }
 .meta-row-label { color: var(--text-muted); }
-.meta-row-val { font-weight: 700; font-family: 'DM Mono', monospace; }
+.meta-row-val { font-weight: 700; font-family: var(--font-mono); }
 
 .meta-prazo {
   margin-top: 14px;
@@ -1846,7 +1848,7 @@ tr.trans-selected td { background: transparent; }
 }
 .orc-row:last-child { border-bottom: none; }
 .orc-row-label { color: var(--text-muted); }
-.orc-row-val { font-weight: 700; font-family: 'DM Mono', monospace; font-size: 13.5px; }
+.orc-row-val { font-weight: 700; font-family: var(--font-mono); font-size: 13.5px; }
 .orc-saldo-card {
   background: var(--card);
   border: 1px solid var(--border);
@@ -1869,7 +1871,7 @@ tr.trans-selected td { background: transparent; }
 .orc-saldo-value {
   font-size: 32px;
   font-weight: 800;
-  font-family: 'DM Mono', monospace;
+  font-family: var(--font-mono);
   letter-spacing: -0.5px;
   margin-bottom: 4px;
 }
@@ -1970,7 +1972,7 @@ tr.trans-selected td { background: transparent; }
 .ad-card-value {
   font-size: 26px;
   font-weight: 800;
-  font-family: 'DM Mono', monospace;
+  font-family: var(--font-mono);
   letter-spacing: -0.5px;
   line-height: 1.1;
 }
@@ -2018,7 +2020,7 @@ tr.trans-selected td { background: transparent; }
 .ad-prop-value {
   font-size: 28px;
   font-weight: 800;
-  font-family: 'DM Mono', monospace;
+  font-family: var(--font-mono);
   letter-spacing: -0.5px;
 }
 .ad-prop-bar-wrap {
@@ -2141,7 +2143,7 @@ tr.trans-selected td { background: transparent; }
   position:fixed;inset:0;z-index:9999;
   background:linear-gradient(135deg,#0B1F3A 0%,#1558B0 60%,#00A86B 100%);
   display:flex;align-items:center;justify-content:center;
-  font-family:'DM Sans',sans-serif;
+  font-family:var(--font-ui);
 }
 .auth-card {
   background:#fff;border-radius:20px;width:100%;max-width:440px;
@@ -2186,7 +2188,7 @@ tr.trans-selected td { background: transparent; }
 }
 .auth-input {
   width:100%;padding:11px 14px;border:1.5px solid #E5E7EB;border-radius:9px;
-  font-size:14px;font-family:'DM Sans',sans-serif;background:#FAFAFA;
+  font-size:14px;font-family:var(--font-ui);background:#FAFAFA;
   outline:none;transition:border-color 0.2s,box-shadow 0.2s;box-sizing:border-box;
 }
 .auth-input:focus {
@@ -2209,7 +2211,7 @@ tr.trans-selected td { background: transparent; }
 .auth-btn {
   width:100%;padding:13px;background:linear-gradient(135deg,#1558B0,#0B4A9A);
   color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:800;
-  cursor:pointer;transition:all 0.2s;margin-top:6px;font-family:'DM Sans',sans-serif;
+  cursor:pointer;transition:all 0.2s;margin-top:6px;font-family:var(--font-ui);
   letter-spacing:0.2px;
 }
 .auth-btn:hover { background:linear-gradient(135deg,#0B4A9A,#083B80);transform:translateY(-1px); }
@@ -2217,7 +2219,7 @@ tr.trans-selected td { background: transparent; }
 .auth-btn-ghost {
   width:100%;padding:11px;background:transparent;color:#1558B0;
   border:1.5px solid #1558B0;border-radius:10px;font-size:14px;font-weight:700;
-  cursor:pointer;transition:all 0.2s;margin-top:8px;font-family:'DM Sans',sans-serif;
+  cursor:pointer;transition:all 0.2s;margin-top:8px;font-family:var(--font-ui);
 }
 .auth-btn-ghost:hover { background:#EFF6FF; }
 .auth-link {
@@ -2248,7 +2250,7 @@ tr.trans-selected td { background: transparent; }
 }
 .auth-otp-input {
   width:46px;height:54px;text-align:center;font-size:22px;font-weight:900;
-  border:2px solid #E5E7EB;border-radius:10px;font-family:'DM Mono',monospace;
+  border:2px solid #E5E7EB;border-radius:10px;font-family:var(--font-mono);
   outline:none;transition:border-color 0.2s;background:#FAFAFA;
 }
 .auth-otp-input:focus { border-color:#1558B0;background:#fff; }
@@ -2297,7 +2299,7 @@ tr.trans-selected td { background: transparent; }
 }
 .anon-key-input {
   width:100%;padding:11px 14px;border:1.5px solid #E5E7EB;border-radius:9px;
-  font-size:13px;font-family:'DM Mono',monospace;box-sizing:border-box;
+  font-size:13px;font-family:var(--font-mono);box-sizing:border-box;
   outline:none;margin-bottom:12px;
 }
 .anon-key-input:focus { border-color:#1558B0;box-shadow:0 0 0 3px rgba(21,88,176,0.12); }
@@ -2580,6 +2582,50 @@ body.theme-dark tr.trans-selected {
 body.theme-dark .search-select-option.disabled {
   background: #151B21;
   color: var(--text-light);
+}
+body.theme-dark .btn-primary,
+body.theme-dark .btn-success,
+body.theme-dark .btn-danger,
+body.theme-dark .btn-mes-anterior.ativo,
+body.theme-dark .ad-periodo-btn.active,
+body.theme-dark .inv-tab.active {
+  color: #071018;
+}
+body.theme-dark .val-positive,
+body.theme-dark .stat-value.green,
+body.theme-dark .ad-val-green,
+body.theme-dark .inv-upside,
+body.theme-dark .badge-green {
+  color: var(--accent) !important;
+}
+body.theme-dark .val-negative,
+body.theme-dark .stat-value.danger,
+body.theme-dark .ad-val-red,
+body.theme-dark .inv-downside,
+body.theme-dark .saude-score-num,
+body.theme-dark .saude-score-label {
+  color: var(--danger) !important;
+}
+body.theme-dark .val-neutral,
+body.theme-dark .stat-value.blue,
+body.theme-dark .ad-val-blue {
+  color: var(--primary) !important;
+}
+body.theme-dark [style*="color:#D93025"],
+body.theme-dark [style*="color: #D93025"],
+body.theme-dark [style*="color:#B91C1C"],
+body.theme-dark [style*="color: #B91C1C"],
+body.theme-dark [style*="color:#991B1B"],
+body.theme-dark [style*="color: #991B1B"] {
+  color: var(--danger) !important;
+}
+body.theme-dark [style*="color:#00875A"],
+body.theme-dark [style*="color: #00875A"],
+body.theme-dark [style*="color:#00A86B"],
+body.theme-dark [style*="color: #00A86B"],
+body.theme-dark [style*="color:#065F46"],
+body.theme-dark [style*="color: #065F46"] {
+  color: var(--accent) !important;
 }
 body.theme-dark [style*="background:#fff"],
 body.theme-dark [style*="background: #fff"],
@@ -4222,7 +4268,7 @@ body.theme-dark [style*="border-bottom:1px solid var(--border)"] {
           <label class="form-label">Valor Total</label>
           <input type="text" class="form-input" id="inv-f-total"
                  placeholder="R$ 0,00" readonly
-                 style="background:#F8FAFF;font-weight:700;color:var(--primary);font-family:'DM Mono',monospace">
+                 style="background:#F8FAFF;font-weight:700;color:var(--primary);font-family:var(--font-mono)">
         </div>
 
       </div>
@@ -6890,6 +6936,8 @@ function transRefreshSearchableSelect(selectId) {
     ? select.nextElementSibling
     : null;
   if (!select || !wrap) return;
+  select.tabIndex = -1;
+  select.setAttribute('aria-hidden', 'true');
   const input = wrap.querySelector('.search-select-input');
   if (!input) return;
   input.value = select.value ? _transSelectLabelAtual(select) : '';
@@ -6949,6 +6997,26 @@ function transMoveSearchableActive(wrap, dir) {
   options[prox].scrollIntoView({ block: 'nearest' });
 }
 
+function transIsFocusableControl(el) {
+  if (!el || el.disabled || el.classList.contains('search-select-native')) return false;
+  if (el.tabIndex < 0) return false;
+  const style = window.getComputedStyle(el);
+  if (style.display === 'none' || style.visibility === 'hidden') return false;
+  if (el.offsetParent === null && style.position !== 'fixed') return false;
+  return true;
+}
+
+function transFocusAdjacentControl(current, dir = 1) {
+  const modal = document.getElementById('transModal');
+  if (!modal) return;
+  const controls = Array.from(modal.querySelectorAll(
+    'input:not([type="hidden"]), select, textarea, button, [tabindex]:not([tabindex="-1"])'
+  )).filter(transIsFocusableControl);
+  const atual = controls.indexOf(current);
+  const prox = controls[atual + dir];
+  if (prox) prox.focus();
+}
+
 function transEnhanceSearchableSelect(select) {
   if (!select || select.dataset.searchEnhanced === '1') {
     if (select) transRefreshSearchableSelect(select.id);
@@ -6957,6 +7025,8 @@ function transEnhanceSearchableSelect(select) {
 
   select.dataset.searchEnhanced = '1';
   select.classList.add('search-select-native');
+  select.tabIndex = -1;
+  select.setAttribute('aria-hidden', 'true');
 
   const wrap = document.createElement('div');
   wrap.className = 'search-select-wrap';
@@ -6968,6 +7038,10 @@ function transEnhanceSearchableSelect(select) {
 
   const input = wrap.querySelector('.search-select-input');
   const menu = wrap.querySelector('.search-select-menu');
+
+  select.addEventListener('focus', () => {
+    input.focus();
+  });
 
   input.addEventListener('focus', () => {
     transCloseSearchableSelects(wrap);
@@ -6989,6 +7063,13 @@ function transEnhanceSearchableSelect(select) {
 
   input.addEventListener('keydown', e => {
     if (e.ctrlKey && e.key === 'Enter') return;
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      wrap.classList.remove('open');
+      transRefreshSearchableSelect(select.id);
+      transFocusAdjacentControl(input, e.shiftKey ? -1 : 1);
+      return;
+    }
     if (e.key === 'ArrowDown') { e.preventDefault(); wrap.classList.add('open'); transMoveSearchableActive(wrap, 1); }
     if (e.key === 'ArrowUp')   { e.preventDefault(); wrap.classList.add('open'); transMoveSearchableActive(wrap, -1); }
     if (e.key === 'Escape')    { e.preventDefault(); wrap.classList.remove('open'); transRefreshSearchableSelect(select.id); }
@@ -8430,7 +8511,7 @@ function _relTabela(containerId, rows, totalGeral) {
             const pct = totalGeral > 0 ? (r.total/totalGeral*100) : 0;
             return `<tr>
               <td><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${r.cor};margin-right:6px;vertical-align:middle"></span>${escHtml(r.nome)}</td>
-              <td style="font-family:'DM Mono',monospace;font-weight:600;color:#D93025">R$ ${fmtValor(Math.abs(r.total))}</td>
+              <td style="font-family:var(--font-mono);font-weight:600;color:#D93025">R$ ${fmtValor(Math.abs(r.total))}</td>
               <td>
                 <div class="rel-bar-inline">
                   <div class="rel-bar-bg"><div class="rel-bar-fill" style="width:${pct.toFixed(1)}%;background:${r.cor}"></div></div>
@@ -9022,7 +9103,7 @@ function renderRelScore() {
             const faixa = _relScoreFaixa(d.score);
             return `<tr>
               <td>${d.mes}/${String(_relScoreAnoSelecionado).slice(2)}</td>
-              <td style="font-family:'DM Mono',monospace;font-weight:800;color:${faixa.cor}">${d.score}</td>
+              <td style="font-family:var(--font-mono);font-weight:800;color:${faixa.cor}">${d.score}</td>
               <td><span class="score-label-band" style="background:${faixa.bg};color:${faixa.cor};margin:0">${faixa.label}</span></td>
               <td style="color:var(--text-muted)">${d.count}</td>
             </tr>`;
@@ -10625,7 +10706,7 @@ function renderRelContas() {
         const pct       = totalGeral > 0 ? (tot/totalGeral*100) : 0;
         return `<tr>
           <td><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:${CORES[i%CORES.length]};margin-right:6px;vertical-align:middle"></span>${escHtml(nome)}</td>
-          <td style="font-family:'DM Mono',monospace;font-weight:600">R$ ${fmtValor(tot)}</td>
+          <td style="font-family:var(--font-mono);font-weight:600">R$ ${fmtValor(tot)}</td>
           <td style="color:#00875A;font-weight:600">R$ ${fmtValor(real)}</td>
           <td style="color:#F5A623;font-weight:600">R$ ${fmtValor(pend)}</td>
           <td><div style="display:flex;align-items:center;gap:6px">
@@ -11202,25 +11283,25 @@ function calcJuros() {
     <div style="display:flex;flex-direction:column;gap:12px">
       <div class="card" style="padding:20px;background:linear-gradient(135deg,#0B1F3A,#1558B0);color:#fff">
         <div style="font-size:12px;font-weight:600;opacity:0.75;text-transform:uppercase;letter-spacing:0.5px">Saldo Final</div>
-        <div style="font-size:32px;font-weight:900;font-family:'DM Mono',monospace;margin:6px 0">R$ ${fmtValor(saldo)}</div>
+        <div style="font-size:32px;font-weight:900;font-family:var(--font-mono);margin:6px 0">R$ ${fmtValor(saldo)}</div>
         <div style="font-size:12px;opacity:0.75">após ${totalMeses} meses</div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
         <div class="card" style="padding:14px">
           <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase">Total Investido</div>
-          <div style="font-size:18px;font-weight:800;font-family:'DM Mono',monospace;margin-top:4px">R$ ${fmtValor(totalInvestido)}</div>
+          <div style="font-size:18px;font-weight:800;font-family:var(--font-mono);margin-top:4px">R$ ${fmtValor(totalInvestido)}</div>
         </div>
         <div class="card" style="padding:14px">
           <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase">Total em Juros</div>
-          <div style="font-size:18px;font-weight:800;font-family:'DM Mono',monospace;margin-top:4px;color:#00875A">R$ ${fmtValor(totalJuros)}</div>
+          <div style="font-size:18px;font-weight:800;font-family:var(--font-mono);margin-top:4px;color:#00875A">R$ ${fmtValor(totalJuros)}</div>
         </div>
         <div class="card" style="padding:14px">
           <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase">Rentabilidade</div>
-          <div style="font-size:18px;font-weight:800;font-family:'DM Mono',monospace;margin-top:4px;color:var(--primary)">+${rentabilidade.toFixed(1)}%</div>
+          <div style="font-size:18px;font-weight:800;font-family:var(--font-mono);margin-top:4px;color:var(--primary)">+${rentabilidade.toFixed(1)}%</div>
         </div>
         <div class="card" style="padding:14px">
           <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase">% Juros/Total</div>
-          <div style="font-size:18px;font-weight:800;font-family:'DM Mono',monospace;margin-top:4px;color:#00875A">${saldo>0?(totalJuros/saldo*100).toFixed(1):0}%</div>
+          <div style="font-size:18px;font-weight:800;font-family:var(--font-mono);margin-top:4px;color:#00875A">${saldo>0?(totalJuros/saldo*100).toFixed(1):0}%</div>
         </div>
       </div>
       ${retirada > 0 ? `<div class="card" style="padding:14px;background:var(--warning);border:none;color:#fff">
@@ -11300,13 +11381,13 @@ function calcJuros() {
   const tb = document.getElementById('jcTabelaBody');
   tb.innerHTML = exibir.map(l => `<tr>
     <td>${totalMeses > 60 ? (l.mes%12===0?`Ano ${l.mes/12}`:l.mes===1?'Mês 1':`Mês ${l.mes}`) : `Mês ${l.mes}`}</td>
-    <td style="text-align:right;font-family:'DM Mono',monospace">R$ ${fmtValor(l.saldoIni)}</td>
-    <td style="text-align:right;font-family:'DM Mono',monospace">R$ ${fmtValor(l.aporte)}</td>
-    <td style="text-align:right;font-family:'DM Mono',monospace;color:#00875A">R$ ${fmtValor(l.juros)}</td>
-    <td style="text-align:right;font-family:'DM Mono',monospace;color:#D93025">${l.retirada>0?'R$ '+fmtValor(l.retirada):'—'}</td>
-    <td style="text-align:right;font-family:'DM Mono',monospace;font-weight:700">R$ ${fmtValor(l.saldo)}</td>
-    <td style="text-align:right;font-family:'DM Mono',monospace">R$ ${fmtValor(l.totalInvestido)}</td>
-    <td style="text-align:right;font-family:'DM Mono',monospace;color:#00875A">R$ ${fmtValor(l.totalJuros)}</td>
+    <td style="text-align:right;font-family:var(--font-mono)">R$ ${fmtValor(l.saldoIni)}</td>
+    <td style="text-align:right;font-family:var(--font-mono)">R$ ${fmtValor(l.aporte)}</td>
+    <td style="text-align:right;font-family:var(--font-mono);color:#00875A">R$ ${fmtValor(l.juros)}</td>
+    <td style="text-align:right;font-family:var(--font-mono);color:#D93025">${l.retirada>0?'R$ '+fmtValor(l.retirada):'—'}</td>
+    <td style="text-align:right;font-family:var(--font-mono);font-weight:700">R$ ${fmtValor(l.saldo)}</td>
+    <td style="text-align:right;font-family:var(--font-mono)">R$ ${fmtValor(l.totalInvestido)}</td>
+    <td style="text-align:right;font-family:var(--font-mono);color:#00875A">R$ ${fmtValor(l.totalJuros)}</td>
   </tr>`).join('');
 }
 
@@ -11394,25 +11475,25 @@ function calcDivida() {
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
         <div class="card" style="padding:14px">
           <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase">Taxa implícita (mês)</div>
-          <div style="font-size:22px;font-weight:900;font-family:'DM Mono',monospace;color:${abusiva?'#D93025':'var(--primary)'}">
+          <div style="font-size:22px;font-weight:900;font-family:var(--font-mono);color:${abusiva?'#D93025':'var(--primary)'}">
             ${(taxaImplicitaMes*100).toFixed(2)}% a.m.</div>
         </div>
         <div class="card" style="padding:14px">
           <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase">Taxa implícita (ano)</div>
-          <div style="font-size:22px;font-weight:900;font-family:'DM Mono',monospace;color:${abusiva?'#D93025':'var(--primary)'}">
+          <div style="font-size:22px;font-weight:900;font-family:var(--font-mono);color:${abusiva?'#D93025':'var(--primary)'}">
             ${taxaImplicitaAnual.toFixed(1)}% a.a.</div>
         </div>
         <div class="card" style="padding:14px">
           <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase">Juros pagos</div>
-          <div style="font-size:18px;font-weight:800;font-family:'DM Mono',monospace;color:#D93025">R$ ${fmtValor(jurosTotal)}</div>
+          <div style="font-size:18px;font-weight:800;font-family:var(--font-mono);color:#D93025">R$ ${fmtValor(jurosTotal)}</div>
           <div style="font-size:11px;color:var(--text-muted)">${pctJuros.toFixed(1)}% do valor original</div>
         </div>
         <div class="card" style="padding:14px">
           <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase">${vezesSelic?'Múltiplo da Selic':'Valor justo estimado'}</div>
           ${vezesSelic
-            ? `<div style="font-size:18px;font-weight:800;font-family:'DM Mono',monospace;color:${vezesSelic>3?'#D93025':'var(--text)'}">${vezesSelic.toFixed(1)}× a Selic</div>
+            ? `<div style="font-size:18px;font-weight:800;font-family:var(--font-mono);color:${vezesSelic>3?'#D93025':'var(--text)'}">${vezesSelic.toFixed(1)}× a Selic</div>
                <div style="font-size:11px;color:var(--text-muted)">Selic: ${selicAnual}% a.a. (${selicMes.toFixed(2)}% a.m.)</div>`
-            : `<div style="font-size:18px;font-weight:800;font-family:'DM Mono',monospace;color:#00875A">R$ ${fmtValor(valorJusto)}</div>`
+            : `<div style="font-size:18px;font-weight:800;font-family:var(--font-mono);color:#00875A">R$ ${fmtValor(valorJusto)}</div>`
           }
         </div>
       </div>
@@ -11571,7 +11652,7 @@ function _renderCltPjResult(isPjToClt, dados) {
       <div style="display:flex;flex-direction:column;gap:12px">
         <div class="card" style="padding:18px 20px;background:linear-gradient(135deg,#0B1F3A,#1558B0);color:#fff">
           <div style="font-size:12px;font-weight:600;opacity:0.75;text-transform:uppercase">Faturamento mínimo como PJ (${aliqNome})</div>
-          <div style="font-size:30px;font-weight:900;font-family:'DM Mono',monospace;margin:8px 0">R$ ${fmtValor(d.faturamentoNecessario)}<span style="font-size:16px;font-weight:400">/mês</span></div>
+          <div style="font-size:30px;font-weight:900;font-family:var(--font-mono);margin:8px 0">R$ ${fmtValor(d.faturamentoNecessario)}<span style="font-size:16px;font-weight:400">/mês</span></div>
           <div style="font-size:12px;opacity:0.75">Para manter padrão equivalente ao CLT após impostos e provisões</div>
         </div>
 
@@ -11614,7 +11695,7 @@ function _renderCltPjResult(isPjToClt, dados) {
       <div style="display:flex;flex-direction:column;gap:12px">
         <div class="card" style="padding:18px 20px;background:linear-gradient(135deg,#065F46,#00875A);color:#fff">
           <div style="font-size:12px;font-weight:600;opacity:0.75;text-transform:uppercase">Equivalente salário bruto CLT</div>
-          <div style="font-size:30px;font-weight:900;font-family:'DM Mono',monospace;margin:8px 0">R$ ${fmtValor(d.equivalenteBrutoCLT)}<span style="font-size:16px;font-weight:400">/mês</span></div>
+          <div style="font-size:30px;font-weight:900;font-family:var(--font-mono);margin:8px 0">R$ ${fmtValor(d.equivalenteBrutoCLT)}<span style="font-size:16px;font-weight:400">/mês</span></div>
           <div style="font-size:12px;opacity:0.75">Aproximação baseada no seu líquido PJ de R$ ${fmtValor(d.liquidoReal)}/mês</div>
         </div>
 
@@ -12098,14 +12179,14 @@ async function invRenderCarteira() {
         <td>${escHtml(p.empresa)}</td>
         <td>${escHtml(p.setor)}</td>
         <td>${escHtml(p.subsetor||'—')}</td>
-        <td style="text-align:right;font-family:'DM Mono',monospace">${Number.isInteger(p.qtd)?p.qtd:p.qtd.toFixed(4)}</td>
-        <td style="text-align:right;font-family:'DM Mono',monospace">R$ ${fmtValor(p.investimento)}</td>
+        <td style="text-align:right;font-family:var(--font-mono)">${Number.isInteger(p.qtd)?p.qtd:p.qtd.toFixed(4)}</td>
+        <td style="text-align:right;font-family:var(--font-mono)">R$ ${fmtValor(p.investimento)}</td>
         <td class="${pctCls}" style="text-align:right;font-weight:700">${pctCart.toFixed(1)}%</td>
-        <td style="text-align:right;font-family:'DM Mono',monospace">R$ ${fmtValor(pm)}</td>
+        <td style="text-align:right;font-family:var(--font-mono)">R$ ${fmtValor(pm)}</td>
         ${precoHojeTd}
         ${upsideTd}
-        <td style="text-align:right;font-family:'DM Mono',monospace">${patrimon!=null?'R$ '+fmtValor(patrimon):'—'}</td>
-        <td style="text-align:right;font-family:'DM Mono',monospace">${divAnual>0?'R$ '+fmtValor(divAnual):'—'}</td>
+        <td style="text-align:right;font-family:var(--font-mono)">${patrimon!=null?'R$ '+fmtValor(patrimon):'—'}</td>
+        <td style="text-align:right;font-family:var(--font-mono)">${divAnual>0?'R$ '+fmtValor(divAnual):'—'}</td>
         <td style="text-align:right;font-weight:700;color:${yoc!=null?'#00875A':'var(--text-light)'}">${yoc!=null?yoc.toFixed(2)+'%':'—'}</td>
         <td style="text-align:right">${p.ultimaCompra ? fmtDateStr(p.ultimaCompra) : '—'}</td>
       </tr>`;
@@ -12131,12 +12212,12 @@ async function invRenderCarteira() {
         <td>${escHtml(p.empresa)}</td>
         <td>${escHtml(p.setor)}</td>
         <td>${escHtml(p.subsetor||'—')}</td>
-        <td style="text-align:right;font-family:'DM Mono',monospace">${Number.isInteger(p.maxQtd)?p.maxQtd:p.maxQtd.toFixed(4)}</td>
-        <td style="text-align:right;font-family:'DM Mono',monospace">R$ ${fmtValor(p.maxInvest)}</td>
-        <td style="text-align:right;font-family:'DM Mono',monospace">R$ ${fmtValor(pmCompra)}</td>
-        <td style="text-align:right;font-family:'DM Mono',monospace">R$ ${fmtValor(pmVenda)}</td>
-        <td class="${resCls}" style="text-align:right;font-family:'DM Mono',monospace">${resSinal}R$ ${fmtValor(Math.abs(resultado))}</td>
-        <td style="text-align:right;font-family:'DM Mono',monospace">${divAnual>0?'R$ '+fmtValor(divAnual):'—'}</td>
+        <td style="text-align:right;font-family:var(--font-mono)">${Number.isInteger(p.maxQtd)?p.maxQtd:p.maxQtd.toFixed(4)}</td>
+        <td style="text-align:right;font-family:var(--font-mono)">R$ ${fmtValor(p.maxInvest)}</td>
+        <td style="text-align:right;font-family:var(--font-mono)">R$ ${fmtValor(pmCompra)}</td>
+        <td style="text-align:right;font-family:var(--font-mono)">R$ ${fmtValor(pmVenda)}</td>
+        <td class="${resCls}" style="text-align:right;font-family:var(--font-mono)">${resSinal}R$ ${fmtValor(Math.abs(resultado))}</td>
+        <td style="text-align:right;font-family:var(--font-mono)">${divAnual>0?'R$ '+fmtValor(divAnual):'—'}</td>
         <td style="text-align:right;font-weight:700;color:${yoc!=null?'#00875A':'var(--text-light)'}">${yoc!=null?yoc.toFixed(2)+'%':'—'}</td>
       </tr>`;
     }).join('');
@@ -12276,7 +12357,7 @@ function invRenderDividendos() {
       <td>${escHtml(d.modalidade||'—')}</td>
       <td>${escHtml(d.setor||'—')}</td>
       <td>${escHtml(d.subsetor||'—')}</td>
-      <td style="text-align:right;font-family:'DM Mono',monospace;color:#00875A;font-weight:700">
+      <td style="text-align:right;font-family:var(--font-mono);color:#00875A;font-weight:700">
         R$ ${fmtValor(parseFloat(d.valor)||0)}
       </td>
       <td class="actions">
@@ -12565,7 +12646,7 @@ function _invRelLayout(el, canvasId, labels, values, colHeader, fmt, titulo) {
               const pct = total > 0 ? (values[i]/total*100).toFixed(1) : '0.0';
               return `<tr>
                 <td><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${INV_CORES[i%INV_CORES.length]};margin-right:7px"></span><strong>${escHtml(l)}</strong></td>
-                <td style="text-align:right;font-family:'DM Mono',monospace">${fmt(values[i])}</td>
+                <td style="text-align:right;font-family:var(--font-mono)">${fmt(values[i])}</td>
                 <td style="text-align:right;font-weight:700">${pct}%</td>
               </tr>`;
             }).join('')}
@@ -12657,10 +12738,10 @@ function _invRelEvolPatrim(el) {
             const varCls = var_ > 0 ? 'inv-upside' : var_ < 0 ? 'inv-downside' : 'inv-neutral';
             return `<tr>
               <td><strong>${labels[i]}</strong></td>
-              <td style="text-align:right;font-family:'DM Mono',monospace;color:#00875A">+R$ ${fmtValor(aportesMes[i])}</td>
-              <td style="text-align:right;font-family:'DM Mono',monospace;color:#D93025">${saidasMes[i]>0?'-R$ '+fmtValor(saidasMes[i]):'—'}</td>
-              <td style="text-align:right;font-family:'DM Mono',monospace;font-weight:700;color:${liq>=0?'#00875A':'#D93025'}">${liq>=0?'+':''}R$ ${fmtValor(liq)}</td>
-              <td style="text-align:right;font-family:'DM Mono',monospace;font-weight:700">R$ ${fmtValor(patrimonioAcum[i])}</td>
+              <td style="text-align:right;font-family:var(--font-mono);color:#00875A">+R$ ${fmtValor(aportesMes[i])}</td>
+              <td style="text-align:right;font-family:var(--font-mono);color:#D93025">${saidasMes[i]>0?'-R$ '+fmtValor(saidasMes[i]):'—'}</td>
+              <td style="text-align:right;font-family:var(--font-mono);font-weight:700;color:${liq>=0?'#00875A':'#D93025'}">${liq>=0?'+':''}R$ ${fmtValor(liq)}</td>
+              <td style="text-align:right;font-family:var(--font-mono);font-weight:700">R$ ${fmtValor(patrimonioAcum[i])}</td>
               <td class="${varCls}" style="text-align:right">${i>0?(var_>=0?'+':'')+var_.toFixed(1)+'%':'—'}</td>
             </tr>`;
           }).reverse().join('')}
@@ -12802,8 +12883,8 @@ function _invRelEvolDiv(el) {
               .map(([t,v])=>`${escHtml(t)} (R$ ${fmtValor(v)})`).join(' · ');
             return `<tr>
               <td><strong>${labels[i]}</strong></td>
-              <td style="text-align:right;font-family:'DM Mono',monospace;color:#00875A;font-weight:700">R$ ${fmtValor(totais[i])}</td>
-              <td style="text-align:right;font-family:'DM Mono',monospace">R$ ${fmtValor(acumulado[i])}</td>
+              <td style="text-align:right;font-family:var(--font-mono);color:#00875A;font-weight:700">R$ ${fmtValor(totais[i])}</td>
+              <td style="text-align:right;font-family:var(--font-mono)">R$ ${fmtValor(acumulado[i])}</td>
               <td class="${diffCls}" style="text-align:right">${diff>=0?'+':''}R$ ${fmtValor(Math.abs(diff))}</td>
               <td style="font-size:12px;color:var(--text-muted)">${top}</td>
             </tr>`;
@@ -12967,13 +13048,13 @@ function _invRelResultado(el, mapa) {
             return `<tr>
               <td><strong>${escHtml(p.ticker)}</strong></td>
               <td>${escHtml(p.empresa)}</td>
-              <td style="text-align:right;font-family:'DM Mono',monospace">R$ ${fmtValor(pmCompra)}</td>
-              <td style="text-align:right;font-family:'DM Mono',monospace">${prHoje!=null?'R$ '+fmtValor(prHoje):'—'}</td>
-              <td class="${latCls}" style="text-align:right;font-family:'DM Mono',monospace">
+              <td style="text-align:right;font-family:var(--font-mono)">R$ ${fmtValor(pmCompra)}</td>
+              <td style="text-align:right;font-family:var(--font-mono)">${prHoje!=null?'R$ '+fmtValor(prHoje):'—'}</td>
+              <td class="${latCls}" style="text-align:right;font-family:var(--font-mono)">
                 ${lucroLatent!=null?(lucroLatent>=0?'+':'')+'R$ '+fmtValor(Math.abs(lucroLatent)):'—'}</td>
               <td class="${latCls}" style="text-align:right">
                 ${pctLat!=null?(pctLat>=0?'+':'')+pctLat.toFixed(1)+'%':'—'}</td>
-              <td class="${realCls}" style="text-align:right;font-family:'DM Mono',monospace">
+              <td class="${realCls}" style="text-align:right;font-family:var(--font-mono)">
                 ${(lucroReal>=0?'+':'')+'R$ '+fmtValor(Math.abs(lucroReal))}</td>
             </tr>`;
           }).join('')}
@@ -13113,7 +13194,7 @@ function _invRelDividendos(el) {
               <td><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${INV_CORES[i%INV_CORES.length]};margin-right:7px"></span><strong>${escHtml(ticker)}</strong></td>
               <td>${escHtml(d.empresa)}</td>
               <td style="text-align:right">${d.count}</td>
-              <td style="text-align:right;font-family:'DM Mono',monospace;color:#00875A;font-weight:700">R$ ${fmtValor(d.total)}</td>
+              <td style="text-align:right;font-family:var(--font-mono);color:#00875A;font-weight:700">R$ ${fmtValor(d.total)}</td>
               <td style="text-align:right;font-weight:700">${total>0?(d.total/total*100).toFixed(1):0}%</td>
             </tr>`).join('')}
           </tbody>
@@ -13632,7 +13713,7 @@ function verTransacao(id) {
 
       <div class="comprovante-total">
         <span>Valor</span>
-        <span style="color:#fff;font-size:20px;font-family:'DM Mono',monospace">${isSaida?'-':'+'} R$ ${fmtValor(valor)}</span>
+        <span style="color:#fff;font-size:20px;font-family:var(--font-mono)">${isSaida?'-':'+'} R$ ${fmtValor(valor)}</span>
       </div>
     </div>`;
 
