@@ -7153,6 +7153,19 @@ function renderTransacoes() {
 /* --------------------------------------------
    ABRE O MODAL
 -------------------------------------------- */
+function transFocarDataTransacaoAoAbrir() {
+  const campo = document.getElementById('f-data-contabil');
+  if (!campo) return;
+  const focar = () => {
+    campo.focus({ preventScroll: true });
+    if (!campo.value) {
+      try { campo.setSelectionRange(0, 2); } catch (_) {}
+    }
+  };
+  if (typeof requestAnimationFrame === 'function') requestAnimationFrame(() => requestAnimationFrame(focar));
+  else setTimeout(focar, 0);
+}
+
 function openTransacaoModal(id = null) {
   const isEdicao = id !== null && id !== undefined && String(id).trim() !== '';
   const transacaoEditada = isEdicao ? _transFindById(id) : null;
@@ -7171,6 +7184,7 @@ function openTransacaoModal(id = null) {
   if (transacaoEditada) preencherFormTransacao(transacaoEditada);
 
   document.getElementById('transModal').classList.add('open');
+  if (!isEdicao) transFocarDataTransacaoAoAbrir();
 }
 
 function closeTransModal() {
