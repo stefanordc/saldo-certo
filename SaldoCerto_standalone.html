@@ -2070,9 +2070,96 @@ tr.trans-selected td { background: transparent; }
 .rel-tab { display: none; padding: 24px; }
 .rel-tab.active { display: block; }
 
-.rel-header { margin-bottom: 20px; }
-.rel-title { font-size: 15px; font-weight: 700; color: var(--text); }
-.rel-sub   { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+#page-relatorios .page-header {
+  align-items: flex-start;
+  gap: 16px;
+}
+
+#page-relatorios .page-title {
+  font-size: 22px;
+  font-weight: 800;
+}
+
+#page-relatorios .page-subtitle {
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+#page-relatorios .card {
+  background: var(--card);
+}
+
+#page-relatorios .tabs-bar {
+  gap: 4px;
+  padding: 0 18px;
+  background: linear-gradient(180deg,#FFFFFF 0%,#F8FAFD 100%);
+  border-bottom: 1px solid var(--border);
+}
+
+#page-relatorios .tab-btn {
+  position: relative;
+  padding: 16px 18px;
+  border-bottom: 0;
+  color: #657389;
+  font-weight: 700;
+}
+
+#page-relatorios .tab-btn::after {
+  content: "";
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  bottom: 0;
+  height: 3px;
+  border-radius: 3px 3px 0 0;
+  background: transparent;
+}
+
+#page-relatorios .tab-btn:hover {
+  color: var(--primary);
+  background: rgba(21,88,176,0.06);
+}
+
+#page-relatorios .tab-btn.active {
+  color: var(--primary);
+  background: rgba(21,88,176,0.08);
+}
+
+#page-relatorios .tab-btn.active::after {
+  background: var(--primary);
+}
+
+body.theme-dark #page-relatorios .tabs-bar {
+  background: #11171E;
+  border-bottom-color: rgba(200,211,224,0.16);
+}
+
+body.theme-dark #page-relatorios .tab-btn {
+  background: transparent;
+  color: #AEBBCA;
+}
+
+body.theme-dark #page-relatorios .tab-btn:hover {
+  background: rgba(93,168,255,0.08);
+  color: #E7F0FB;
+}
+
+body.theme-dark #page-relatorios .tab-btn.active {
+  background: rgba(93,168,255,0.12);
+  color: #DDEBFF;
+}
+
+body.theme-dark #page-relatorios .tab-btn.active::after {
+  background: #5DA8FF;
+}
+
+.rel-header {
+  margin-bottom: 20px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border);
+}
+.rel-title { font-size: 16px; font-weight: 800; color: var(--text); }
+.rel-sub   { font-size: 12px; color: var(--text-muted); margin-top: 3px; line-height: 1.45; }
 
 .rel-two-col {
   display: grid;
@@ -2085,11 +2172,12 @@ tr.trans-selected td { background: transparent; }
 }
 
 .rel-chart-box {
-  background: #F8FAFD;
+  background: linear-gradient(180deg,#FFFFFF 0%,#F8FAFD 100%);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 16px;
+  padding: 18px;
   position: relative;
+  box-shadow: 0 12px 26px rgba(22,33,62,0.06);
 }
 
 .rel-table-box { margin-top: 8px; }
@@ -2105,7 +2193,8 @@ tr.trans-selected td { background: transparent; }
   padding: 14px 16px;
   margin-bottom: 20px;
 }
-.rel-filtros .filtro-group { min-width: 140px; flex: 1; }
+.rel-filtros .filtro-group { min-width: 160px; flex: 1 1 170px; }
+#page-relatorios .rel-filtros .filtro-group:nth-child(3) { min-width: 190px; }
 
 /* summary table inside relatorio */
 .rel-summary-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 8px; }
@@ -2547,6 +2636,24 @@ body.theme-dark .desejo-card-footer,
 body.theme-dark .desejo-card-img {
   background: #151B21;
   border-color: var(--border);
+}
+body.theme-dark .rel-chart-box {
+  background: linear-gradient(180deg,#172029 0%,#12181F 100%);
+  box-shadow: 0 16px 34px rgba(0,0,0,0.28);
+}
+body.theme-dark .rel-header {
+  border-bottom-color: rgba(200,211,224,0.18);
+}
+body.theme-dark .rel-title { color: var(--text); }
+body.theme-dark .rel-sub { color: #C8D3E0; }
+body.theme-dark .rel-filtros .filtro-label {
+  color: #D9E7F7;
+}
+body.theme-dark .rel-summary-table th {
+  color: #CFE1FF;
+}
+body.theme-dark .rel-summary-table td {
+  color: var(--text);
 }
 body.theme-dark .ad-card.highlight-green {
   background: linear-gradient(135deg,rgba(40,209,124,0.15),rgba(40,209,124,0.06));
@@ -4787,7 +4894,7 @@ body.theme-dark [style*="border-bottom:1px solid var(--border)"] {
             </select>
           </div>
           <div class="filtro-group" style="display:flex;gap:6px;align-items:flex-end">
-            <button class="btn-mes-anterior" id="rs-btn-mes-atual" onclick="_relMesAtual('rs',renderRelSubcat)" style="margin-top:16px">● Mês Atual</button>
+            <button class="btn-mes-anterior" id="rs-btn-mes-atual" onclick="_relMesAtual('rs',renderRelSemana)" style="margin-top:16px">● Mês Atual</button>
             <button class="btn-mes-anterior" id="rs-btn-mes" onclick="rsMesAnterior()" style="margin-top:16px">◀ Mês Anterior</button>
           </div>
           <div class="filtro-group">
@@ -8629,9 +8736,9 @@ function renderInicio() {
 
 /* Paleta de cores consistente */
 const REL_CORES = [
-  '#1558B0','#00A86B','#D93025','#F5A623','#7B61FF',
-  '#0097A7','#E91E8C','#558B2F','#6D4C41','#37474F',
-  '#B71C1C','#1A237E','#004D40','#F57F17','#880E4F',
+  '#5DA8FF','#28D17C','#FF6B62','#FFBE55','#9B7CFF',
+  '#20D3E6','#F472B6','#A3E635','#C084FC','#94A3B8',
+  '#FB7185','#60A5FA','#2DD4BF','#F59E0B','#EC4899',
 ];
 
 /* Instâncias dos gráficos — para destruir antes de recriar */
@@ -8640,7 +8747,7 @@ function _rc(id, cfg) {
   if (_relCharts[id]) { _relCharts[id].destroy(); }
   const el = document.getElementById(id);
   if (!el) return;
-  _relCharts[id] = new Chart(el, cfg);
+  _relCharts[id] = new Chart(el, _relApplyChartTheme(cfg));
 }
 
 /* --- HELPERS ------------------------------------------- */
@@ -8653,6 +8760,164 @@ function _relIsSaida(t) {
   return (dbLoad('tipos').find(x=>x.id===t.tipo_pagamento_id)?.nome||'').toLowerCase()
     .normalize('NFD').replace(/[\u0300-\u036f]/g,'') === 'saida';
 }
+
+function _relChartTheme() {
+  const dark = document.body.classList.contains('theme-dark');
+  return dark
+    ? {
+        isDark: true,
+        text: '#F3F6FA',
+        muted: '#B8C7D8',
+        axis: '#CFE1FF',
+        legend: '#DDEBFF',
+        grid: 'rgba(207,225,255,0.14)',
+        panel: '#12181F',
+        border: 'rgba(207,225,255,0.22)',
+        tooltipBg: '#0D131A',
+      }
+    : {
+        isDark: false,
+        text: '#16213E',
+        muted: '#6B7A99',
+        axis: '#536179',
+        legend: '#536179',
+        grid: '#EAEEF3',
+        panel: '#FFFFFF',
+        border: '#D8DDE6',
+        tooltipBg: '#101827',
+      };
+}
+
+function _relApplyScaleTheme(scale = {}, theme, radial = false) {
+  const out = { ...scale };
+  const ticks = out.ticks || {};
+  const grid = out.grid || {};
+  const border = out.border || {};
+  out.ticks = {
+    ...ticks,
+    color: theme.isDark ? theme.axis : (ticks.color || theme.axis),
+    font: { size: 11, weight: '600', ...(ticks.font || {}) },
+  };
+  out.grid = {
+    ...grid,
+    color: grid.display === false ? grid.color : (theme.isDark ? theme.grid : (grid.color || theme.grid)),
+  };
+  out.border = {
+    ...border,
+    color: theme.isDark ? theme.border : (border.color || theme.border),
+  };
+  if (out.title) {
+    out.title = { ...out.title, color: theme.isDark ? theme.axis : (out.title.color || theme.axis) };
+  }
+  if (radial) {
+    const angleLines = out.angleLines || {};
+    const pointLabels = out.pointLabels || {};
+    out.angleLines = {
+      ...angleLines,
+      color: theme.isDark ? theme.grid : (angleLines.color || theme.grid),
+    };
+    out.pointLabels = {
+      ...pointLabels,
+      color: theme.isDark ? theme.axis : (pointLabels.color || theme.axis),
+      font: { size: 12, weight: '700', ...(pointLabels.font || {}) },
+    };
+  }
+  return out;
+}
+
+function _relDatasetModern(ds, type, theme) {
+  const base = { ...ds };
+  if (type === 'bar') {
+    return { ...base, borderRadius: 9, borderSkipped: false, maxBarThickness: 36, borderWidth: 0 };
+  }
+  if (type === 'line') {
+    return {
+      ...base,
+      borderWidth: 3,
+      pointRadius: 4,
+      pointHoverRadius: 6,
+      pointBorderWidth: 2,
+      pointBorderColor: theme.panel,
+      tension: 0.38,
+    };
+  }
+  if (type === 'pie' || type === 'doughnut') {
+    return {
+      ...base,
+      borderColor: theme.panel,
+      hoverBorderColor: theme.text,
+      borderWidth: base.borderWidth ?? 3,
+      borderRadius: base.borderRadius ?? 6,
+      spacing: base.spacing ?? 2,
+      hoverOffset: base.hoverOffset ?? 10,
+    };
+  }
+  if (type === 'radar' || type === 'polarArea') {
+    return {
+      ...base,
+      borderWidth: 3,
+      pointRadius: 4,
+      pointHoverRadius: 6,
+      pointBorderWidth: 2,
+      pointBorderColor: theme.panel,
+    };
+  }
+  return base;
+}
+
+function _relApplyChartTheme(cfg) {
+  const theme = _relChartTheme();
+  const type = cfg.type;
+  const options = { ...(cfg.options || {}) };
+  const plugins = { ...(options.plugins || {}) };
+  const legend = { ...(plugins.legend || {}) };
+  const legendLabels = legend.labels || {};
+  legend.labels = {
+    boxWidth: 12,
+    boxHeight: 12,
+    padding: 16,
+    usePointStyle: true,
+    pointStyle: 'rectRounded',
+    font: { size: 12, weight: '700', ...(legendLabels.font || {}) },
+    ...legendLabels,
+    color: theme.isDark ? theme.legend : (legendLabels.color || theme.legend),
+  };
+  plugins.legend = legend;
+  plugins.tooltip = {
+    backgroundColor: theme.tooltipBg,
+    titleColor: theme.text,
+    bodyColor: theme.text,
+    borderColor: theme.border,
+    borderWidth: 1,
+    padding: 12,
+    cornerRadius: 8,
+    displayColors: true,
+    boxPadding: 5,
+    ...(plugins.tooltip || {}),
+  };
+  options.plugins = plugins;
+  options.animation = options.animation || { duration: 650, easing: 'easeOutQuart' };
+  options.interaction = options.interaction || { mode: 'nearest', intersect: false };
+  options.layout = {
+    padding: { top: 6, right: 8, bottom: 4, left: 8 },
+    ...(options.layout || {}),
+  };
+  if (options.scales) {
+    options.scales = Object.fromEntries(Object.entries(options.scales).map(([key, scale]) => [
+      key,
+      _relApplyScaleTheme(scale, theme, key === 'r')
+    ]));
+  }
+  return {
+    ...cfg,
+    data: {
+      ...(cfg.data || {}),
+      datasets: (cfg.data?.datasets || []).map(ds => _relDatasetModern(ds, type, theme)),
+    },
+    options,
+  };
+}
+
 
 /* Agrupa despesas por campo de lookup */
 function _agrupar(transacoes, colecao, id_field) {
@@ -8847,7 +9112,7 @@ function renderRelCat() {
     type: 'doughnut',
     data: { labels, datasets: [{ data: vals, backgroundColor: cores, borderWidth: 2, borderColor:'#fff', hoverOffset: 8 }] },
     options: {
-      responsive:true, maintainAspectRatio:false, cutout:'52%',
+      responsive:true, maintainAspectRatio:false, cutout:'58%',
       plugins: {
         legend: { position:'right', labels:{font:{size:11}, boxWidth:12, padding:10} },
         tooltip: _ttFmtR
@@ -8893,7 +9158,7 @@ function renderRelSubcat() {
 
 /* --- ABA: DIA DA SEMANA ------------------------------- */
 const DIAS = ['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'];
-const DIAS_CORES = ['#7B61FF','#1558B0','#00A86B','#0097A7','#F5A623','#E91E8C','#D93025'];
+const DIAS_CORES = ['#9B7CFF','#5DA8FF','#28D17C','#20D3E6','#FFBE55','#F472B6','#FF6B62'];
 
 function _rsGetFiltros() {
   return {
@@ -8997,23 +9262,25 @@ function renderRelSemana() {
   });
 
   _rc('c-semana-radar', {
-    type: 'radar',
+    type: 'line',
     data: {
       labels: DIAS,
       datasets: [{
-        label:'Total gasto',
+        label:'Tendência de gasto',
         data: totais,
-        backgroundColor:'rgba(21,88,176,0.15)',
-        borderColor:'#1558B0',
-        borderWidth:2,
-        pointBackgroundColor:'#1558B0',
-        pointRadius:4,
+        backgroundColor:'rgba(32,211,230,0.16)',
+        borderColor:'#20D3E6',
+        pointBackgroundColor: DIAS_CORES,
+        fill:true,
       }]
     },
     options: {
       responsive:true, maintainAspectRatio:false,
-      plugins:{ legend:{display:false}, tooltip: _ttFmtR },
-      scales:{ r:{ ticks:{display:false}, grid:{color:'#EAEEF3'}, pointLabels:{font:{size:12}} } }
+      plugins:{ legend:{display:false}, tooltip: _ttFmt },
+      scales:{
+        x:{ grid:{display:false}, ticks:{font:{size:12}} },
+        y:{ min:0, grid:{color:'#EAEEF3'}, ticks:{callback:v=>'R$ '+fmtValor(v),font:{size:11}} }
+      }
     }
   });
 
@@ -9056,7 +9323,7 @@ function renderRelPerfil() {
     type: 'doughnut',
     data: { labels, datasets:[{ data:vals, backgroundColor:cores, borderWidth:2, borderColor:'#fff', hoverOffset:8 }] },
     options: {
-      responsive:true, maintainAspectRatio:false, cutout:'52%',
+      responsive:true, maintainAspectRatio:false, cutout:'58%',
       plugins:{
         legend:{ position:'right', labels:{font:{size:11}, boxWidth:12, padding:10} },
         tooltip: _ttFmtR
@@ -9098,10 +9365,10 @@ function renderRelStatus() {
   });
 
   _rc('c-status-pie', {
-    type: 'pie',
+    type: 'doughnut',
     data: { labels, datasets:[{ data:vals, backgroundColor:cores, borderWidth:2, borderColor:'#fff', hoverOffset:8 }] },
     options: {
-      responsive:true, maintainAspectRatio:false,
+      responsive:true, maintainAspectRatio:false, cutout:'58%',
       plugins:{
         legend:{ position:'right', labels:{font:{size:11}, boxWidth:12, padding:10} },
         tooltip: _ttFmtR
@@ -16230,6 +16497,9 @@ function toggleSidebar() {
   const wrapper = document.getElementById('app-wrapper');
   const isMobile = window.innerWidth <= 768;
 
+  if (persistir && document.getElementById('page-relatorios')?.classList.contains('active') && typeof _relRenders !== 'undefined') {
+    setTimeout(() => _relRenders[_relTabAtiva]?.(), 40);
+  }
   if (isMobile) {
     // Mobile: toggle abre/fecha como overlay (sem sidebar-collapsed)
     wrapper.classList.toggle('sidebar-collapsed');
