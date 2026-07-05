@@ -2591,6 +2591,13 @@ body.theme-dark .ad-periodo-btn.active,
 body.theme-dark .inv-tab.active {
   color: #071018;
 }
+body.theme-dark .btn-mes-anterior.ativo,
+body.theme-dark .btn-mes-anterior.ativo:hover {
+  background: rgba(168,212,255,0.16);
+  border-color: rgba(168,212,255,0.46);
+  color: var(--primary);
+  box-shadow: inset 0 0 0 1px rgba(168,212,255,0.08);
+}
 body.theme-dark .val-positive,
 body.theme-dark .stat-value.green,
 body.theme-dark .ad-val-green,
@@ -5881,6 +5888,128 @@ function _configNorm(v) {
   return (v || '').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
 }
 
+function _configIsLocalId(id) {
+  return String(id || '').startsWith('_local_');
+}
+
+const CONFIG_TRANSACAO_REF_FIELDS = {
+  naturezas: 'natureza_id',
+  decisoes: 'decisao_id',
+};
+
+function _configRefField(chave) {
+  return CONFIG_TRANSACAO_REF_FIELDS[chave] || '';
+}
+
+function _configRefCounts(chave) {
+  const field = _configRefField(chave);
+  const counts = new Map();
+  dbLoad('transacoes').forEach(t => {
+    const id = field ? t[field] : '';
+    if (!id) return;
+    counts.set(id, (counts.get(id) || 0) + 1);
+  });
+  return counts;
+}
+
+function _configEscolherPrincipal(grupo, refCounts) {
+  return [...grupo].sort((a, b) => {
+    const refs = (refCounts.get(b.id) || 0) - (refCounts.get(a.id) || 0);
+    if (refs) return refs;
+    const local = Number(_configIsLocalId(a.id)) - Number(_configIsLocalId(b.id));
+    if (local) return local;
+    const ad = Date.parse(a.createdAt || a.created_at || '') || 0;
+    const bd = Date.parse(b.createdAt || b.created_at || '') || 0;
+    return ad - bd;
+  })[0];
+}
+
+function _configRemapConfigLocal(chave, remap) {
+  if (!remap?.size) return 0;
+  const field = _configRefField(chave);
+  if (!field) return 0;
+  let alteradas = 0;
+  DB_CACHE.transacoes = (DB_CACHE.transacoes || []).map(t => {
+    const novoId = remap.get(t[field]);
+    if (!novoId) return t;
+    alteradas += 1;
+    return { ...t, [field]: novoId, updatedAt: new Date().toISOString() };
+  });
+  return alteradas;
+}
+
+async function _configPersistirConfigConsolidada(chave, remap, idsRemover) {
+  const field = _configRefField(chave);
+  if (!field) return;
+  const sb = _getSB();
+  if (!sb) return;
+  if (!window._authUser) {
+    const { data } = await sb.auth.getSession();
+    if (data?.session?.user) window._authUser = data.session.user;
+    else return;
+  }
+  const userId = window._authUser.id;
+  for (const [oldId, newId] of remap.entries()) {
+    if (!oldId || !newId || _configIsLocalId(oldId)) continue;
+    const { error } = await sb.from(_sbTable('transacoes'))
+      .update({ [field]: newId })
+      .eq(field, oldId)
+      .eq('user_id', userId);
+    if (error) {
+      console.warn('[Config] erro ao remapear config duplicada', chave, oldId, error.message);
+      return;
+    }
+  }
+  for (const id of idsRemover) {
+    if (!id || _configIsLocalId(id)) continue;
+    const { error } = await sb.from(_sbTable(chave))
+      .delete()
+      .eq('id', id)
+      .eq('user_id', userId);
+    if (error) {
+      console.warn('[Config] erro ao remover config duplicada', chave, id, error.message);
+      return;
+    }
+  }
+}
+
+function _configConsolidarDuplicados(chave) {
+  if (!_configRefField(chave)) return 0;
+  const itens = dbLoad(chave).filter(item => item.id && _configNorm(item.nome));
+  const grupos = new Map();
+  itens.forEach(item => {
+    const key = _configNorm(item.nome);
+    if (!grupos.has(key)) grupos.set(key, []);
+    grupos.get(key).push(item);
+  });
+
+  const refCounts = _configRefCounts(chave);
+  const remap = new Map();
+  const idsRemover = [];
+
+  grupos.forEach(grupo => {
+    if (grupo.length < 2) return;
+    const principal = _configEscolherPrincipal(grupo, refCounts);
+    grupo.forEach(item => {
+      if (item.id === principal.id) return;
+      remap.set(item.id, principal.id);
+      idsRemover.push(item.id);
+    });
+  });
+
+  if (!idsRemover.length) return 0;
+  _configRemapConfigLocal(chave, remap);
+  const removerSet = new Set(idsRemover);
+  DB_CACHE[chave] = (DB_CACHE[chave] || []).filter(item => !removerSet.has(item.id));
+  _configPersistirConfigConsolidada(chave, remap, idsRemover);
+  return idsRemover.length;
+}
+
+function _configConsolidarConfigsDuplicados(chave = null) {
+  const alvos = chave ? [chave] : Object.keys(CONFIG_TRANSACAO_REF_FIELDS);
+  return alvos.reduce((total, col) => total + _configConsolidarDuplicados(col), 0);
+}
+
 function garantirConfigPadrao(chave = null) {
   const alvos = chave ? [chave] : Object.keys(CONFIG_PADRAO);
   alvos.forEach(col => {
@@ -5895,6 +6024,7 @@ function garantirConfigPadrao(chave = null) {
       }
     });
   });
+  _configConsolidarConfigsDuplicados(chave);
 }
 
 /* --------------------------------------------
@@ -6043,7 +6173,8 @@ function adicionarConfig(chave) {
   }
 
   const dados = dbLoad(chave);
-  const jaExiste = dados.some(x => x.nome.toLowerCase() === val.toLowerCase());
+  const valNorm = _configNorm(val);
+  const jaExiste = dados.some(x => _configNorm(x.nome) === valNorm);
   if (jaExiste) {
     toast('Já existe um registro com este nome.', 'warn');
     return;
@@ -6061,7 +6192,45 @@ function adicionarConfig(chave) {
 /* --------------------------------------------
    EXCLUIR
 -------------------------------------------- */
+function _configExcluirConfigReferenciadaSegura(chave, id) {
+  const field = _configRefField(chave);
+  const item = dbLoad(chave).find(x => x.id === id);
+  if (!item) return;
+  const alternativas = dbLoad(chave)
+    .filter(x => x.id !== id && _configNorm(x.nome) === _configNorm(item.nome));
+  const transRefs = dbLoad('transacoes').filter(t => field && t[field] === id).length;
+
+  if (transRefs && !alternativas.length) {
+    toast(`"${item.nome}" está em ${transRefs} transação(ões). Remova ou altere essas transações antes de excluir.`, 'warn');
+    return;
+  }
+
+  const destino = alternativas.length
+    ? _configEscolherPrincipal(alternativas, _configRefCounts(chave))
+    : null;
+
+  openConfirm(`Excluir "${item?.nome}"?`, () => {
+    if (destino) {
+      const remap = new Map([[id, destino.id]]);
+      _configRemapConfigLocal(chave, remap);
+      DB_CACHE[chave] = (DB_CACHE[chave] || []).filter(x => x.id !== id);
+      _configPersistirConfigConsolidada(chave, remap, [id]);
+      renderizarTabelaConfig(chave);
+      transRefreshSearchableSelect(chave === 'naturezas' ? 'f-natureza' : 'f-decisao');
+      toast('Registro duplicado removido. As transações foram preservadas.', 'warn');
+      return;
+    }
+    dbDelete(chave, id);
+    renderizarTabelaConfig(chave);
+    toast('Registro excluído.', 'warn');
+  });
+}
+
 function excluirConfig(chave, id) {
+  if (_configRefField(chave)) {
+    _configExcluirConfigReferenciadaSegura(chave, id);
+    return;
+  }
   const item = dbLoad(chave).find(x => x.id === id);
   openConfirm(`Excluir "${item?.nome}"?`, () => {
     dbDelete(chave, id);
@@ -6094,8 +6263,15 @@ function saveEditConfig() {
   const val   = inp.value.trim();
 
   if (!val) { inp.focus(); return; }
+  const duplicado = dbLoad(chave).some(item => item.id !== id && _configNorm(item.nome) === _configNorm(val));
+  if (duplicado) {
+    toast('Já existe um registro com este nome.', 'warn');
+    inp.focus();
+    return;
+  }
 
   dbUpdate(chave, id, { nome: val });
+  _configConsolidarConfigsDuplicados(chave);
   renderizarTabelaConfig(chave);
   closeEditConfig();
   toast('Registro atualizado!');
