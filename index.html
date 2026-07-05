@@ -6025,7 +6025,13 @@ function dbDelete(colecao, id) {
 
 function _dbScheduleSyncSave(colecao, dados) {
   const snapshot = dados.map(item => ({ ...item }));
-  setTimeout(() => _sbSyncSave(colecao, snapshot), 0);
+  const sync = () => _sbSyncSave(colecao, snapshot);
+  const afterPaint = () => setTimeout(sync, 80);
+  if (typeof requestAnimationFrame === 'function') {
+    requestAnimationFrame(() => requestAnimationFrame(afterPaint));
+  } else {
+    afterPaint();
+  }
 }
 
 /* Injeta user_id no objeto antes de enviar ao Supabase */
@@ -7004,6 +7010,119 @@ function _transRenderPaginacao(total, totalPaginas, inicio, fim) {
   `;
 }
 
+function _transRenderTabelaTransacoes(dados) {
+  const totalRegistros = dados.length;
+  const totalPaginas = Math.max(1, Math.ceil(totalRegistros / TRANS_PAGE_SIZE));
+  transPaginaAtual = Math.min(Math.max(1, transPaginaAtual), totalPaginas);
+  const inicioPagina = totalRegistros ? (transPaginaAtual - 1) * TRANS_PAGE_SIZE : 0;
+  const fimPagina = Math.min(inicioPagina + TRANS_PAGE_SIZE, totalRegistros);
+  const dadosPagina = dados.slice(inicioPagina, fimPagina);
+
+  document.getElementById('transCount').textContent = totalRegistros
+    ? `${inicioPagina + 1}-${fimPagina} de ${totalRegistros} registro(s)`
+    : '0 registro(s)';
+  _transRenderPaginacao(totalRegistros, totalPaginas, inicioPagina, fimPagina);
+
+  const th = document.getElementById('transHead');
+  th.innerHTML = '';
+
+  const thSelAll = document.createElement('th');
+  thSelAll.style.cssText = 'width:44px;min-width:44px;text-align:center;padding:8px 4px;flex-shrink:0';
+  thSelAll.innerHTML = '<input type="checkbox" id="trans-chk-all" title="Selecionar todos" onchange="transToggleAll(this)">';
+  th.appendChild(thSelAll);
+
+  TRANS_COLUNAS.forEach(col => {
+    const td = document.createElement('th');
+    td.setAttribute('data-col', col.chave);
+    td.style.minWidth  = col.w + 'px';
+    td.style.width     = col.w + 'px';
+    td.style.position  = 'relative';
+
+    const isAtiva = transOrdenacao.col === col.chave;
+    if (isAtiva) {
+      td.classList.add(transOrdenacao.dir === 'asc' ? 'sorted-asc' : 'sorted-desc');
+    }
+
+    td.innerHTML = `${col.label}<span class="sort-icon"></span><div class="resize-handle"></div>`;
+    td.onclick = (e) => {
+      if (e.target.classList.contains('resize-handle')) return;
+      if (transOrdenacao.col === col.chave) {
+        transOrdenacao.dir = transOrdenacao.dir === 'asc' ? 'desc' : 'asc';
+      } else {
+        transOrdenacao.col = col.chave;
+        transOrdenacao.dir = 'asc';
+      }
+      renderTransacoes();
+    };
+    th.appendChild(td);
+  });
+
+  const thAcoes = document.createElement('th');
+  thAcoes.textContent = 'Ações';
+  thAcoes.style.cssText = 'width:160px;min-width:160px;text-align:right';
+  th.appendChild(thAcoes);
+
+  initResizable(th);
+
+  const tb = document.getElementById('transBody');
+  if (totalRegistros === 0) {
+    tb.innerHTML = `<tr class="empty-row">
+      <td colspan="${TRANS_COLUNAS.length + 2}">
+        Nenhuma movimentação encontrada. Clique em "Adicionar Movimentação".
+      </td>
+    </tr>`;
+    return;
+  }
+
+  tb.innerHTML = dadosPagina.map(t => `
+    <tr>
+      <td data-label="" style="text-align:center;padding:8px 4px;width:44px;min-width:44px">
+        <input type="checkbox" class="trans-sel-chk" data-id="${t.id}" onclick="event.stopPropagation()" onchange="transBulkAtualizarBarra()" style="width:15px;height:15px;cursor:pointer;accent-color:var(--primary)">
+      </td>
+      <td data-label="Data Competência">${fmtDateStr(_transDataCompetencia(t))}</td>
+      <td data-label="Cartão">${escHtml(t.cartao)}</td>
+      <td data-label="Descrição Tratada" title="${escHtml(t.descricao_tratada || t.descricao)}">${escHtml(t.descricao_tratada || t.descricao)}</td>
+      <td data-label="Categoria">${escHtml(t.categoria)}</td>
+      <td data-label="Subcategoria">${escHtml(t.subcategoria)}</td>
+      <td data-label="Natureza">${escHtml(t.natureza)}</td>
+      <td data-label="Decisão">${escHtml(t.decisao)}</td>
+      ${(()=>{
+        const tn=(t.tipo_pagamento||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+        const sn=(t.status_compra||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+        const nn=(t.natureza||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+        const isTransferencia = nn==='transferencia' || _transIsTransferenciaLancamento(t);
+        const isNeutro = sn==='neutro' || sn==='30' || tn==='neutro' || isTransferencia;
+        const isEntrada= _transTipoNomeEhEntrada(tn);
+        const isSaida  = _transTipoNomeEhSaida(tn) || (!isEntrada && !isNeutro);
+        const valCls = isNeutro ? 'val-neutral' : isEntrada ? 'val-positive' : isSaida ? 'val-negative' : 'val-neutral';
+        const sinal  = isNeutro ? '' : isEntrada ? '+ ' : isSaida ? '- ' : '';
+        return `<td data-label="Valor" class="${valCls}">${sinal}R$ ${fmtValor(Math.abs(parseFloat(t.valor)||0))}</td>`;
+      })()}
+      <td data-label="Ações" class="actions">
+        <div class="actions-cell">
+          <button class="btn btn-icon btn-sm" title="Visualizar" onclick="verTransacao('${t.id}')" style="background:#EEF2FF;color:#4F46E5;border-color:#C7D2FE">&#128065;</button>
+          <button class="btn btn-icon btn-sm edit" title="Editar" onclick="editarTransacao('${t.id}')">&#9998;</button>
+          <button class="btn btn-icon btn-sm dup" title="Duplicar" onclick="duplicarTransacao('${t.id}')">&#10697;</button>
+          <button class="btn btn-icon btn-sm del" title="Excluir" onclick="excluirTransacao('${t.id}')">&#128465;</button>
+        </div>
+      </td>
+    </tr>`).join('');
+}
+
+function _transAgendarRenderCompletoTransacoes() {
+  if (window._transRenderCompletoTimer) {
+    clearTimeout(window._transRenderCompletoTimer);
+  }
+  const agendar = () => {
+    window._transRenderCompletoTimer = setTimeout(() => {
+      window._transRenderCompletoTimer = null;
+      renderTransacoes();
+    }, 0);
+  };
+  if (typeof requestAnimationFrame === 'function') requestAnimationFrame(agendar);
+  else agendar();
+}
+
 function _transDateInputValue(value) {
   if (!value) return '';
   if (value instanceof Date && !isNaN(value)) {
@@ -7292,7 +7411,7 @@ function atualizarChips(f) {
 /* --------------------------------------------
    RENDERIZA LISTA DE TRANSAÇÕES
 -------------------------------------------- */
-function renderTransacoes() {
+function renderTransacoes(opcoes = {}) {
   // Resetar seleção ao re-renderizar
   document.getElementById('transBulkBar')?.classList.remove('visible');
   const busca = (document.getElementById('transSearch')?.value || '').toLowerCase();
@@ -7376,6 +7495,11 @@ function renderTransacoes() {
     const bv = (b[ord.col] || '').toString().toLowerCase();
     return ord.dir === 'asc' ? av.localeCompare(bv, 'pt') : bv.localeCompare(av, 'pt');
   });
+
+  if (opcoes.rapido) {
+    _transRenderTabelaTransacoes(dados);
+    return;
+  }
 
   // -- HELPERS de classificação --
   const tiposData     = dbLoad('tipos');
@@ -9171,7 +9295,8 @@ function saveTransacao() {
 
   closeTransModal();
   if (isNovaTransacao) transPaginaAtual = 1;
-  renderTransacoes();
+  renderTransacoes({ rapido: true });
+  _transAgendarRenderCompletoTransacoes();
 }
 
 /* --------------------------------------------
