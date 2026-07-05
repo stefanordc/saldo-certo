@@ -2903,6 +2903,69 @@ body.theme-dark [style*="border-bottom:1px solid var(--border)"] {
   border-color: var(--border) !important;
 }
 
+/* Relatórios: camada final de contraste no tema escuro */
+body.theme-dark #page-relatorios .card {
+  background: #12181F !important;
+  border-color: rgba(234,243,255,0.16) !important;
+  overflow: hidden;
+}
+body.theme-dark #page-relatorios .tabs-bar {
+  background: #0F151B !important;
+  border-bottom: 1px solid rgba(234,243,255,0.20) !important;
+  box-shadow: inset 0 -1px 0 rgba(234,243,255,0.08);
+}
+body.theme-dark #page-relatorios .tab-btn {
+  background: transparent !important;
+  color: #D9E7F7 !important;
+  opacity: 1;
+}
+body.theme-dark #page-relatorios .tab-btn:hover {
+  background: rgba(120,183,255,0.12) !important;
+  color: #FFFFFF !important;
+}
+body.theme-dark #page-relatorios .tab-btn.active {
+  background: linear-gradient(180deg,rgba(120,183,255,0.18),rgba(120,183,255,0.08)) !important;
+  color: #FFFFFF !important;
+}
+body.theme-dark #page-relatorios .tab-btn.active::after {
+  background: #78B7FF !important;
+  box-shadow: 0 0 16px rgba(120,183,255,0.45);
+}
+body.theme-dark #page-relatorios .rel-tab {
+  background: #12181F;
+}
+body.theme-dark #page-relatorios .rel-title {
+  color: #FFFFFF !important;
+}
+body.theme-dark #page-relatorios .rel-sub,
+body.theme-dark #page-relatorios .page-subtitle {
+  color: #D9E7F7 !important;
+}
+body.theme-dark #page-relatorios .rel-filtros {
+  background: #11171E !important;
+  border-color: rgba(234,243,255,0.16) !important;
+}
+body.theme-dark #page-relatorios .rel-chart-box {
+  background:
+    radial-gradient(circle at top left, rgba(120,183,255,0.10), transparent 38%),
+    linear-gradient(180deg,#172029 0%,#11171E 100%) !important;
+  border-color: rgba(234,243,255,0.16) !important;
+  box-shadow: 0 18px 38px rgba(0,0,0,0.34);
+}
+body.theme-dark #page-relatorios .rel-summary-table thead tr {
+  background: #11171E !important;
+  border-color: rgba(234,243,255,0.18) !important;
+}
+body.theme-dark #page-relatorios .rel-summary-table th {
+  color: #EAF3FF !important;
+}
+body.theme-dark #page-relatorios .rel-summary-table td {
+  color: #F3F6FA !important;
+}
+body.theme-dark #page-relatorios .rel-summary-table tbody tr:hover {
+  background: rgba(120,183,255,0.06) !important;
+}
+
 /* ================================================================
    RESPONSIVIDADE MOBILE
    Breakpoints: 768px (tablet) e 480px (celular)
@@ -7318,6 +7381,10 @@ function _transFormaIdPix() {
   return _transEnsureConfigId('formas', 'Pix', ['PIX']);
 }
 
+function _transFormaIdDebito() {
+  return _transEnsureConfigId('formas', 'Débito', ['Debito']);
+}
+
 function _transPerfilSelecionadoEhTransferencia() {
   return _transSelectEhTransferencia('f-perfil-despesa');
 }
@@ -7911,6 +7978,7 @@ function preencherSelects() {
   garantirConfigPadrao();
   _transTipoEntradaId();
   _transTipoSaidaId();
+  _transFormaIdDebito();
   _transPerfilDespesaVariavelId();
 
   const mapa = {
@@ -7978,6 +8046,7 @@ function limparFormTransacao() {
   // Default "Saída" para tipo de pagamento (apenas em novo registro)
   if (!editandoTransId) {
     _transSetSelectValue('f-tipo-pagamento', 'tipos', _transTipoSaidaId());
+    _transSetSelectValue('f-forma-pagamento', 'formas', _transFormaIdDebito());
     _transSetSelectValue('f-perfil-despesa', 'perfis', _transPerfilDespesaVariavelId());
   }
   transRefreshSearchableSelects();
@@ -9137,9 +9206,9 @@ function renderInicio() {
 
 /* Paleta de cores consistente */
 const REL_CORES = [
-  '#5DA8FF','#28D17C','#FF6B62','#FFBE55','#9B7CFF',
-  '#20D3E6','#F472B6','#A3E635','#C084FC','#94A3B8',
-  '#FB7185','#60A5FA','#2DD4BF','#F59E0B','#EC4899',
+  '#78B7FF','#34E89E','#FF857D','#FFD166','#B39DFF',
+  '#35DDEB','#FF8CC6','#B8F05A','#D8A7FF','#A8B6C8',
+  '#FF9AAA','#86C5FF','#50E3C2','#FFC46B','#FF78B4',
 ];
 
 /* Instâncias dos gráficos — para destruir antes de recriar */
@@ -9150,13 +9219,13 @@ function _relChartTheme() {
   return dark
     ? {
         isDark: true,
-        text: '#F3F6FA',
-        muted: '#B8C7D8',
-        axis: '#CFE1FF',
-        legend: '#DDEBFF',
-        grid: 'rgba(207,225,255,0.14)',
+        text: '#FFFFFF',
+        muted: '#D9E7F7',
+        axis: '#EAF3FF',
+        legend: '#F4F8FF',
+        grid: 'rgba(234,243,255,0.22)',
         panel: '#12181F',
-        border: 'rgba(207,225,255,0.22)',
+        border: 'rgba(234,243,255,0.30)',
         tooltipBg: '#0D131A',
       }
     : {
@@ -9177,10 +9246,12 @@ function _relApplyScaleTheme(scale = {}, theme, radial = false) {
   const ticks = out.ticks || {};
   const grid = out.grid || {};
   const border = out.border || {};
+  const tickFont = ticks.font || {};
+  const tickSize = Math.max(12, Number(tickFont.size) || 12);
   out.ticks = {
     ...ticks,
     color: theme.isDark ? theme.axis : (ticks.color || theme.axis),
-    font: { size: 11, weight: '600', ...(ticks.font || {}) },
+    font: { ...tickFont, size: tickSize, weight: tickFont.weight || '700' },
   };
   out.grid = {
     ...grid,
@@ -9196,6 +9267,7 @@ function _relApplyScaleTheme(scale = {}, theme, radial = false) {
   if (radial) {
     const angleLines = out.angleLines || {};
     const pointLabels = out.pointLabels || {};
+    const pointFont = pointLabels.font || {};
     out.angleLines = {
       ...angleLines,
       color: theme.isDark ? theme.grid : (angleLines.color || theme.grid),
@@ -9203,7 +9275,7 @@ function _relApplyScaleTheme(scale = {}, theme, radial = false) {
     out.pointLabels = {
       ...pointLabels,
       color: theme.isDark ? theme.axis : (pointLabels.color || theme.axis),
-      font: { size: 12, weight: '700', ...(pointLabels.font || {}) },
+      font: { ...pointFont, size: Math.max(12, Number(pointFont.size) || 12), weight: pointFont.weight || '700' },
     };
   }
   return out;
@@ -9212,7 +9284,7 @@ function _relApplyScaleTheme(scale = {}, theme, radial = false) {
 function _relDatasetModern(ds, type, theme) {
   const base = { ...ds };
   if (type === 'bar') {
-    return { ...base, borderRadius: 9, borderSkipped: false, maxBarThickness: 36, borderWidth: 0 };
+    return { ...base, borderRadius: 12, borderSkipped: false, maxBarThickness: 42, borderWidth: 0 };
   }
   if (type === 'line') {
     return {
@@ -9230,10 +9302,10 @@ function _relDatasetModern(ds, type, theme) {
       ...base,
       borderColor: theme.panel,
       hoverBorderColor: theme.text,
-      borderWidth: base.borderWidth ?? 3,
-      borderRadius: base.borderRadius ?? 6,
-      spacing: base.spacing ?? 2,
-      hoverOffset: base.hoverOffset ?? 10,
+      borderWidth: theme.isDark ? 4 : 3,
+      borderRadius: base.borderRadius ?? 8,
+      spacing: base.spacing ?? 4,
+      hoverOffset: base.hoverOffset ?? 12,
     };
   }
   if (type === 'radar' || type === 'polarArea') {
@@ -9256,18 +9328,21 @@ function _relApplyChartTheme(cfg) {
   const plugins = { ...(options.plugins || {}) };
   const legend = { ...(plugins.legend || {}) };
   const legendLabels = legend.labels || {};
+  const legendFont = legendLabels.font || {};
+  const legendSize = Math.max(13, Number(legendFont.size) || 13);
   legend.labels = {
-    boxWidth: 12,
-    boxHeight: 12,
-    padding: 16,
+    ...legendLabels,
+    boxWidth: legendLabels.boxWidth || 13,
+    boxHeight: legendLabels.boxHeight || 13,
+    padding: Math.max(14, Number(legendLabels.padding) || 14),
     usePointStyle: true,
     pointStyle: 'rectRounded',
-    font: { size: 12, weight: '700', ...(legendLabels.font || {}) },
-    ...legendLabels,
+    font: { ...legendFont, size: legendSize, weight: legendFont.weight || '700' },
     color: theme.isDark ? theme.legend : (legendLabels.color || theme.legend),
   };
   plugins.legend = legend;
   plugins.tooltip = {
+    ...(plugins.tooltip || {}),
     backgroundColor: theme.tooltipBg,
     titleColor: theme.text,
     bodyColor: theme.text,
@@ -9277,7 +9352,6 @@ function _relApplyChartTheme(cfg) {
     cornerRadius: 8,
     displayColors: true,
     boxPadding: 5,
-    ...(plugins.tooltip || {}),
   };
   options.plugins = plugins;
   options.animation = options.animation || { duration: 650, easing: 'easeOutQuart' };
@@ -9513,7 +9587,7 @@ function renderRelCat() {
     type: 'doughnut',
     data: { labels, datasets: [{ data: vals, backgroundColor: cores, borderWidth: 2, borderColor:'#fff', hoverOffset: 8 }] },
     options: {
-      responsive:true, maintainAspectRatio:false, cutout:'58%',
+      responsive:true, maintainAspectRatio:false, cutout:'62%',
       plugins: {
         legend: { position:'right', labels:{font:{size:11}, boxWidth:12, padding:10} },
         tooltip: _ttFmtR
@@ -9724,7 +9798,7 @@ function renderRelPerfil() {
     type: 'doughnut',
     data: { labels, datasets:[{ data:vals, backgroundColor:cores, borderWidth:2, borderColor:'#fff', hoverOffset:8 }] },
     options: {
-      responsive:true, maintainAspectRatio:false, cutout:'58%',
+      responsive:true, maintainAspectRatio:false, cutout:'62%',
       plugins:{
         legend:{ position:'right', labels:{font:{size:11}, boxWidth:12, padding:10} },
         tooltip: _ttFmtR
@@ -9769,7 +9843,7 @@ function renderRelStatus() {
     type: 'doughnut',
     data: { labels, datasets:[{ data:vals, backgroundColor:cores, borderWidth:2, borderColor:'#fff', hoverOffset:8 }] },
     options: {
-      responsive:true, maintainAspectRatio:false, cutout:'58%',
+      responsive:true, maintainAspectRatio:false, cutout:'62%',
       plugins:{
         legend:{ position:'right', labels:{font:{size:11}, boxWidth:12, padding:10} },
         tooltip: _ttFmtR
