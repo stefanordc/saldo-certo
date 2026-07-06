@@ -19,6 +19,8 @@ const dbName = process.env.SALDO_CERTO_DB_NAME || 'saldo_certo_codex';
 const IMPORT_USER_SQL = '(select id from auth.users order by created_at limit 1)';
 const USER_ID = { raw: IMPORT_USER_SQL };
 const UUID_NAMESPACE = 'b399a8d9-91dd-4b55-ae67-48fbd6d3501d';
+const DATE_YEAR_MIN = 1900;
+const DATE_YEAR_MAX = 3099;
 const NATUREZA_PADRAO = [
   'Renda',
   'Neutro',
@@ -124,6 +126,24 @@ function dateOnly(value, fallback = null) {
   const text = cleanText(value);
   if (!text) return fallback;
   return text.slice(0, 10);
+}
+
+function isDateOnlyInRange(value) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value || '')) return false;
+  const year = Number(value.slice(0, 4));
+  const month = Number(value.slice(5, 7));
+  const day = Number(value.slice(8, 10));
+  if (year < DATE_YEAR_MIN || year > DATE_YEAR_MAX || month < 1 || month > 12 || day < 1 || day > 31) return false;
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
+}
+
+function safeDateOnly(...values) {
+  for (const value of values) {
+    const parsed = dateOnly(value);
+    if (isDateOnlyInRange(parsed)) return parsed;
+  }
+  return null;
 }
 
 function dateTime(value) {
@@ -359,8 +379,9 @@ async function main() {
     const decisaoKey = cleanText(decisaoNome)
       ? normalizedKey(decisaoNome)
       : (tipoKey === 'transferencia' ? 'transferencia' : null);
-    const dataCompetencia = dateOnly(row.data) || dateOnly(row.data_baixa) || new Date().toISOString().slice(0, 10);
-    const dataContabil = dateOnly(row.data_baixa) || dataCompetencia;
+    const dataCompetencia = safeDateOnly(row.data, row.data_baixa) || new Date().toISOString().slice(0, 10);
+    const dataContabil = safeDateOnly(row.data_baixa) || dataCompetencia;
+    const criadoEm = dateTime(row.criado_em) || new Date().toISOString();
     return [
       deterministicUuid('transacoes', row.id),
       dataContabil,
@@ -383,7 +404,8 @@ async function main() {
       idMap('categorias', row.categoria_id, categoriaIds),
       idMap('subcategorias', row.subcategoria_id, subcategoriaIds),
       deterministicUuid('status_compra', statusKey),
-      dateTime(row.criado_em),
+      criadoEm,
+      criadoEm,
       USER_ID,
     ];
   });
@@ -472,6 +494,7 @@ async function main() {
       'categoria_id',
       'subcategoria_id',
       'status_compra_id',
+      'data_insercao',
       'created_at',
       'user_id',
     ], transacaoRows),
@@ -561,6 +584,7 @@ async function main() {
         'categoria_id',
         'subcategoria_id',
         'status_compra_id',
+        'data_insercao',
         'created_at',
         'user_id',
       ],

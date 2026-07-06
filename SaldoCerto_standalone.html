@@ -5441,13 +5441,13 @@ body.theme-dark #page-relatorios .rel-summary-table tbody tr:hover {
 
         <div class="form-group">
           <label class="form-label">Data da transação <span class="req">*</span></label>
-          <input type="date" class="form-input" id="f-data-contabil" onchange="syncDataCompetencia()">
+          <input type="date" class="form-input" id="f-data-contabil" min="1900-01-01" max="3099-12-31" onchange="syncDataCompetencia()">
           <span class="form-error" id="e-data-contabil"></span>
         </div>
 
         <div class="form-group">
           <label class="form-label">Data da baixa <span class="req">*</span></label>
-          <input type="date" class="form-input" id="f-data-competencia">
+          <input type="date" class="form-input" id="f-data-competencia" min="1900-01-01" max="3099-12-31">
           <label class="checkbox-row">
             <input type="checkbox" id="chk-mesma-data" onchange="syncDataCompetencia()">
             <span>Mesma data da transação</span>
@@ -5599,7 +5599,7 @@ body.theme-dark #page-relatorios .rel-summary-table tbody tr:hover {
               </div>
               <div class="form-group">
                 <label class="form-label">Repetir até <span class="req">*</span></label>
-                <input type="date" class="form-input" id="f-recorrencia-fim">
+                <input type="date" class="form-input" id="f-recorrencia-fim" min="1900-01-01" max="3099-12-31">
                 <span class="form-error" id="e-recorrencia-fim"></span>
               </div>
             </div>
@@ -5969,7 +5969,7 @@ function _sbTable(colecao) {
 }
 
 const SB_OPTIONAL_COLS = {
-  transacoes: ['conta_destino_id', 'natureza_id', 'decisao_id'],
+  transacoes: ['conta_destino_id', 'natureza_id', 'decisao_id', 'data_insercao'],
 };
 
 function _sbMissingOptionalCols(error, tableName) {
@@ -6190,7 +6190,7 @@ const _SB_COLS = {
   modalidades_inv:      ['nome','user_id'],
   transacoes: [
     'id','user_id','descricao','descricao_tratada','valor',
-    'data_contabil','data_competencia','cartao_id','conta_destino_id','tipo_pagamento_id',
+    'data_contabil','data_competencia','data_insercao','cartao_id','conta_destino_id','tipo_pagamento_id',
     'forma_pagamento_id','perfil_despesa_id','natureza_id','decisao_id','categoria_id','subcategoria_id',
     'status_compra_id','parcelado','parcela_atual','parcela_maxima','observacoes',
     'importado'
@@ -6212,7 +6212,7 @@ function _sbNormalizeRow(obj, tabela) {
   delete r.updatedAt;
 
   // Converter datas vazias para null (antes do filtro)
-  ['data_contabil','data_competencia','vencimento','data_limite','data_nascimento','data'].forEach(k => {
+  ['data_contabil','data_competencia','data_insercao','vencimento','data_limite','data_nascimento','data'].forEach(k => {
     if (k in r && (r[k] === '' || r[k] === undefined)) r[k] = null;
   });
   // Converter valores numéricos — sempre positivos (tipo determina entrada/saída)
@@ -6308,11 +6308,17 @@ async function sbSyncDown() {
       if (error) { console.warn('[SB down]', col, error.message); continue; }
       if (data && data.length > 0) {
         // Normalizar para formato local
-        const localRemoto = data.map(row => ({
-          ...row,
-          createdAt: row.created_at || row.createdAt,
-          updatedAt: row.updated_at || row.updatedAt,
-        }));
+        const localRemoto = data.map(row => {
+          const local = {
+            ...row,
+            createdAt: row.created_at || row.createdAt,
+            updatedAt: row.updated_at || row.updatedAt,
+          };
+          if (col === 'transacoes') {
+            local.data_insercao = row.data_insercao || row.created_at || row.createdAt || '';
+          }
+          return local;
+        });
         const local = _dbMergePendingLocalRows(col, localRemoto);
         localStorage.setItem(STORAGE_KEYS[col], JSON.stringify(local));
         total += local.length;
@@ -6968,10 +6974,13 @@ function _transAgendarRenderCompletoTransacoes() {
   else agendar();
 }
 
+const TRANS_ANO_MIN = 1900;
+const TRANS_ANO_MAX = 3099;
+
 function _transDateInputValue(value) {
   if (!value) return '';
   if (value instanceof Date && !isNaN(value)) {
-    const y = value.getFullYear();
+    const y = String(value.getFullYear()).padStart(4, '0');
     const m = String(value.getMonth() + 1).padStart(2, '0');
     const d = String(value.getDate()).padStart(2, '0');
     return `${y}-${m}-${d}`;
@@ -6992,6 +7001,26 @@ function _transDateInputValue(value) {
 
   const dt = new Date(s);
   return isNaN(dt) ? '' : dt.toISOString().slice(0, 10);
+}
+
+function _transDataIsoValida(valor) {
+  const s = String(valor || '').trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return false;
+  const ano = Number(s.slice(0, 4));
+  const mes = Number(s.slice(5, 7));
+  const dia = Number(s.slice(8, 10));
+  if (!Number.isInteger(ano) || ano < TRANS_ANO_MIN || ano > TRANS_ANO_MAX) return false;
+  if (mes < 1 || mes > 12 || dia < 1 || dia > 31) return false;
+  const dt = new Date(Date.UTC(ano, mes - 1, dia));
+  return dt.getUTCFullYear() === ano && dt.getUTCMonth() === mes - 1 && dt.getUTCDate() === dia;
+}
+
+function _transValidarCampoData(fieldId, errId, label) {
+  const valor = document.getElementById(fieldId)?.value || '';
+  if (!valor) return true;
+  if (_transDataIsoValida(valor)) return true;
+  mostrarErro(fieldId, errId, `${label} deve ter ano entre 1900 e 3099`);
+  return false;
 }
 
 function _transDataContabil(t) {
@@ -9059,6 +9088,9 @@ function saveTransacao() {
   });
 
   // Validação de parcelas
+  if (!_transValidarCampoData('f-data-contabil', 'e-data-contabil', 'Data da transacao')) valido = false;
+  if (!_transValidarCampoData('f-data-competencia', 'e-data-competencia', 'Data da baixa')) valido = false;
+
   const parcelado = document.getElementById('f-parcelado').value;
   if (parcelado === 'Sim') {
     const pa = document.getElementById('f-parcela-atual').value;
@@ -9097,6 +9129,9 @@ function saveTransacao() {
     if (!dataFimRec) {
       mostrarErro('f-recorrencia-fim', 'e-recorrencia-fim', 'Data final obrigatória');
       valido = false;
+    } else if (!_transDataIsoValida(dataFimRec)) {
+      mostrarErro('f-recorrencia-fim', 'e-recorrencia-fim', 'Data final deve ter ano entre 1900 e 3099');
+      valido = false;
     } else if (dataCompetencia && dataFimRec < dataCompetencia) {
       mostrarErro('f-recorrencia-fim', 'e-recorrencia-fim', 'Data final não pode ser anterior à competência');
       valido = false;
@@ -9124,10 +9159,14 @@ function saveTransacao() {
   if (perfilEhTransferencia) {
     _transSetSelectValue('f-forma-pagamento', 'formas', formaPagamentoId);
   }
+  let dados = dbLoad('transacoes');
+  const transacaoOriginal = editandoTransId ? dados.find(x => _dbSameId(x.id, editandoTransId)) : null;
+  const dataInsercaoBase = transacaoOriginal?.data_insercao || transacaoOriginal?.created_at || transacaoOriginal?.createdAt || new Date().toISOString();
   const transacao = {
     id:                editandoTransId || uid(),
     data_contabil:     dataCompetenciaBase,
     data_competencia:  dataContabilBase,
+    data_insercao:     dataInsercaoBase,
     cartao_id:         contaOrigemId,
     conta_destino_id:  transferenciaAtual ? contaDestinoId : null,
     tipo_pagamento_id: tipoOperacionalId,
@@ -9148,7 +9187,6 @@ function saveTransacao() {
   };
 
   // Insere ou atualiza
-  let dados = dbLoad('transacoes');
   if (editandoTransId) {
     if (transferenciaAtual) {
       const original = dados.find(x => _dbSameId(x.id, editandoTransId)) || transacao;
@@ -9218,13 +9256,15 @@ function saveTransacao() {
     const contabeis = competencias.map((_, i) => _transAddPeriodoIso(dataContabilBase, frequenciaRec, i));
     const tipoSaidaId = transferenciaNova ? _transTipoSaidaId() : '';
     competencias.forEach((competencia, i) => {
+      const createdAt = new Date().toISOString();
       const baseRecorrente = {
         ...transacao,
         id: uid(),
         data_contabil: competencia,
         data_competencia: contabeis[i],
+        data_insercao: createdAt,
         status_compra_id: competencia > hoje ? statusPendenteId : statusPagoId,
-        createdAt: new Date().toISOString(),
+        createdAt,
       };
       if (transferenciaNova) {
         dados.push({ ...baseRecorrente, cartao_id: contaOrigemId, conta_destino_id: contaDestinoId, tipo_pagamento_id: tipoSaidaId });
@@ -9238,7 +9278,7 @@ function saveTransacao() {
       : `${competencias.length} movimentação(ões) recorrente(s) adicionada(s)!`);
   } else {
     if (transferenciaNova) {
-      const createdAt = new Date().toISOString();
+      const createdAt = dataInsercaoBase;
       dados.push({
         ...transacao,
         id: uid(),
@@ -9246,10 +9286,12 @@ function saveTransacao() {
         conta_destino_id: contaDestinoId,
         tipo_pagamento_id: _transTipoSaidaId(),
         status_compra_id: statusPagoId,
+        data_insercao: createdAt,
         createdAt,
       });
     } else {
-      transacao.createdAt = new Date().toISOString();
+      transacao.createdAt = dataInsercaoBase;
+      transacao.data_insercao = dataInsercaoBase;
       transacao.status_compra_id = statusPagoId;
       dados.push(transacao);
     }
@@ -12028,11 +12070,17 @@ function ctaAcao(id, modo) {
     const tipoNome = modo==='receber' ? 'entrada' : 'saida';
     const tipoObj  = tipos.find(t => t.nome.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'') === tipoNome);
     const hoje = new Date().toISOString().slice(0,10);
+    if (conta.vencimento && !_transDataIsoValida(conta.vencimento)) {
+      toast('Vencimento invalido. Use uma data entre 1900 e 3099.', 'error');
+      return;
+    }
+    const dataInsercao = new Date().toISOString();
 
     const nova_trans = {
       id:                uid(),
       data_contabil:     conta.vencimento || hoje,
       data_competencia:  hoje,
+      data_insercao:     dataInsercao,
       cartao_id:         conta.cartao_id  || '',
       tipo_pagamento_id: tipoObj?.id || '',
       forma_pagamento_id:conta.forma_id   || '',
@@ -12047,7 +12095,7 @@ function ctaAcao(id, modo) {
       parcela_atual:     null,
       parcela_maxima:    null,
       origem_conta_id:   id,
-      createdAt:         new Date().toISOString(),
+      createdAt:         dataInsercao,
     };
 
     const transacoes = dbLoad('transacoes');
@@ -16182,7 +16230,7 @@ function impExecutar() {
     //    Sem nenhuma ambiguidade de dia/mês — é a forma mais confiável
     if (raw instanceof Date && !isNaN(raw)) {
       // Usar partes locais para evitar problema de fuso horário (UTC vs local)
-      const y = raw.getFullYear();
+      const y = String(raw.getFullYear()).padStart(4, '0');
       const m = String(raw.getMonth() + 1).padStart(2, '0');
       const d = String(raw.getDate()).padStart(2, '0');
       return `${y}-${m}-${d}`;
@@ -16192,7 +16240,7 @@ function impExecutar() {
     if (typeof raw === 'number') {
       // Ajuste de timezone: +0.5 para evitar erro de arredondamento
       const date = new Date(Math.round((raw - 25569) * 86400 * 1000));
-      const y = date.getUTCFullYear();
+      const y = String(date.getUTCFullYear()).padStart(4, '0');
       const m = String(date.getUTCMonth() + 1).padStart(2, '0');
       const d = String(date.getUTCDate()).padStart(2, '0');
       return `${y}-${m}-${d}`;
@@ -16245,10 +16293,17 @@ function impExecutar() {
       if (!valor) { erros++; continue; }
 
       /* -- Datas -- */
-      const dataCompetencia = parseDataISO(get('data_competencia')) ||
-                              parseDataISO(get('data_contabil'))    ||
-                              new Date().toISOString().slice(0, 10);
-      const dataContabil    = parseDataISO(get('data_contabil'))    || dataCompetencia;
+      const dataCompetenciaRaw = get('data_competencia');
+      const dataContabilRaw = get('data_contabil');
+      const dataCompetenciaParse = parseDataISO(dataCompetenciaRaw);
+      const dataContabilParse = parseDataISO(dataContabilRaw);
+      if ((dataCompetenciaRaw && !_transDataIsoValida(dataCompetenciaParse)) ||
+          (dataContabilRaw && !_transDataIsoValida(dataContabilParse))) {
+        erros++;
+        continue;
+      }
+      const dataCompetencia = dataCompetenciaParse || dataContabilParse || new Date().toISOString().slice(0, 10);
+      const dataContabil    = dataContabilParse || dataCompetencia;
 
       const contaOrigemId = findId(cartoes, get('cartao'));
       const contaDestinoId = findId(cartoes, get('conta_destino'));
@@ -16382,10 +16437,12 @@ function impExecutar() {
       if (!tipoId) tipoId = _transTipoOperacionalId(naturezaId, categoriaId);
 
       /* -- Campos de lookup — usar os nomes corretos do sistema -- */
+      const dataInsercao = new Date().toISOString();
       const nova = {
         id:                 uid(),
         data_contabil:      dataCompetencia,
         data_competencia:   dataContabil,
+        data_insercao:      dataInsercao,
         cartao_id:          contaOrigemId,
         conta_destino_id:   transferenciaImportada && contaDestinoId ? contaDestinoId : null,
         tipo_pagamento_id:  tipoId,
@@ -16403,7 +16460,7 @@ function impExecutar() {
         parcela_atual:      get('parcela_atual')  || '',
         parcela_maxima:     get('parcelas')       || '',
         observacoes:        get('observacoes')    || '',
-        createdAt:          new Date().toISOString(),
+        createdAt:          dataInsercao,
         importado:          true,
       };
 

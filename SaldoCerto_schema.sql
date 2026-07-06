@@ -75,6 +75,7 @@ create table if not exists transacoes (
   id                  uuid primary key default uuid_generate_v4(),
   data_contabil       date not null,
   data_competencia    date not null,
+  data_insercao       timestamptz not null default now(),
   descricao           text not null,
   descricao_tratada   text,
   valor               numeric(15,2) not null check (valor >= 0),
@@ -95,7 +96,9 @@ create table if not exists transacoes (
   subcategoria_id     uuid references subcategorias(id)     on delete set null,
   status_compra_id    uuid references status_compra(id)     on delete set null,
 
-  created_at          timestamptz default now()
+  created_at          timestamptz default now(),
+  constraint transacoes_data_contabil_range check (data_contabil between date '1900-01-01' and date '3099-12-31'),
+  constraint transacoes_data_competencia_range check (data_competencia between date '1900-01-01' and date '3099-12-31')
 );
 
 create index if not exists idx_transacoes_data_competencia on transacoes(data_competencia);
