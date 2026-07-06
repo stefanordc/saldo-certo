@@ -5937,6 +5937,25 @@ function _dbScheduleSyncSave(colecao, dados) {
   }
 }
 
+function _dbScheduleRetrySyncSave(colecao, delay = 30000) {
+  if (_dbIsLocalOnly(colecao)) return;
+  window._dbRetrySyncTimers = window._dbRetrySyncTimers || {};
+  if (window._dbRetrySyncTimers[colecao]) return;
+  window._dbRetrySyncTimers[colecao] = setTimeout(() => {
+    window._dbRetrySyncTimers[colecao] = null;
+    _dbScheduleSyncSave(colecao, dbLoad(colecao));
+  }, delay);
+}
+
+function _dbWriteFailed(colecao, message) {
+  console.warn('[DB write erro]', colecao, message);
+  _dbScheduleRetrySyncSave(colecao);
+  const msg = colecao === 'transacoes'
+    ? 'Movimentação salva localmente. Banco indisponível; vamos tentar sincronizar novamente.'
+    : 'Alteração salva localmente. Banco indisponível; vamos tentar sincronizar novamente.';
+  toast(msg, 'warn');
+}
+
 /* Injeta user_id no objeto antes de enviar ao Supabase */
 function _sbInjectUser(obj) {
   const uid = window._authUser?.id;
@@ -6021,6 +6040,7 @@ async function _sbInsert(colecao, registro) {
       console.warn('[SB insert retry erro]', colecao, retryError.message, retryError.code);
     }
     console.warn('[SB insert erro]', colecao, error.message, error.code, row);
+    _dbWriteFailed(colecao, error.message);
     return;
   }
 
@@ -6061,6 +6081,7 @@ async function _sbUpdate(colecao, id, dados) {
       console.warn('[SB update retry erro]', colecao, retryError.message, retryError.code);
     }
     console.warn('[SB update erro]', colecao, error.message, error.code);
+    _dbWriteFailed(colecao, error.message);
   }
 }
 
@@ -6077,7 +6098,10 @@ async function _sbDelete(colecao, id) {
     .delete()
     .eq('id', id)
     .eq('user_id', window._authUser.id);
-  if (error) console.warn('[SB delete erro]', colecao, error.message, error.code);
+  if (error) {
+    console.warn('[SB delete erro]', colecao, error.message, error.code);
+    _dbWriteFailed(colecao, error.message);
+  }
 }
 
 /* SAVE completo (upsert de toda a coleção) — usado pelo dbSave legado */
@@ -6121,6 +6145,7 @@ async function _sbSyncSave(colecao, dados) {
         console.warn('[SB syncSave insert retry erro]', colecao, retryError.message, retryError.code);
       }
       console.warn('[SB syncSave insert erro]', colecao, error.message, row);
+      _dbWriteFailed(colecao, error.message);
     } else if (inserted?.id) {
       // Substituir ID local pelo ID do banco no localStorage
       const atual = _dbDedupPorId(dbLoad(colecao).map(x => x.id === localId ? { ...x, id: inserted.id } : x));
@@ -6144,6 +6169,7 @@ async function _sbSyncSave(colecao, dados) {
           console.warn('[SB syncSave retry erro]', colecao, retryError.message, retryError.code);
         }
         console.warn('[SB syncSave upsert erro]', colecao, error.message);
+        _dbWriteFailed(colecao, error.message);
       }
     }
   }
@@ -7182,6 +7208,16 @@ function contarFiltrosAtivos(f) {
   if (f.status)       n++;
   if (f.valorDe !== null || f.valorAte !== null) n++;
   return n;
+}
+
+function _transHaFiltrosOuBuscaAtivos() {
+  const busca = (document.getElementById('transSearch')?.value || '').trim();
+  return !!busca || contarFiltrosAtivos(coletarFiltros()) > 0;
+}
+
+function _transAvisarFiltrosAposSalvar(isNovaTransacao) {
+  if (!isNovaTransacao || !_transHaFiltrosOuBuscaAtivos()) return;
+  toast('Movimentação salva. Filtros ou pesquisa ativos podem ocultar o lançamento.', 'info');
 }
 
 /* Atualiza os chips de filtros ativos */
@@ -9224,6 +9260,7 @@ function saveTransacao() {
   closeTransModal();
   if (isNovaTransacao) transPaginaAtual = 1;
   renderTransacoes({ rapido: true });
+  _transAvisarFiltrosAposSalvar(isNovaTransacao);
   _transAgendarRenderCompletoTransacoes();
 }
 

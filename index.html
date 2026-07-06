@@ -6072,6 +6072,10 @@ function _dbLoadLocalOnly(colecao) {
 
 function _dbPersistLocalOnly(colecao) {
   if (!_dbIsLocalOnly(colecao)) return;
+  _dbPersistCache(colecao);
+}
+
+function _dbPersistCache(colecao) {
   try {
     localStorage.setItem(STORAGE_KEYS[colecao], JSON.stringify(DB_CACHE[colecao] || []));
   } catch (e) {
@@ -6112,7 +6116,7 @@ const SB_TABLE_MAP = {
 };
 
 const DB_CACHE = Object.keys(STORAGE_KEYS).reduce((acc, key) => {
-  acc[key] = _dbIsLocalOnly(key) ? _dbLoadLocalOnly(key) : [];
+  acc[key] = _dbLoadLocalOnly(key);
   return acc;
 }, {});
 
@@ -6167,8 +6171,8 @@ function dbSave(colecao, dados) {
     .forEach(item => _sbDelete(colecao, item.id));
 
   DB_CACHE[colecao] = dados.map(item => ({ ...item }));
+  _dbPersistCache(colecao);
   if (_dbIsLocalOnly(colecao)) {
-    _dbPersistLocalOnly(colecao);
     return;
   }
   _dbScheduleSyncSave(colecao, DB_CACHE[colecao]);
@@ -6182,8 +6186,8 @@ function dbInsert(colecao, registro) {
   const dados  = dbLoad(colecao);
   dados.push(novo);
   DB_CACHE[colecao] = dados.map(item => ({ ...item }));
+  _dbPersistCache(colecao);
   if (_dbIsLocalOnly(colecao)) {
-    _dbPersistLocalOnly(colecao);
     return dados;
   }
   _sbInsert(colecao, novo);
@@ -6196,8 +6200,8 @@ function dbUpdate(colecao, id, novosDados) {
     _dbSameId(item.id, id) ? { ...item, ...novosDados, updatedAt: new Date().toISOString() } : item
   );
   DB_CACHE[colecao] = dados.map(item => ({ ...item }));
+  _dbPersistCache(colecao);
   if (_dbIsLocalOnly(colecao)) {
-    _dbPersistLocalOnly(colecao);
     return dados;
   }
   _sbUpdate(colecao, id, { ...novosDados, updated_at: new Date().toISOString() });
@@ -6208,8 +6212,8 @@ function dbUpdate(colecao, id, novosDados) {
 function dbDelete(colecao, id) {
   const dados = dbLoad(colecao).filter(item => !_dbSameId(item.id, id));
   DB_CACHE[colecao] = dados.map(item => ({ ...item }));
+  _dbPersistCache(colecao);
   if (_dbIsLocalOnly(colecao)) {
-    _dbPersistLocalOnly(colecao);
     return dados;
   }
   _sbDelete(colecao, id);
@@ -6227,6 +6231,16 @@ function _dbScheduleSyncSave(colecao, dados) {
   } else {
     afterPaint();
   }
+}
+
+function _dbScheduleRetrySyncSave(colecao, delay = 30000) {
+  if (_dbIsLocalOnly(colecao)) return;
+  window._dbRetrySyncTimers = window._dbRetrySyncTimers || {};
+  if (window._dbRetrySyncTimers[colecao]) return;
+  window._dbRetrySyncTimers[colecao] = setTimeout(() => {
+    window._dbRetrySyncTimers[colecao] = null;
+    _dbScheduleSyncSave(colecao, DB_CACHE[colecao] || []);
+  }, delay);
 }
 
 /* Injeta user_id no objeto antes de enviar ao Supabase */
@@ -6259,6 +6273,7 @@ function _dbReplaceId(colecao, localId, dbId) {
     _dbSameId(item.id, localId) ? { ...item, id: dbId } : item
   );
   DB_CACHE[colecao] = _dbDedupPorId(atualizados);
+  _dbPersistCache(colecao);
 }
 
 function _dbRerenderActivePage() {
@@ -6270,8 +6285,13 @@ function _dbRerenderActivePage() {
 
 function _dbWriteFailed(colecao, message) {
   console.warn('[DB write erro]', colecao, message);
-  toast('Falha ao gravar no Supabase. Recarregando dados do banco.', 'error');
-  sbSyncDown([colecao]).then(() => _dbRerenderActivePage());
+  _dbPersistCache(colecao);
+  _dbScheduleRetrySyncSave(colecao);
+  const msg = colecao === 'transacoes'
+    ? 'Movimentação salva localmente. Banco indisponível; vamos tentar sincronizar novamente.'
+    : 'Alteração salva localmente. Banco indisponível; vamos tentar sincronizar novamente.';
+  toast(msg, 'warn');
+  _dbRerenderActivePage();
 }
 
 const SB_OPTIONAL_COLS = {
@@ -6560,7 +6580,7 @@ function _limparDadosLegados() {
     if (validos.length < dados.length) {
       removidos += dados.length - validos.length;
       DB_CACHE[col] = validos.map(item => ({ ...item }));
-      _dbPersistLocalOnly(col);
+      _dbPersistCache(col);
     }
   });
   if (removidos > 0) console.log(`[SB] ${removidos} registros legados removidos do cache local`);
@@ -6675,6 +6695,7 @@ async function sbSyncDown(forceCols = null, silentEmpty = false) {
 
       const local = _dbMergePendingLocalRows(col, (data || []).map(row => _sbToLocalRow(col, row)));
       DB_CACHE[col] = local.map(item => ({ ...item }));
+      _dbPersistCache(col);
       total += local.length;
     } catch(e) {
       console.warn('[SB down] erro em', col, e.message);
@@ -7564,6 +7585,16 @@ function contarFiltrosAtivos(f) {
   if (f.status)       n++;
   if (f.valorDe !== null || f.valorAte !== null) n++;
   return n;
+}
+
+function _transHaFiltrosOuBuscaAtivos() {
+  const busca = (document.getElementById('transSearch')?.value || '').trim();
+  return !!busca || contarFiltrosAtivos(coletarFiltros()) > 0;
+}
+
+function _transAvisarFiltrosAposSalvar(isNovaTransacao) {
+  if (!isNovaTransacao || !_transHaFiltrosOuBuscaAtivos()) return;
+  toast('Movimentação salva. Filtros ou pesquisa ativos podem ocultar o lançamento.', 'info');
 }
 
 /* Atualiza os chips de filtros ativos */
@@ -9606,6 +9637,7 @@ function saveTransacao() {
   closeTransModal();
   if (isNovaTransacao) transPaginaAtual = 1;
   renderTransacoes({ rapido: true });
+  _transAvisarFiltrosAposSalvar(isNovaTransacao);
   _transAgendarRenderCompletoTransacoes();
 }
 
