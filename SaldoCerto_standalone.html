@@ -1575,43 +1575,113 @@ tr.trans-selected td { background: transparent; }
 
 /* Comprovante de transação */
 .comprovante-wrap {
-  background: linear-gradient(135deg, #F8FAFF 0%, #EFF4FF 100%);
-  border-radius: 12px;
-  padding: 24px;
-  border: 1px solid #DBEAFE;
+  background: #0F172A;
+  border-radius: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.34);
+  box-shadow: 0 20px 48px rgba(15, 23, 42, 0.22);
+  color: #F8FAFC;
+  overflow: hidden;
 }
 .comprovante-header {
-  text-align: center;
-  padding-bottom: 16px;
-  border-bottom: 2px dashed #BFDBFE;
-  margin-bottom: 16px;
+  background: linear-gradient(135deg, #111827 0%, #164E63 100%);
+  border-bottom: 1px dashed rgba(226, 232, 240, 0.42);
+  margin: 0;
+  padding: 20px 22px 18px;
+  text-align: left;
 }
-.comprovante-logo { font-size: 32px; margin-bottom: 6px; }
-.comprovante-empresa { font-size: 13px; font-weight: 700; color: var(--primary); }
-.comprovante-titulo { font-size: 18px; font-weight: 800; color: var(--text); margin: 6px 0 2px; }
-.comprovante-id { font-size: 11px; color: var(--text-light); font-family: var(--font-mono); }
-.comprovante-row {
-  display: flex;
-  justify-content: space-between;
+.comprovante-topline {
   align-items: center;
-  padding: 8px 0;
-  border-bottom: 1px solid #DBEAFE;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+.comprovante-brand {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  min-width: 0;
+}
+.comprovante-logo {
+  align-items: center;
+  background: #E0F2FE;
+  border-radius: 8px;
+  color: #075985;
+  display: inline-flex;
+  flex: 0 0 42px;
+  font-size: 13px;
+  font-weight: 900;
+  height: 42px;
+  justify-content: center;
+}
+.comprovante-empresa { color: #F8FAFC; font-size: 13px; font-weight: 800; }
+.comprovante-id { color: #CBD5E1; font-family: var(--font-mono); font-size: 11px; margin-top: 2px; }
+.comprovante-status {
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 999px;
+  color: #E0F2FE;
+  flex: 0 0 auto;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 7px 10px;
+}
+.comprovante-status.entrada { background: rgba(16, 185, 129, 0.16); color: #A7F3D0; }
+.comprovante-status.saida { background: rgba(239, 68, 68, 0.16); color: #FECACA; }
+.comprovante-status.transferencia { background: rgba(59, 130, 246, 0.18); color: #BFDBFE; }
+.comprovante-status.neutro { background: rgba(148, 163, 184, 0.18); color: #E2E8F0; }
+.comprovante-titulo {
+  color: #FFFFFF;
+  font-size: 18px;
+  font-weight: 850;
+  line-height: 1.35;
+  margin: 18px 0 0;
+  overflow-wrap: anywhere;
+}
+.comprovante-list { padding: 8px 22px 18px; }
+.comprovante-row {
+  align-items: start;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.22);
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(0, 0.85fr) minmax(140px, 1.15fr);
+  padding: 11px 0;
   font-size: 13px;
 }
 .comprovante-row:last-child { border-bottom: none; }
-.comprovante-row-label { color: var(--text-muted); font-weight: 500; }
-.comprovante-row-val   { font-weight: 700; color: var(--text); font-family: var(--font-mono); }
+.comprovante-row-label { color: #94A3B8; font-weight: 700; }
+.comprovante-row-val {
+  color: #F8FAFC;
+  font-family: var(--font-mono);
+  font-weight: 800;
+  overflow-wrap: anywhere;
+  text-align: right;
+}
 .comprovante-total {
-  background: var(--primary);
-  color: #fff;
-  border-radius: 8px;
-  padding: 12px 16px;
-  display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-top: 12px;
+  background: #F8FAFC;
+  color: #0F172A;
+  display: flex;
+  gap: 14px;
+  justify-content: space-between;
+  margin: 0;
+  padding: 16px 22px;
   font-size: 15px;
-  font-weight: 700;
+  font-weight: 800;
+}
+.comprovante-total strong {
+  font-family: var(--font-mono);
+  font-size: 22px;
+  line-height: 1;
+  white-space: nowrap;
+}
+.comprovante-total.entrada strong { color: #00875A; }
+.comprovante-total.saida strong { color: #D93025; }
+.comprovante-total.transferencia strong,
+.comprovante-total.neutro strong { color: #0F172A; }
+@media (max-width: 560px) {
+  .comprovante-topline { align-items: flex-start; flex-direction: column; }
+  .comprovante-row { grid-template-columns: 1fr; gap: 4px; }
+  .comprovante-row-val { text-align: left; }
+  .comprovante-total { align-items: flex-start; flex-direction: column; }
 }
 
 /* Popup saúde */
@@ -6941,16 +7011,8 @@ function _transRenderTabelaTransacoes(dados) {
       <td data-label="Natureza">${escHtml(t.natureza)}</td>
       <td data-label="Decisão">${escHtml(t.decisao)}</td>
       ${(()=>{
-        const tn=(t.tipo_pagamento||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
-        const sn=(t.status_compra||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
-        const nn=(t.natureza||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
-        const isTransferencia = nn==='transferencia' || _transIsTransferenciaLancamento(t);
-        const isNeutro = sn==='neutro' || sn==='30' || tn==='neutro' || isTransferencia;
-        const isEntrada= _transTipoNomeEhEntrada(tn);
-        const isSaida  = _transTipoNomeEhSaida(tn) || (!isEntrada && !isNeutro);
-        const valCls = isNeutro ? 'val-neutral' : isEntrada ? 'val-positive' : isSaida ? 'val-negative' : 'val-neutral';
-        const sinal  = isNeutro ? '' : isEntrada ? '+ ' : isSaida ? '- ' : '';
-        return `<td data-label="Valor" class="${valCls}">${sinal}R$ ${fmtValor(Math.abs(parseFloat(t.valor)||0))}</td>`;
+        const infoValor = _transValorDisplayInfo(t);
+        return `<td data-label="Valor" class="${infoValor.valCls}">${infoValor.sinal}R$ ${fmtValor(infoValor.valor)}</td>`;
       })()}
       <td data-label="Ações" class="actions">
         <div class="actions-cell">
@@ -7570,16 +7632,8 @@ function renderTransacoes(opcoes = {}) {
       <td>${escHtml(t.natureza)}</td>
       <td>${escHtml(t.decisao)}</td>
       ${(()=>{
-        const tn=(t.tipo_pagamento||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
-        const sn=(t.status_compra||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
-        const nn=(t.natureza||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
-        const isTransferencia = nn==='transferencia' || _transIsTransferenciaLancamento(t);
-        const isNeutro = sn==='neutro' || sn==='30' || tn==='neutro' || isTransferencia;
-        const isEntrada= _transTipoNomeEhEntrada(tn);
-        const isSaida  = _transTipoNomeEhSaida(tn) || (!isEntrada && !isNeutro);
-        const valCls = isNeutro ? 'val-neutral' : isEntrada ? 'val-positive' : isSaida ? 'val-negative' : 'val-neutral';
-        const sinal  = isNeutro ? '' : isEntrada ? '+ ' : isSaida ? '- ' : '';
-        return `<td class="${valCls}">${sinal}R$ ${fmtValor(Math.abs(parseFloat(t.valor)||0))}</td>`;
+        const infoValor = _transValorDisplayInfo(t);
+        return `<td class="${infoValor.valCls}">${infoValor.sinal}R$ ${fmtValor(infoValor.valor)}</td>`;
       })()}
       <td class="actions">
         <div class="actions-cell">
@@ -7752,6 +7806,94 @@ function _transTipoNomeEhEntrada(v) {
 function _transTipoNomeEhSaida(v) {
   const n = _transNormTexto(v);
   return n === 'saida' || n === 'despesa' || n === 'debito' || n === 'pagamento';
+}
+
+function _transPerfilNomeNorm(t) {
+  return _transNormTexto(
+    _transNomeColecao('perfis', t?.perfil_despesa_id) ||
+    t?.perfil_despesa ||
+    t?.perfil ||
+    t?.perfil_nome ||
+    ''
+  );
+}
+
+function _transPerfilNomeEhEntrada(v) {
+  const n = _transNormTexto(v);
+  return n === 'receita fixa' ||
+         n === 'receita variavel' ||
+         (n.includes('receita') && (n.includes('fixa') || n.includes('variavel')));
+}
+
+function _transPerfilNomeEhSaida(v) {
+  const n = _transNormTexto(v);
+  return n === 'despesa fixa' ||
+         n === 'despesa variavel' ||
+         (n.includes('despesa') && (n.includes('fixa') || n.includes('variavel')));
+}
+
+function _transPerfilEhEntrada(t) {
+  return _transPerfilNomeEhEntrada(_transPerfilNomeNorm(t));
+}
+
+function _transPerfilEhSaida(t) {
+  return _transPerfilNomeEhSaida(_transPerfilNomeNorm(t));
+}
+
+function _transSinalOperacional(t) {
+  if (_transPerfilEhEntrada(t)) return 1;
+  if (_transPerfilEhSaida(t)) return -1;
+
+  const tipoNome = _transTipoNomeNorm(t);
+  if (_transTipoNomeEhEntrada(tipoNome)) return 1;
+  if (_transTipoNomeEhSaida(tipoNome)) return -1;
+
+  const valorBruto = parseFloat(t?.valor || 0) || 0;
+  return valorBruto < 0 ? -1 : 1;
+}
+
+function _transValorAssinadoOperacional(t) {
+  const valor = Math.abs(parseFloat(t?.valor || 0) || 0);
+  if (!valor) return 0;
+  return valor * _transSinalOperacional(t);
+}
+
+function _transValorDisplayInfo(t) {
+  const valor = Math.abs(parseFloat(t?.valor || 0) || 0);
+  const tipoNome = _transTipoNomeNorm(t);
+  const statusNome = _transNormTexto(_transNomeColecao('status', t?.status_compra_id) || t?.status_compra || '');
+  const isTransferencia = _transIsTransferenciaLancamento(t) || _transTemContaDestinoLegada(t);
+  const isNeutro = isTransferencia || statusNome === 'neutro' || statusNome === '30' || tipoNome === 'neutro';
+
+  if (isTransferencia) {
+    return {
+      valor,
+      sinal: '',
+      valCls: 'val-neutral',
+      movimentoClasse: 'transferencia',
+      movimentoLabel: 'Transfer\u00eancia',
+    };
+  }
+
+  if (isNeutro) {
+    return {
+      valor,
+      sinal: '',
+      valCls: 'val-neutral',
+      movimentoClasse: 'neutro',
+      movimentoLabel: 'Neutro',
+    };
+  }
+
+  const sinalOperacional = _transSinalOperacional(t);
+  const isEntrada = sinalOperacional > 0;
+  return {
+    valor,
+    sinal: isEntrada ? '+ ' : '- ',
+    valCls: isEntrada ? 'val-positive' : 'val-negative',
+    movimentoClasse: isEntrada ? 'entrada' : 'saida',
+    movimentoLabel: isEntrada ? 'Entrada' : 'Sa\u00edda',
+  };
 }
 
 function _transNaturezaIdTransferencia() {
@@ -8714,10 +8856,14 @@ function _transTipoNomeNorm(t) {
 }
 
 function _transIsEntradaOperacional(t) {
+  if (_transPerfilEhEntrada(t)) return true;
+  if (_transPerfilEhSaida(t)) return false;
   return _transTipoNomeEhEntrada(_transTipoNomeNorm(t));
 }
 
 function _transIsSaidaOperacional(t) {
+  if (_transPerfilEhSaida(t)) return true;
+  if (_transPerfilEhEntrada(t)) return false;
   return _transTipoNomeEhSaida(_transTipoNomeNorm(t));
 }
 
@@ -9533,8 +9679,8 @@ function _textoTemAlgum(texto, termos) {
   return termos.some(term => texto.includes(term));
 }
 
-function _isEntrada(t) { return _transTipoNomeEhEntrada(_nomeTipoT(t)); }
-function _isSaida(t)   { return _transTipoNomeEhSaida(_nomeTipoT(t)); }
+function _isEntrada(t) { return _transIsEntradaOperacional(t); }
+function _isSaida(t)   { return _transIsSaidaOperacional(t); }
 function _isNeutro(t)  { const s=_nomeStatusT(t); return s==='neutro'||s==='30'||_transIsTransferenciaLancamento(t); }
 function _isEmprestimo(t) { return _textoTemAlgum(_textoFinanceiroT(t), FIN_KEYWORDS_EMPRESTIMO); }
 function _isInvest(t)  {
@@ -10122,11 +10268,7 @@ function renderUltimas10() {
   }
 
   tb.innerHTML = trans.map(t => {
-    const tn = (tiposD.find(x=>x.id===t.tipo_pagamento_id)?.nome||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
-    const isEntN = _transTipoNomeEhEntrada(tn);
-    const isSaN  = _transTipoNomeEhSaida(tn);
-    const valClass = isEntN ? 'val-positive' : isSaN ? 'val-negative' : 'val-neutral';
-    const sinal    = isEntN ? '+ ' : isSaN ? '- ' : '';
+    const infoValor = _transValorDisplayInfo(t);
     return `<tr>
       <td>${fmtDateStr(_transDataReferencia(t))}</td>
       <td title="${escHtml(t.descricao_tratada||t.descricao||'')}">${escHtml(t.descricao_tratada||t.descricao||'—')}</td>
@@ -10134,7 +10276,7 @@ function renderUltimas10() {
       <td>${escHtml(t._forma)}</td>
       <td>${escHtml(t._cat)}</td>
       <td><span class="badge badge-gray">${escHtml(t._status)}</span></td>
-      <td class="${valClass}">${sinal}R$ ${fmtValor(Math.abs(parseFloat(t.valor)||0))}</td>
+      <td class="${infoValor.valCls}">${infoValor.sinal}R$ ${fmtValor(infoValor.valor)}</td>
     </tr>`;
   }).join('');
 }
@@ -10356,7 +10498,7 @@ function _relNomeStatus(t) {
 }
 function _relIsNeutro(t) { const s=_relNomeStatus(t); return s==='neutro'||s==='30'||_transIsTransferenciaLancamento(t); }
 function _relIsSaida(t) {
-  return _transTipoNomeEhSaida(_transNomeColecao('tipos', t.tipo_pagamento_id));
+  return _transIsSaidaOperacional(t);
 }
 
 /* Agrupa despesas por campo de lookup */
@@ -11063,8 +11205,8 @@ function _adNomeCat(t)      { return (dbLoad('categorias').find(x=>x.id===t.cate
 function _adNomeTipo(t)     { return (dbLoad('tipos').find(x=>x.id===t.tipo_pagamento_id)?.nome||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
 function _adNomeStatus(t)   { return (dbLoad('status').find(x=>x.id===t.status_compra_id)?.nome||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
 function _adIsNeutro(t)     { const s=_adNomeStatus(t); return s==='neutro'||s==='30'||_transIsTransferenciaLancamento(t); }
-function _adIsEntrada(t)    { return _transTipoNomeEhEntrada(_adNomeTipo(t)); }
-function _adIsSaida(t)      { return _transTipoNomeEhSaida(_adNomeTipo(t)); }
+function _adIsEntrada(t)    { return _transIsEntradaOperacional(t); }
+function _adIsSaida(t)      { return _transIsSaidaOperacional(t); }
 function _adIsPerfil(t, p)  { return _adNomePerfil(t).includes(p); }
 function _adIsCat(t, c)     { return _adNomeCat(t).includes(c); }
 
@@ -11346,8 +11488,8 @@ function _orcNomeStatus(t) {
     .normalize('NFD').replace(/[\u0300-\u036f]/g,'');
 }
 function _orcIsNeutro(t)  { const s=_orcNomeStatus(t); return s==='neutro'||s==='30'||_transIsTransferenciaLancamento(t); }
-function _orcIsEntrada(t) { return _transTipoNomeEhEntrada(_orcNomeTipo(t)); }
-function _orcIsSaida(t)   { return _transTipoNomeEhSaida(_orcNomeTipo(t)); }
+function _orcIsEntrada(t) { return _transIsEntradaOperacional(t); }
+function _orcIsSaida(t)   { return _transIsSaidaOperacional(t); }
 
 /* -- RENDER PRINCIPAL -- */
 function renderOrcamentos() {
@@ -12641,8 +12783,8 @@ function _simNomeSubcat(t) {
     .toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
 }
 function _simIsNeutro(t) { const s=_simNomeStatus(t); return s==='neutro'||s==='30'||_transIsTransferenciaLancamento(t); }
-function _simIsEntrada(t){ return _transTipoNomeEhEntrada(_simNomeTipo(t)); }
-function _simIsSaida(t)  { return _transTipoNomeEhSaida(_simNomeTipo(t)); }
+function _simIsEntrada(t){ return _transIsEntradaOperacional(t); }
+function _simIsSaida(t)  { return _transIsSaidaOperacional(t); }
 function _simIsDespFixa(t) {
   const p = _simNomePerfil(t);
   return p==='despesa fixa' || (p.includes('despesa')&&p.includes('fixa'));
@@ -15565,44 +15707,56 @@ function verTransacao(id) {
   const naturezaNome = _transNatureza(t) || '—';
   const decisaoNome = _transDecisao(t) || '—';
   const obsTexto   = _transObservacoesTexto(t);
-  const valor      = parseFloat(t.valor)||0;
-  const isSaida    = _transTipoNomeEhSaida(tipoNome);
-  const corValor   = isSaida ? '#D93025' : '#00875A';
+  const infoValor  = _transValorDisplayInfo(t);
+  const valorTexto = `${infoValor.sinal}R$ ${fmtValor(infoValor.valor)}`;
+  const totalLabel = infoValor.movimentoClasse === 'transferencia'
+    ? 'Valor transferido'
+    : 'Valor da movimenta\u00e7\u00e3o';
 
   const idCurto = (t.id||'').slice(-8).toUpperCase();
 
   document.getElementById('transViewBody').innerHTML = `
     <div class="comprovante-wrap">
       <div class="comprovante-header">
-        <div class="comprovante-logo">🧾</div>
-        <div class="comprovante-empresa">Saldo Certo</div>
+        <div class="comprovante-topline">
+          <div class="comprovante-brand">
+            <div class="comprovante-logo">SC</div>
+            <div>
+              <div class="comprovante-empresa">Saldo Certo</div>
+              <div class="comprovante-id">ID #${idCurto}</div>
+            </div>
+          </div>
+          <span class="comprovante-status ${infoValor.movimentoClasse}">${infoValor.movimentoLabel}</span>
+        </div>
         <div class="comprovante-titulo">${escHtml(t.descricao_tratada || t.descricao)}</div>
-        <div class="comprovante-id">ID #${idCurto}</div>
       </div>
 
-      ${[
-        ['Data da baixa',    fmtDateStr(_transDataCompetencia(t))],
-        ['Data da transação',fmtDateStr(_transDataContabil(t))],
-        ['Perfil da despesa',perfilNome],
-        ['Conta',            cartaoNome],
-        contaDestinoNome ? ['Conta de destino', contaDestinoNome] : null,
-        ['Natureza',         naturezaNome],
-        ['Decisão',          decisaoNome],
-        ['Forma de pagamento', formaNome],
-        ['Categoria',        catNome],
-        ['Subcategoria',     subcatNome],
-        ['Status',           statusNome],
-        t.parcelado==='Sim' ? ['Parcelas', `${t.parcela_atual||'?'}/${t.parcela_maxima||'?'}`] : null,
-      obsTexto ? ['Observações', obsTexto] : null,
-      ].filter(Boolean).map(([l,v])=>`
-        <div class="comprovante-row">
-          <span class="comprovante-row-label">${l}</span>
-          <span class="comprovante-row-val">${escHtml(String(v))}</span>
-        </div>`).join('')}
+      <div class="comprovante-total ${infoValor.movimentoClasse}">
+        <span>${totalLabel}</span>
+        <strong>${valorTexto}</strong>
+      </div>
 
-      <div class="comprovante-total">
-        <span>Valor</span>
-        <span style="color:#fff;font-size:20px;font-family:var(--font-mono)">${isSaida?'-':'+'} R$ ${fmtValor(valor)}</span>
+      <div class="comprovante-list">
+        ${[
+          ['Data da baixa',    fmtDateStr(_transDataCompetencia(t))],
+          ['Data da transa\u00e7\u00e3o', fmtDateStr(_transDataContabil(t))],
+          ['Movimenta\u00e7\u00e3o', infoValor.movimentoLabel],
+          ['Perfil', perfilNome],
+          ['Conta', cartaoNome],
+          contaDestinoNome ? ['Conta de destino', contaDestinoNome] : null,
+          ['Natureza', naturezaNome],
+          ['Decis\u00e3o', decisaoNome],
+          ['Forma de pagamento', formaNome],
+          ['Categoria', catNome],
+          ['Subcategoria', subcatNome],
+          ['Status', statusNome],
+          t.parcelado==='Sim' ? ['Parcelas', `${t.parcela_atual||'?'}/${t.parcela_maxima||'?'}`] : null,
+          obsTexto ? ['Observa\u00e7\u00f5es', obsTexto] : null,
+        ].filter(Boolean).map(([l,v])=>`
+          <div class="comprovante-row">
+            <span class="comprovante-row-label">${l}</span>
+            <span class="comprovante-row-val">${escHtml(String(v))}</span>
+          </div>`).join('')}
       </div>
     </div>`;
 
@@ -15766,10 +15920,7 @@ function _cartoesValorMovimentoConta(t, contaId) {
   }
 
   if (!_transContaOrigemEhConta(t, contaId)) return 0;
-  const tipoNome = _transNomeColecao('tipos', t?.tipo_pagamento_id) || t?.tipo_pagamento || '';
-  if (_transTipoNomeEhEntrada(tipoNome)) return valor;
-  if (_transTipoNomeEhSaida(tipoNome)) return -valor;
-  return valorBruto < 0 ? -valor : valor;
+  return _transValorAssinadoOperacional(t);
 }
 
 function _cartoesSaldoConta(contaId) {
@@ -16646,10 +16797,7 @@ function _transValorExportacaoConta(t, contaReferenciaId) {
     if (sinalTransferencia) return valor * sinalTransferencia;
   }
 
-  const tipoNome = _transNomeColecao('tipos', t?.tipo_pagamento_id) || t?.tipo_pagamento || '';
-  if (_transTipoNomeEhEntrada(tipoNome)) return valor;
-  if (_transTipoNomeEhSaida(tipoNome)) return -valor;
-  return valorBruto < 0 ? -valor : valor;
+  return _transValorAssinadoOperacional(t);
 }
 
 function exportarTransacoes() {
