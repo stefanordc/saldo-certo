@@ -3466,6 +3466,9 @@ body.theme-dark #page-relatorios .rel-summary-table tbody tr:hover {
           <button class="btn-mes-anterior" id="btnMesAnterior" onclick="filtroMesAnterior()">
             ◀ Mês Anterior
           </button>
+          <button class="btn-mes-anterior" id="btnProximoMes" onclick="filtroProximoMes()">
+            Próximo Mês ▶
+          </button>
           <button class="btn btn-ghost btn-sm" onclick="abrirImportacao()" title="Importar transações em CSV ou XLSX">
             &#8593; Importar
           </button>
@@ -7152,35 +7155,42 @@ function filtroMesAtual() {
   document.getElementById('fil-data-ate').value = periodo.ate;
   // Desativar Mês Anterior se estiver ativo
   document.getElementById('btnMesAnterior')?.classList.remove('ativo');
+  document.getElementById('btnProximoMes')?.classList.remove('ativo');
   document.getElementById('btnMesAtual')?.classList.add('ativo');
   renderTransacoes();
 }
 
-function filtroMesAnterior() {
+function _transMesBaseFiltro() {
   const deEl  = document.getElementById('fil-data-de');
-  const ateEl = document.getElementById('fil-data-ate');
-
-  // Descobrir o mês atualmente exibido
-  let baseAno, baseMes;
   if (deEl?.value) {
     const [y, m] = deEl.value.split('-').map(Number);
-    baseAno = y;
-    baseMes = m - 1; // 0-indexed
-  } else {
-    const [y, m] = _transMesReferenciaAtual().split('-').map(Number);
-    baseAno = y;
-    baseMes = m - 1; // 0-indexed
+    if (Number.isFinite(y) && Number.isFinite(m)) return { ano: y, mes: m - 1 };
   }
+  const [y, m] = _transMesReferenciaAtual().split('-').map(Number);
+  return { ano: y, mes: m - 1 };
+}
 
-  // Voltar um mês
-  const inicio = new Date(baseAno, baseMes - 1, 1);
-  const fim    = new Date(baseAno, baseMes, 0);
+function _transAplicarMesRelativo(delta, botaoAtivoId) {
+  const deEl  = document.getElementById('fil-data-de');
+  const ateEl = document.getElementById('fil-data-ate');
+  const base = _transMesBaseFiltro();
+  const inicio = new Date(base.ano, base.mes + delta, 1);
+  const fim    = new Date(base.ano, base.mes + delta + 1, 0);
   if (deEl)  deEl.value  = inicio.toISOString().slice(0, 10);
   if (ateEl) ateEl.value = fim.toISOString().slice(0, 10);
 
-  document.getElementById('btnMesAtual')?.classList.remove('ativo');
-  document.getElementById('btnMesAnterior')?.classList.add('ativo');
+  ['btnMesAtual', 'btnMesAnterior', 'btnProximoMes'].forEach(id => {
+    document.getElementById(id)?.classList.toggle('ativo', id === botaoAtivoId);
+  });
   renderTransacoes();
+}
+
+function filtroMesAnterior() {
+  _transAplicarMesRelativo(-1, 'btnMesAnterior');
+}
+
+function filtroProximoMes() {
+  _transAplicarMesRelativo(1, 'btnProximoMes');
 }
 
 /* Limpa todos os filtros */
@@ -7191,7 +7201,9 @@ function limparFiltros() {
     const el = document.getElementById(id);
     if (el) el.value = '';
   });
-  document.getElementById('btnMesAnterior').classList.remove('ativo');
+  ['btnMesAtual', 'btnMesAnterior', 'btnProximoMes'].forEach(id => {
+    document.getElementById(id)?.classList.remove('ativo');
+  });
   renderTransacoes();
 }
 
@@ -7265,7 +7277,9 @@ function atualizarChips(f) {
     chips.push({ label: `Data: ${de} → ${ate}`, clear: () => {
       document.getElementById('fil-data-de').value = '';
       document.getElementById('fil-data-ate').value = '';
-      document.getElementById('btnMesAnterior').classList.remove('ativo');
+      ['btnMesAtual', 'btnMesAnterior', 'btnProximoMes'].forEach(id => {
+        document.getElementById(id)?.classList.remove('ativo');
+      });
       renderTransacoes();
     }});
   }
@@ -15860,7 +15874,12 @@ function showPage(id) {
     // Só aplicar se os campos estiverem vazios (não sobrescrever filtro manual)
     if (de && !de.value) de.value = periodo.de;
     if (ate && !ate.value) ate.value = periodo.ate;
-    document.getElementById('btnMesAtual')?.classList.add('ativo');
+    const ehMesAtual = de?.value === periodo.de && ate?.value === periodo.ate;
+    document.getElementById('btnMesAtual')?.classList.toggle('ativo', ehMesAtual);
+    if (ehMesAtual) {
+      document.getElementById('btnMesAnterior')?.classList.remove('ativo');
+      document.getElementById('btnProximoMes')?.classList.remove('ativo');
+    }
   }
 
   // Atualiza botões do sidebar
