@@ -15665,8 +15665,9 @@ function _cartoesValorMovimentoConta(t, contaId) {
   const valorBruto = parseFloat(t?.valor || 0) || 0;
   const valor = Math.abs(valorBruto);
   if (!valor || !contaId) return 0;
+  const destinoDiretoId = _transContaDestinoLegadaId(t);
 
-  if (_transIsTransferenciaLancamento(t)) {
+  if (_transIsTransferenciaLancamento(t) || (destinoDiretoId && !_dbSameId(destinoDiretoId, t?.cartao_id))) {
     const sinalTransferencia = typeof _transSinalTransferenciaConta === 'function'
       ? _transSinalTransferenciaConta(t, contaId)
       : 0;
@@ -16525,9 +16526,8 @@ function _transSinalTransferenciaConta(t, contaReferenciaId) {
   const isEntrada = _transIsEntradaOperacional(t);
 
   if (contaMovimentoId && contaDestinoDiretaId && !_dbSameId(contaMovimentoId, contaDestinoDiretaId)) {
-    const sinalMovimento = isEntrada ? 1 : -1;
-    if (_dbSameId(contaMovimentoId, contaReferenciaId)) return sinalMovimento;
-    if (_dbSameId(contaDestinoDiretaId, contaReferenciaId)) return -sinalMovimento;
+    if (_dbSameId(contaMovimentoId, contaReferenciaId)) return -1;
+    if (_dbSameId(contaDestinoDiretaId, contaReferenciaId)) return 1;
   }
 
   const fluxo = _transOrigemDestinoTransferencia(t);
@@ -16542,7 +16542,8 @@ function _transValorExportacaoConta(t, contaReferenciaId) {
   const valor = Math.abs(valorBruto);
   if (!valor) return 0;
 
-  if (contaReferenciaId && _transIsTransferenciaLancamento(t)) {
+  const destinoDiretoId = _transContaDestinoLegadaId(t);
+  if (contaReferenciaId && (_transIsTransferenciaLancamento(t) || (destinoDiretoId && !_dbSameId(destinoDiretoId, t?.cartao_id)))) {
     const sinalTransferencia = _transSinalTransferenciaConta(t, contaReferenciaId);
     if (sinalTransferencia) return valor * sinalTransferencia;
   }
