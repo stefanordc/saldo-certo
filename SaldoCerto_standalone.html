@@ -8701,13 +8701,14 @@ function _transIsEntradaTransferenciaLegadaDuplicada(t, todas = dbLoad('transaco
   const contaOrigemId = _transContaDestinoLegadaId(t);
   const contaDestinoId = t?.cartao_id || '';
   if (!contaOrigemId || !contaDestinoId) return false;
+  const valorEntrada = Math.abs(parseFloat(t.valor) || 0);
   return todas.some(x =>
     !_dbSameId(x.id, t.id) &&
     _transIsTransferenciaLancamento(x) &&
     !_transIsEntradaOperacional(x) &&
+    Math.abs(parseFloat(x.valor) || 0) === valorEntrada &&
     _dbSameId(x.cartao_id, contaOrigemId) &&
-    _dbSameId(_transContaDestinoLegadaId(x), contaDestinoId) &&
-    _transPontuarParTransferencia(t, x) > 0
+    _dbSameId(_transContaDestinoLegadaId(x), contaDestinoId)
   );
 }
 
@@ -16519,13 +16520,20 @@ function _transContaExportacaoOptions() {
 
 function _transSinalTransferenciaConta(t, contaReferenciaId) {
   if (!contaReferenciaId) return 0;
+  const contaMovimentoId = t?.cartao_id || '';
+  const contaDestinoDiretaId = _transContaDestinoLegadaId(t);
+  const isEntrada = _transIsEntradaOperacional(t);
+
+  if (contaMovimentoId && contaDestinoDiretaId && !_dbSameId(contaMovimentoId, contaDestinoDiretaId)) {
+    const sinalMovimento = isEntrada ? 1 : -1;
+    if (_dbSameId(contaMovimentoId, contaReferenciaId)) return sinalMovimento;
+    if (_dbSameId(contaDestinoDiretaId, contaReferenciaId)) return -sinalMovimento;
+  }
+
   const fluxo = _transOrigemDestinoTransferencia(t);
   if (fluxo?.origem?.cartao_id && _dbSameId(fluxo.origem.cartao_id, contaReferenciaId)) return -1;
   if (fluxo?.destinoId && _dbSameId(fluxo.destinoId, contaReferenciaId)) return 1;
-  const contaMovimentoId = t?.cartao_id || '';
-  const contaDestinoDiretaId = _transContaDestinoLegadaId(t);
-  if (contaMovimentoId && _dbSameId(contaMovimentoId, contaReferenciaId)) return -1;
-  if (contaDestinoDiretaId && _dbSameId(contaDestinoDiretaId, contaReferenciaId)) return 1;
+  if (contaMovimentoId && _dbSameId(contaMovimentoId, contaReferenciaId)) return isEntrada ? 1 : -1;
   return 0;
 }
 
