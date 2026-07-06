@@ -8741,24 +8741,50 @@ function _transPontuarParTransferencia(a, b) {
   return score;
 }
 
-function _transIsEntradaTransferenciaLegadaDuplicada(t, todas = dbLoad('transacoes')) {
+function _transParSaidaTransferenciaLegada(t, todas = dbLoad('transacoes')) {
   if (!_transIsTransferenciaLancamento(t) || !_transIsEntradaOperacional(t)) return false;
-  const contaOrigemId = _transContaDestinoLegadaId(t);
   const contaDestinoId = t?.cartao_id || '';
-  if (!contaOrigemId || !contaDestinoId) return false;
+  if (!contaDestinoId) return null;
   const valorEntrada = Math.abs(parseFloat(t.valor) || 0);
-  return todas.some(x =>
-    !_dbSameId(x.id, t.id) &&
-    _transIsTransferenciaLancamento(x) &&
-    !_transIsEntradaOperacional(x) &&
-    Math.abs(parseFloat(x.valor) || 0) === valorEntrada &&
-    _dbSameId(x.cartao_id, contaOrigemId) &&
-    _dbSameId(_transContaDestinoLegadaId(x), contaDestinoId)
-  );
+  return (todas || [])
+    .map(x => ({ item: x, score: _transPontuarParTransferencia(t, x) }))
+    .filter(x =>
+      x.score > 0 &&
+      _transIsTransferenciaLancamento(x.item) &&
+      !_transIsEntradaOperacional(x.item) &&
+      !_dbSameId(x.item.cartao_id, contaDestinoId) &&
+      Math.abs(parseFloat(x.item.valor) || 0) === valorEntrada
+    )
+    .sort((a, b) => b.score - a.score)
+    .map(x => x.item)[0] || null;
+}
+
+function _transIsEntradaTransferenciaLegadaDuplicada(t, todas = dbLoad('transacoes')) {
+  return !!_transParSaidaTransferenciaLegada(t, todas);
 }
 
 function _transTransacoesCanonicas(transacoes = dbLoad('transacoes')) {
-  return transacoes.filter(t => !_transIsEntradaTransferenciaLegadaDuplicada(t, transacoes));
+  const remover = new Set();
+  const atualizacoes = new Map();
+
+  (transacoes || []).forEach(t => {
+    const parSaida = _transParSaidaTransferenciaLegada(t, transacoes);
+    if (!parSaida) return;
+
+    const destinoId = t?.cartao_id || _transContaDestinoLegadaId(parSaida);
+    if (!destinoId) return;
+
+    remover.add(String(t.id));
+    const parId = String(parSaida.id);
+    atualizacoes.set(parId, {
+      ...(atualizacoes.get(parId) || parSaida),
+      conta_destino_id: destinoId,
+    });
+  });
+
+  return (transacoes || [])
+    .filter(t => !remover.has(String(t.id)))
+    .map(t => atualizacoes.get(String(t.id)) || t);
 }
 
 function _transEliminarTransferenciasDuplicadasLegadas(opcoes = {}) {
@@ -8768,7 +8794,18 @@ function _transEliminarTransferenciasDuplicadasLegadas(opcoes = {}) {
   if (!duplicadas.length) return 0;
 
   const remover = new Set(duplicadas.map(t => String(t.id)));
-  const limpas = todas.filter(t => !remover.has(String(t.id)));
+  const atualizacoes = new Map();
+  duplicadas.forEach(t => {
+    const parSaida = _transParSaidaTransferenciaLegada(t, todas);
+    if (!parSaida || !t?.cartao_id) return;
+    atualizacoes.set(String(parSaida.id), {
+      ...(atualizacoes.get(String(parSaida.id)) || parSaida),
+      conta_destino_id: t.cartao_id,
+    });
+  });
+  const limpas = todas
+    .filter(t => !remover.has(String(t.id)))
+    .map(t => atualizacoes.get(String(t.id)) || t);
   dbSave('transacoes', limpas);
   duplicadas.forEach(t => {
     if (t.id && typeof _sbDelete === 'function') _sbDelete('transacoes', t.id);
