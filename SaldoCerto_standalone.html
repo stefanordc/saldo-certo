@@ -8479,6 +8479,29 @@ function _transResolverContaId(valor) {
          '';
 }
 
+function _transContaValorBruto(valor) {
+  let raw = valor;
+  if (raw && typeof raw === 'object') {
+    raw = raw.id || raw.cartao_id || raw.conta_id || raw.nome || raw.name || raw.titulo || '';
+  }
+  return (raw || '').toString().trim();
+}
+
+function _transContaValorEhConta(valor, contaId) {
+  const raw = _transContaValorBruto(valor);
+  if (!raw || !contaId) return false;
+  if (_dbSameId(raw, contaId)) return true;
+
+  const resolvido = _transResolverContaId(raw);
+  if (resolvido && _dbSameId(resolvido, contaId)) return true;
+
+  const conta = dbLoad('cartoes').find(c => _dbSameId(c.id, contaId));
+  if (!conta?.nome) return false;
+  const rawNorm = _transNormTexto(raw);
+  const nomeNorm = _transNormTexto(conta.nome);
+  return !!rawNorm && !!nomeNorm && (rawNorm === nomeNorm || rawNorm.includes(nomeNorm) || nomeNorm.includes(rawNorm));
+}
+
 function _transFirstValue(obj, keys) {
   for (const key of keys) {
     if (!obj || !(key in obj)) continue;
@@ -8488,6 +8511,52 @@ function _transFirstValue(obj, keys) {
     return value;
   }
   return '';
+}
+
+function _transContaOrigemEhConta(t, contaId) {
+  return [
+    t?.cartao_id,
+    t?.conta_id,
+    t?.cartao,
+    t?.conta,
+    t?.origem_id,
+    t?.origem,
+  ].some(valor => _transContaValorEhConta(valor, contaId));
+}
+
+function _transContaDestinoLegadaValores(t) {
+  const meta = _transSplitObservacoes(t?.observacoes).meta || {};
+  const chaves = [
+    'conta_destino_id',
+    'contaDestinoId',
+    'contaDestino_id',
+    'conta_destino',
+    'contaDestino',
+    'conta_destino_uuid',
+    'contaDestinoUuid',
+    'cartao_destino_id',
+    'cartaoDestinoId',
+    'cartao_destino',
+    'cartaoDestino',
+    'destino_id',
+    'destino',
+  ];
+  return [
+    ...chaves.map(chave => t?.[chave]),
+    ...chaves.map(chave => meta?.[chave]),
+  ].map(_transContaValorBruto).filter(Boolean);
+}
+
+function _transContaDestinoLegadaValor(t) {
+  return _transContaDestinoLegadaValores(t)[0] || '';
+}
+
+function _transTemContaDestinoLegada(t) {
+  return _transContaDestinoLegadaValores(t).length > 0;
+}
+
+function _transContaDestinoEhConta(t, contaId) {
+  return _transContaDestinoLegadaValores(t).some(valor => _transContaValorEhConta(valor, contaId));
 }
 
 function _transLookupIdByValues(colecao, ...valores) {
@@ -8551,35 +8620,11 @@ function _transParceladoValue(value, base) {
 }
 
 function _transContaDestinoLegadaId(t) {
-  const meta = _transSplitObservacoes(t?.observacoes).meta || {};
-  return _transResolverContaId(
-    t?.conta_destino_id ||
-    t?.contaDestinoId ||
-    t?.contaDestino_id ||
-    t?.conta_destino ||
-    t?.contaDestino ||
-    t?.conta_destino_uuid ||
-    t?.contaDestinoUuid ||
-    t?.cartao_destino_id ||
-    t?.cartaoDestinoId ||
-    t?.cartao_destino ||
-    t?.cartaoDestino ||
-    t?.destino_id ||
-    t?.destino ||
-    meta.conta_destino_id ||
-    meta.contaDestinoId ||
-    meta.contaDestino_id ||
-    meta.conta_destino ||
-    meta.contaDestino ||
-    meta.conta_destino_uuid ||
-    meta.contaDestinoUuid ||
-    meta.cartao_destino_id ||
-    meta.cartaoDestinoId ||
-    meta.cartao_destino ||
-    meta.cartaoDestino ||
-    meta.destino_id ||
-    meta.destino
-  );
+  for (const valor of _transContaDestinoLegadaValores(t)) {
+    const id = _transResolverContaId(valor);
+    if (id) return id;
+  }
+  return '';
 }
 
 function _transAplicarTransferenciaNoForm() {
@@ -15665,16 +15710,21 @@ function _cartoesValorMovimentoConta(t, contaId) {
   const valorBruto = parseFloat(t?.valor || 0) || 0;
   const valor = Math.abs(valorBruto);
   if (!valor || !contaId) return 0;
-  const destinoDiretoId = _transContaDestinoLegadaId(t);
 
-  if (_transIsTransferenciaLancamento(t) || (destinoDiretoId && !_dbSameId(destinoDiretoId, t?.cartao_id))) {
+  if (_transTemContaDestinoLegada(t)) {
+    if (_transContaDestinoEhConta(t, contaId)) return valor;
+    if (_transContaOrigemEhConta(t, contaId)) return -valor;
+    return 0;
+  }
+
+  if (_transIsTransferenciaLancamento(t)) {
     const sinalTransferencia = typeof _transSinalTransferenciaConta === 'function'
       ? _transSinalTransferenciaConta(t, contaId)
       : 0;
     return sinalTransferencia ? valor * sinalTransferencia : 0;
   }
 
-  if (!_dbSameId(t.cartao_id, contaId)) return 0;
+  if (!_transContaOrigemEhConta(t, contaId)) return 0;
   const tipoNome = _transNomeColecao('tipos', t?.tipo_pagamento_id) || t?.tipo_pagamento || '';
   if (_transTipoNomeEhEntrada(tipoNome)) return valor;
   if (_transTipoNomeEhSaida(tipoNome)) return -valor;
@@ -16521,19 +16571,18 @@ function _transContaExportacaoOptions() {
 
 function _transSinalTransferenciaConta(t, contaReferenciaId) {
   if (!contaReferenciaId) return 0;
-  const contaMovimentoId = t?.cartao_id || '';
-  const contaDestinoDiretaId = _transContaDestinoLegadaId(t);
   const isEntrada = _transIsEntradaOperacional(t);
 
-  if (contaMovimentoId && contaDestinoDiretaId && !_dbSameId(contaMovimentoId, contaDestinoDiretaId)) {
-    if (_dbSameId(contaMovimentoId, contaReferenciaId)) return -1;
-    if (_dbSameId(contaDestinoDiretaId, contaReferenciaId)) return 1;
+  if (_transTemContaDestinoLegada(t)) {
+    if (_transContaDestinoEhConta(t, contaReferenciaId)) return 1;
+    if (_transContaOrigemEhConta(t, contaReferenciaId)) return -1;
+    return 0;
   }
 
   const fluxo = _transOrigemDestinoTransferencia(t);
   if (fluxo?.origem?.cartao_id && _dbSameId(fluxo.origem.cartao_id, contaReferenciaId)) return -1;
   if (fluxo?.destinoId && _dbSameId(fluxo.destinoId, contaReferenciaId)) return 1;
-  if (contaMovimentoId && _dbSameId(contaMovimentoId, contaReferenciaId)) return isEntrada ? 1 : -1;
+  if (_transContaOrigemEhConta(t, contaReferenciaId)) return isEntrada ? 1 : -1;
   return 0;
 }
 
@@ -16542,8 +16591,7 @@ function _transValorExportacaoConta(t, contaReferenciaId) {
   const valor = Math.abs(valorBruto);
   if (!valor) return 0;
 
-  const destinoDiretoId = _transContaDestinoLegadaId(t);
-  if (contaReferenciaId && (_transIsTransferenciaLancamento(t) || (destinoDiretoId && !_dbSameId(destinoDiretoId, t?.cartao_id)))) {
+  if (contaReferenciaId && (_transIsTransferenciaLancamento(t) || _transTemContaDestinoLegada(t))) {
     const sinalTransferencia = _transSinalTransferenciaConta(t, contaReferenciaId);
     if (sinalTransferencia) return valor * sinalTransferencia;
   }
