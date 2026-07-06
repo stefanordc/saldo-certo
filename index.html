@@ -7626,16 +7626,6 @@ function contarFiltrosAtivos(f) {
   return n;
 }
 
-function _transHaFiltrosOuBuscaAtivos() {
-  const busca = (document.getElementById('transSearch')?.value || '').trim();
-  return !!busca || contarFiltrosAtivos(coletarFiltros()) > 0;
-}
-
-function _transAvisarFiltrosAposSalvar(isNovaTransacao) {
-  if (!isNovaTransacao || !_transHaFiltrosOuBuscaAtivos()) return;
-  toast('Movimentação salva. Filtros ou pesquisa ativos podem ocultar o lançamento.', 'info');
-}
-
 /* Atualiza os chips de filtros ativos */
 function atualizarChips(f) {
   const container = document.getElementById('filtrosAtivos');
@@ -9691,7 +9681,6 @@ function saveTransacao() {
   closeTransModal();
   if (isNovaTransacao) transPaginaAtual = 1;
   renderTransacoes({ rapido: true });
-  _transAvisarFiltrosAposSalvar(isNovaTransacao);
   _transAgendarRenderCompletoTransacoes();
 }
 
