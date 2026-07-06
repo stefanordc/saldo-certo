@@ -8870,10 +8870,14 @@ function _transContaValorEhConta(valor, contaId) {
   const resolvido = _transResolverContaId(raw);
   if (resolvido && _dbSameId(resolvido, contaId)) return true;
 
-  const conta = dbLoad('cartoes').find(c => _dbSameId(c.id, contaId));
+  const contas = dbLoad('cartoes');
+  const conta = contas.find(c => _dbSameId(c.id, contaId));
   if (!conta?.nome) return false;
+  const contaResolvida = resolvido ? contas.find(c => _dbSameId(c.id, resolvido)) : null;
   const rawNorm = _transNormTexto(raw);
   const nomeNorm = _transNormTexto(conta.nome);
+  const nomeResolvidoNorm = _transNormTexto(contaResolvida?.nome);
+  if (nomeResolvidoNorm && nomeResolvidoNorm === nomeNorm) return true;
   return !!rawNorm && !!nomeNorm && (rawNorm === nomeNorm || rawNorm.includes(nomeNorm) || nomeNorm.includes(rawNorm));
 }
 
