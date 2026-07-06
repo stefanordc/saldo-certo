@@ -15661,21 +15661,22 @@ function _cartoesContaNome(contaId) {
 }
 
 function _cartoesValorMovimentoConta(t, contaId) {
-  const valor = Math.abs(parseFloat(t?.valor) || 0);
+  const valorBruto = parseFloat(t?.valor || 0) || 0;
+  const valor = Math.abs(valorBruto);
   if (!valor || !contaId) return 0;
 
   if (_transIsTransferenciaLancamento(t)) {
-    if (_dbSameId(t.cartao_id, contaId)) return -valor;
-    const destinoId = _transContaDestinoLegadaId(t);
-    if (destinoId && _dbSameId(destinoId, contaId)) return valor;
-    return 0;
+    const sinalTransferencia = typeof _transSinalTransferenciaConta === 'function'
+      ? _transSinalTransferenciaConta(t, contaId)
+      : 0;
+    return sinalTransferencia ? valor * sinalTransferencia : 0;
   }
 
   if (!_dbSameId(t.cartao_id, contaId)) return 0;
   const tipoNome = _transNomeColecao('tipos', t?.tipo_pagamento_id) || t?.tipo_pagamento || '';
   if (_transTipoNomeEhEntrada(tipoNome)) return valor;
   if (_transTipoNomeEhSaida(tipoNome)) return -valor;
-  return 0;
+  return valorBruto < 0 ? -valor : valor;
 }
 
 function _cartoesSaldoConta(contaId) {
@@ -16473,10 +16474,13 @@ function impExecutar() {
       };
 
       if (transferenciaImportada && contaDestinoId && contaDestinoId !== contaOrigemId) {
-        transacoes.push(
-          { ...nova, id: uid(), cartao_id: contaOrigemId, conta_destino_id: contaDestinoId, tipo_pagamento_id: _transTipoSaidaId() },
-          { ...nova, id: uid(), cartao_id: contaDestinoId, conta_destino_id: contaOrigemId, tipo_pagamento_id: _transTipoEntradaId() }
-        );
+        transacoes.push({
+          ...nova,
+          id: uid(),
+          cartao_id: contaOrigemId,
+          conta_destino_id: contaDestinoId,
+          tipo_pagamento_id: _transTipoSaidaId()
+        });
       } else {
         transacoes.push(nova);
       }
@@ -16514,13 +16518,14 @@ function _transContaExportacaoOptions() {
 }
 
 function _transSinalTransferenciaConta(t, contaReferenciaId) {
+  if (!contaReferenciaId) return 0;
+  const fluxo = _transOrigemDestinoTransferencia(t);
+  if (fluxo?.origem?.cartao_id && _dbSameId(fluxo.origem.cartao_id, contaReferenciaId)) return -1;
+  if (fluxo?.destinoId && _dbSameId(fluxo.destinoId, contaReferenciaId)) return 1;
   const contaMovimentoId = t?.cartao_id || '';
   const contaDestinoDiretaId = _transContaDestinoLegadaId(t);
   if (contaMovimentoId && _dbSameId(contaMovimentoId, contaReferenciaId)) return -1;
   if (contaDestinoDiretaId && _dbSameId(contaDestinoDiretaId, contaReferenciaId)) return 1;
-  const fluxo = _transOrigemDestinoTransferencia(t);
-  if (fluxo?.origem?.cartao_id && _dbSameId(fluxo.origem.cartao_id, contaReferenciaId)) return -1;
-  if (fluxo?.destinoId && _dbSameId(fluxo.destinoId, contaReferenciaId)) return 1;
   return 0;
 }
 
