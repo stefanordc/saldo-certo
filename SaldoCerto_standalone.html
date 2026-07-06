@@ -7729,6 +7729,10 @@ function _transDescricaoEhIfood(valor) {
   return _transNormDescricaoChave(valor) === 'ifood';
 }
 
+function _transDescricaoEhTransporteApp(valor) {
+  return ['uber', '99pop'].includes(_transNormDescricaoChave(valor));
+}
+
 function _transDescricoesDoForm() {
   return [
     document.getElementById('f-descricao')?.value || '',
@@ -7756,6 +7760,10 @@ function _transFormDescricaoEhIfood() {
   return _transDescricoesDoForm().some(_transDescricaoEhIfood);
 }
 
+function _transFormDescricaoEhTransporteApp() {
+  return _transDescricoesDoForm().some(_transDescricaoEhTransporteApp);
+}
+
 function _transAplicarPixPorDescricao() {
   const descricoes = _transDescricoesDoForm();
   if (_transFormDescricaoEhSupermercadosBH()) {
@@ -7772,6 +7780,10 @@ function _transAplicarPixPorDescricao() {
   }
   if (_transFormDescricaoEhIfood()) {
     _transAplicarClassificacaoIfood();
+    return true;
+  }
+  if (_transFormDescricaoEhTransporteApp()) {
+    _transAplicarClassificacaoTransporteApp();
     return true;
   }
   if (descricoes.some(_transDescricaoComecaComPix)) {
@@ -7822,6 +7834,10 @@ function _transCategoriaLazerId() {
 
 function _transCategoriaSaudeId() {
   return _transEnsureConfigId('categorias', 'Saúde', ['Saude']);
+}
+
+function _transCategoriaTransporteId() {
+  return _transEnsureConfigId('categorias', 'Transporte');
 }
 
 function _transNaturezaRecuperacaoId() {
@@ -7875,6 +7891,10 @@ function _transSubcategoriaBaresId(categoriaId) {
 
 function _transSubcategoriaFarmaciaId(categoriaId) {
   return _transEnsureSubcategoriaPorNome('Farmácia', categoriaId, ['Farmacia']);
+}
+
+function _transSubcategoriaUber99Id(categoriaId) {
+  return _transEnsureSubcategoriaPorNome('Uber / 99', categoriaId);
 }
 
 function _transCategoriaOutrosId() {
@@ -8071,6 +8091,27 @@ function _transClassificacaoIfoodIds() {
 function _transAplicarClassificacaoIfood() {
   if (!_transFormDescricaoEhIfood()) return false;
   const ids = _transClassificacaoIfoodIds();
+  _transSetSelectValue('f-categoria', 'categorias', ids.categoriaId);
+  _transSetSelectValue('f-subcategoria', 'subcategorias', ids.subcategoriaId);
+  _transSetSelectValue('f-natureza', 'naturezas', ids.naturezaId);
+  _transSetSelectValue('f-decisao', 'decisoes', ids.decisaoId);
+  toggleContaDestinoTransacao(false);
+  return true;
+}
+
+function _transClassificacaoTransporteAppIds() {
+  const categoriaId = _transCategoriaTransporteId();
+  return {
+    categoriaId,
+    subcategoriaId: _transSubcategoriaUber99Id(categoriaId),
+    naturezaId: _transNaturezaConvenienciaId(),
+    decisaoId: _transDecisaoEventualId(),
+  };
+}
+
+function _transAplicarClassificacaoTransporteApp() {
+  if (!_transFormDescricaoEhTransporteApp()) return false;
+  const ids = _transClassificacaoTransporteAppIds();
   _transSetSelectValue('f-categoria', 'categorias', ids.categoriaId);
   _transSetSelectValue('f-subcategoria', 'subcategorias', ids.subcategoriaId);
   _transSetSelectValue('f-natureza', 'naturezas', ids.naturezaId);
@@ -16200,6 +16241,7 @@ function impExecutar() {
       const descricaoImportadaEhPontualBeers = _transDescricaoEhPontualBeers(descricao) || _transDescricaoEhPontualBeers(descricaoTratada);
       const descricaoImportadaEhDrogariaSaude = _transDescricaoEhDrogariaSaude(descricao) || _transDescricaoEhDrogariaSaude(descricaoTratada);
       const descricaoImportadaEhIfood = _transDescricaoEhIfood(descricao) || _transDescricaoEhIfood(descricaoTratada);
+      const descricaoImportadaEhTransporteApp = _transDescricaoEhTransporteApp(descricao) || _transDescricaoEhTransporteApp(descricaoTratada);
       let naturezaId = findId(naturezas, get('natureza')) || (transferenciaImportada ? _transNaturezaIdTransferencia() : '');
       let decisaoId = findId(decisoes, get('decisao')) || (transferenciaImportada ? _transDecisaoIdTransferencia() : '');
       let perfilId = findId(perfis, get('perfil')) || (transferenciaImportada ? _transPerfilIdTransferencia() : '');
@@ -16243,6 +16285,14 @@ function impExecutar() {
         decisaoId = classificacaoIfood.decisaoId;
         subcategoriaId = classificacaoIfood.subcategoriaId;
         subcategoriaNome = 'Restaurante';
+      } else if (!transferenciaImportada && descricaoImportadaEhTransporteApp) {
+        const classificacaoTransporte = _transClassificacaoTransporteAppIds();
+        categoriaId = classificacaoTransporte.categoriaId;
+        categoriaNome = 'Transporte';
+        naturezaId = classificacaoTransporte.naturezaId;
+        decisaoId = classificacaoTransporte.decisaoId;
+        subcategoriaId = classificacaoTransporte.subcategoriaId;
+        subcategoriaNome = 'Uber / 99';
       } else if (!transferenciaImportada && _transCategoriaNomeEhLazer(categoriaNome) && _transSubcategoriaNomeEhAlimentacao(subcategoriaNome)) {
         const classificacaoLazer = _transClassificacaoLazerAlimentacaoIds();
         naturezaId = classificacaoLazer.naturezaId;
