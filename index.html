@@ -6340,13 +6340,34 @@ function _dbIsUuid(id) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(id || ''));
 }
 
+const DB_ID_ALIASES = {};
+
+function _dbRememberIdAlias(colecao, oldId, newId) {
+  if (!colecao || !oldId || !newId || String(oldId) === String(newId)) return;
+  DB_ID_ALIASES[colecao] = DB_ID_ALIASES[colecao] || {};
+  DB_ID_ALIASES[colecao][String(oldId)] = newId;
+}
+
+function _dbResolveId(colecao, id) {
+  let atual = id;
+  const aliases = DB_ID_ALIASES[colecao] || {};
+  const vistos = new Set();
+  while (aliases[String(atual)] && !vistos.has(String(atual))) {
+    vistos.add(String(atual));
+    atual = aliases[String(atual)];
+  }
+  return atual;
+}
+
 function _dbReplaceId(colecao, localId, dbId) {
   if (!localId || !dbId || String(localId) === String(dbId)) return;
+  _dbRememberIdAlias(colecao, localId, dbId);
   const atualizados = (DB_CACHE[colecao] || []).map(item =>
     _dbSameId(item.id, localId) ? { ...item, id: dbId } : item
   );
   DB_CACHE[colecao] = _dbDedupPorId(atualizados);
   _dbPersistCache(colecao);
+  if (colecao === 'transacoes') _dbRerenderActivePage();
 }
 
 function _dbRerenderActivePage() {
@@ -8257,7 +8278,8 @@ function closeTransModal() {
 function editarTransacao(id)  { openTransacaoModal(id); }
 
 function _transFindById(id) {
-  return dbLoad('transacoes').find(x => _dbSameId(x.id, id));
+  const idResolvido = typeof _dbResolveId === 'function' ? _dbResolveId('transacoes', id) : id;
+  return dbLoad('transacoes').find(x => _dbSameId(x.id, idResolvido) || _dbSameId(x.id, id));
 }
 
 function _transCriarDuplicata(t, createdAt) {
@@ -16418,10 +16440,12 @@ function transBulkCancelar() {
 }
 
 function transBulkExcluir() {
-  const ids = Array.from(document.querySelectorAll('.trans-sel-chk:checked')).map(c => c.dataset.id);
+  const ids = Array.from(document.querySelectorAll('.trans-sel-chk:checked'))
+    .map(c => typeof _dbResolveId === 'function' ? _dbResolveId('transacoes', c.dataset.id) : c.dataset.id);
   if (!ids.length) return;
+  const idSet = new Set(ids.map(String));
   openConfirm(`Excluir ${ids.length} movimentação(ões) selecionada(s)?`, () => {
-    let dados = dbLoad('transacoes').filter(t => !ids.includes(t.id));
+    let dados = dbLoad('transacoes').filter(t => !idSet.has(String(t.id)));
     dbSave('transacoes', dados);
     toast(`${ids.length} movimentação(ões) excluída(s).`, 'warn');
     transBulkCancelar();

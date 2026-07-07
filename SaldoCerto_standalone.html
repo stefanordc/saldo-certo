@@ -5951,6 +5951,40 @@ function _dbSameId(a, b) {
   return String(a) === String(b);
 }
 
+const DB_ID_ALIASES = {};
+
+function _dbRememberIdAlias(colecao, oldId, newId) {
+  if (!colecao || !oldId || !newId || String(oldId) === String(newId)) return;
+  DB_ID_ALIASES[colecao] = DB_ID_ALIASES[colecao] || {};
+  DB_ID_ALIASES[colecao][String(oldId)] = newId;
+}
+
+function _dbResolveId(colecao, id) {
+  let atual = id;
+  const aliases = DB_ID_ALIASES[colecao] || {};
+  const vistos = new Set();
+  while (aliases[String(atual)] && !vistos.has(String(atual))) {
+    vistos.add(String(atual));
+    atual = aliases[String(atual)];
+  }
+  return atual;
+}
+
+function _dbRerenderActivePage() {
+  const active = document.querySelector('.page.active')?.id?.replace('page-', '');
+  if (active && typeof showPage === 'function') showPage(active);
+}
+
+function _dbReplaceId(colecao, localId, dbId) {
+  if (!localId || !dbId || String(localId) === String(dbId)) return;
+  _dbRememberIdAlias(colecao, localId, dbId);
+  const atual = _dbDedupPorId(dbLoad(colecao).map(item =>
+    _dbSameId(item.id, localId) ? { ...item, id: dbId } : item
+  ));
+  localStorage.setItem(STORAGE_KEYS[colecao], JSON.stringify(atual));
+  if (colecao === 'transacoes') _dbRerenderActivePage();
+}
+
 /* -- SALVA no cache local + Supabase (assíncrono em background) -- */
 function dbSave(colecao, dados) {
   localStorage.setItem(STORAGE_KEYS[colecao], JSON.stringify(dados));
@@ -6102,12 +6136,7 @@ async function _sbInsert(colecao, registro) {
         .select('id')
         .single();
       if (!retryError) {
-        if (retryInserted?.id && localId) {
-          const dados = dbLoad(colecao).map(r =>
-            r.id === localId ? { ...r, id: retryInserted.id } : r
-          );
-          localStorage.setItem(STORAGE_KEYS[colecao], JSON.stringify(dados));
-        }
+        if (retryInserted?.id && localId) _dbReplaceId(colecao, localId, retryInserted.id);
         return;
       }
       console.warn('[SB insert retry erro]', colecao, retryError.message, retryError.code);
@@ -6119,10 +6148,7 @@ async function _sbInsert(colecao, registro) {
 
   // Substituir ID temporário pelo ID sequencial do banco no localStorage
   if (inserted?.id && localId) {
-    const dados = dbLoad(colecao).map(r =>
-      r.id === localId ? { ...r, id: inserted.id } : r
-    );
-    localStorage.setItem(STORAGE_KEYS[colecao], JSON.stringify(dados));
+    _dbReplaceId(colecao, localId, inserted.id);
   }
 }
 
@@ -6209,10 +6235,7 @@ async function _sbSyncSave(colecao, dados) {
           .select('id')
           .single();
         if (!retryError) {
-          if (retryInserted?.id) {
-            const atual = _dbDedupPorId(dbLoad(colecao).map(x => x.id === localId ? { ...x, id: retryInserted.id } : x));
-            localStorage.setItem(STORAGE_KEYS[colecao], JSON.stringify(atual));
-          }
+          if (retryInserted?.id) _dbReplaceId(colecao, localId, retryInserted.id);
           continue;
         }
         console.warn('[SB syncSave insert retry erro]', colecao, retryError.message, retryError.code);
@@ -6221,8 +6244,7 @@ async function _sbSyncSave(colecao, dados) {
       _dbWriteFailed(colecao, error.message);
     } else if (inserted?.id) {
       // Substituir ID local pelo ID do banco no localStorage
-      const atual = _dbDedupPorId(dbLoad(colecao).map(x => x.id === localId ? { ...x, id: inserted.id } : x));
-      localStorage.setItem(STORAGE_KEYS[colecao], JSON.stringify(atual));
+      _dbReplaceId(colecao, localId, inserted.id);
     }
   }
 
@@ -7882,7 +7904,8 @@ function closeTransModal() {
 function editarTransacao(id)  { openTransacaoModal(id); }
 
 function _transFindById(id) {
-  return dbLoad('transacoes').find(x => _dbSameId(x.id, id));
+  const idResolvido = typeof _dbResolveId === 'function' ? _dbResolveId('transacoes', id) : id;
+  return dbLoad('transacoes').find(x => _dbSameId(x.id, idResolvido) || _dbSameId(x.id, id));
 }
 
 function _transCriarDuplicata(t, createdAt) {
@@ -16040,10 +16063,12 @@ function transBulkCancelar() {
 }
 
 function transBulkExcluir() {
-  const ids = Array.from(document.querySelectorAll('.trans-sel-chk:checked')).map(c => c.dataset.id);
+  const ids = Array.from(document.querySelectorAll('.trans-sel-chk:checked'))
+    .map(c => typeof _dbResolveId === 'function' ? _dbResolveId('transacoes', c.dataset.id) : c.dataset.id);
   if (!ids.length) return;
+  const idSet = new Set(ids.map(String));
   openConfirm(`Excluir ${ids.length} movimentação(ões) selecionada(s)?`, () => {
-    let dados = dbLoad('transacoes').filter(t => !ids.includes(t.id));
+    let dados = dbLoad('transacoes').filter(t => !idSet.has(String(t.id)));
     dbSave('transacoes', dados);
     toast(`${ids.length} movimentação(ões) excluída(s).`, 'warn');
     transBulkCancelar();
