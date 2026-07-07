@@ -6409,6 +6409,10 @@ async function sbSyncDown() {
     const removidas = _transEliminarTransferenciasDuplicadasLegadas({ silencioso: true });
     if (removidas) console.log(`[Transacoes] ${removidas} transferencia(s) duplicada(s) removida(s)`);
   }
+  if (typeof _contasConsolidarDuplicadas === 'function') {
+    const removidasContas = _contasConsolidarDuplicadas({ silencioso: true });
+    if (removidasContas) console.log(`[Contas] ${removidasContas} conta(s) duplicada(s) removida(s)`);
+  }
   return total;
 }
 
@@ -6497,6 +6501,175 @@ function _configEscolherPrincipal(grupo, refCounts) {
     const bd = Date.parse(b.createdAt || b.created_at || '') || 0;
     return ad - bd;
   })[0];
+}
+
+const CONTAS_DUPLICADAS_AUTO = ['nubank'];
+const CONTAS_REF_FIELDS_TRANSACOES = [
+  'cartao_id','conta_id','origem_id',
+  'conta_destino_id','contaDestinoId','contaDestino_id',
+  'cartao_destino_id','cartaoDestinoId',
+  'destino_id',
+];
+const CONTAS_REF_FIELDS_META = [
+  'conta_destino_id','contaDestinoId','contaDestino_id',
+  'conta_destino','contaDestino','conta_destino_uuid','contaDestinoUuid',
+  'cartao_destino_id','cartaoDestinoId','cartao_destino','cartaoDestino',
+  'destino_id','destino',
+];
+
+function _contasRemapId(valor, remap) {
+  if (valor === null || valor === undefined || valor === '') return valor;
+  for (const [oldId, newId] of remap.entries()) {
+    if (_dbSameId(valor, oldId)) return newId;
+  }
+  return valor;
+}
+
+function _contasContarRefsId(contaId) {
+  let total = 0;
+  dbLoad('transacoes').forEach(t => {
+    CONTAS_REF_FIELDS_TRANSACOES.forEach(field => {
+      if (_dbSameId(t?.[field], contaId)) total += 1;
+    });
+    const meta = typeof _transSplitObservacoes === 'function'
+      ? _transSplitObservacoes(t?.observacoes).meta || {}
+      : {};
+    CONTAS_REF_FIELDS_META.forEach(field => {
+      if (_dbSameId(meta?.[field], contaId)) total += 1;
+    });
+  });
+  dbLoad('cartoes_credito').forEach(c => { if (_dbSameId(c?.conta_id, contaId)) total += 1; });
+  ['contas_receber','contas_pagar'].forEach(col => {
+    dbLoad(col).forEach(item => { if (_dbSameId(item?.cartao_id, contaId)) total += 1; });
+  });
+  return total;
+}
+
+function _contasEscolherPrincipal(grupo) {
+  const refCounts = new Map(grupo.map(item => [item.id, _contasContarRefsId(item.id)]));
+  return _configEscolherPrincipal(grupo, refCounts);
+}
+
+function _contasRemapObjeto(item, campos, remap) {
+  let mudou = false;
+  const novo = { ...item };
+  campos.forEach(field => {
+    const valorNovo = _contasRemapId(novo[field], remap);
+    if (valorNovo !== novo[field]) {
+      novo[field] = valorNovo;
+      mudou = true;
+    }
+  });
+  if (mudou) novo.updatedAt = new Date().toISOString();
+  return { item: novo, mudou };
+}
+
+function _contasRemapTransacao(t, remap) {
+  const direto = _contasRemapObjeto(t, CONTAS_REF_FIELDS_TRANSACOES, remap);
+  let novo = direto.item;
+  let mudou = direto.mudou;
+  if (typeof _transSplitObservacoes === 'function' && typeof _transBuildObservacoes === 'function') {
+    const obs = _transSplitObservacoes(novo.observacoes);
+    const meta = { ...(obs.meta || {}) };
+    let metaMudou = false;
+    CONTAS_REF_FIELDS_META.forEach(field => {
+      const valorNovo = _contasRemapId(meta[field], remap);
+      if (valorNovo !== meta[field]) {
+        meta[field] = valorNovo;
+        metaMudou = true;
+      }
+    });
+    if (metaMudou) {
+      novo = {
+        ...novo,
+        observacoes: _transBuildObservacoes(obs.texto, meta),
+        updatedAt: new Date().toISOString(),
+      };
+      mudou = true;
+    }
+  }
+  return { item: novo, mudou };
+}
+
+function _contasSalvarLocal(colecao, dados) {
+  if (typeof DB_CACHE !== 'undefined' && typeof _dbPersistCache === 'function') {
+    DB_CACHE[colecao] = dados.map(item => ({ ...item }));
+    _dbPersistCache(colecao);
+    return;
+  }
+  localStorage.setItem(STORAGE_KEYS[colecao], JSON.stringify(dados));
+}
+
+async function _contasPersistirConsolidacao(remap, idsRemover) {
+  const sb = _getSB();
+  if (!sb) return;
+  if (!window._authUser) {
+    const { data } = await sb.auth.getSession();
+    if (data?.session?.user) window._authUser = data.session.user;
+    else return;
+  }
+  const userId = window._authUser.id;
+  for (const [oldId, newId] of remap.entries()) {
+    if (!oldId || !newId || _configIsLocalId(oldId)) continue;
+    await sb.from(_sbTable('transacoes')).update({ cartao_id: newId }).eq('cartao_id', oldId).eq('user_id', userId);
+    await sb.from(_sbTable('transacoes')).update({ conta_destino_id: newId }).eq('conta_destino_id', oldId).eq('user_id', userId);
+    if (typeof _dbIsLocalOnly !== 'function' || !_dbIsLocalOnly('cartoes_credito')) {
+      await sb.from(_sbTable('cartoes_credito')).update({ conta_id: newId }).eq('conta_id', oldId).eq('user_id', userId);
+    }
+    await sb.from(_sbTable('contas_receber')).update({ cartao_id: newId }).eq('cartao_id', oldId).eq('user_id', userId);
+    await sb.from(_sbTable('contas_pagar')).update({ cartao_id: newId }).eq('cartao_id', oldId).eq('user_id', userId);
+  }
+  for (const id of idsRemover) {
+    if (!id || _configIsLocalId(id)) continue;
+    const { error } = await sb.from(_sbTable('cartoes')).delete().eq('id', id).eq('user_id', userId);
+    if (error) console.warn('[Contas] erro ao remover conta duplicada', id, error.message);
+  }
+}
+
+function _contasConsolidarDuplicadas(opcoes = {}) {
+  const alvos = new Set((opcoes.nomes || CONTAS_DUPLICADAS_AUTO).map(_configNorm));
+  const contas = dbLoad('cartoes').filter(item => item.id && _configNorm(item.nome));
+  const grupos = new Map();
+  contas.forEach(item => {
+    const key = _configNorm(item.nome);
+    if (!alvos.has(key)) return;
+    if (!grupos.has(key)) grupos.set(key, []);
+    grupos.get(key).push(item);
+  });
+
+  const remap = new Map();
+  const idsRemover = [];
+  grupos.forEach(grupo => {
+    if (grupo.length < 2) return;
+    const principal = _contasEscolherPrincipal(grupo);
+    grupo.forEach(item => {
+      if (_dbSameId(item.id, principal.id)) return;
+      remap.set(item.id, principal.id);
+      idsRemover.push(item.id);
+    });
+  });
+
+  if (!idsRemover.length) return 0;
+
+  const transacoes = dbLoad('transacoes').map(t => _contasRemapTransacao(t, remap));
+  if (transacoes.some(x => x.mudou)) dbSave('transacoes', transacoes.map(x => x.item));
+
+  const cartoesCredito = dbLoad('cartoes_credito').map(c => _contasRemapObjeto(c, ['conta_id'], remap));
+  if (cartoesCredito.some(x => x.mudou)) dbSave('cartoes_credito', cartoesCredito.map(x => x.item));
+
+  ['contas_receber','contas_pagar'].forEach(col => {
+    const itens = dbLoad(col).map(item => _contasRemapObjeto(item, ['cartao_id'], remap));
+    if (itens.some(x => x.mudou)) dbSave(col, itens.map(x => x.item));
+  });
+
+  const removerSet = new Set(idsRemover.map(String));
+  _contasSalvarLocal('cartoes', dbLoad('cartoes').filter(c => !removerSet.has(String(c.id))));
+  _contasPersistirConsolidacao(remap, idsRemover);
+
+  if (!opcoes.silencioso) {
+    toast(`${idsRemover.length} conta(s) duplicada(s) removida(s). As movimentacoes foram preservadas.`, 'warn');
+  }
+  return idsRemover.length;
 }
 
 function _configRemapConfigLocal(chave, remap) {
