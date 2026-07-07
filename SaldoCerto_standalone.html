@@ -7057,11 +7057,19 @@ function saveEditConfig() {
 
 /* -- ESTADO -- */
 let editandoTransId = null;
+let transModalSnapshotInicial = '';
 
 const transOrdenacao = { col: 'data_competencia', dir: 'desc' };
 const TRANS_PAGE_SIZE = 50;
 let transPaginaAtual = 1;
 let transFiltroAssinatura = '';
+const TRANS_MODAL_DIRTY_FIELDS = [
+  'f-data-contabil', 'f-data-competencia', 'chk-mesma-data', 'f-cartao', 'f-conta-destino',
+  'f-tipo-pagamento', 'f-forma-pagamento', 'f-descricao', 'f-descricao-tratada',
+  'f-perfil-despesa', 'f-categoria', 'f-subcategoria', 'f-natureza', 'f-decisao',
+  'f-status-compra', 'f-valor', 'f-parcelado', 'f-parcela-atual', 'f-parcela-maxima',
+  'f-recorrente', 'f-recorrencia-frequencia', 'f-recorrencia-fim', 'f-obs',
+];
 
 function _transFiltroAssinatura(busca, fil) {
   return JSON.stringify({ busca, ...fil });
@@ -7870,6 +7878,34 @@ function transFocarDataTransacaoAoAbrir() {
   else setTimeout(focar, 0);
 }
 
+function transFormSnapshot() {
+  return JSON.stringify(TRANS_MODAL_DIRTY_FIELDS.map(id => {
+    const el = document.getElementById(id);
+    if (!el) return [id, ''];
+    if (el.type === 'checkbox') return [id, !!el.checked];
+    return [id, String(el.value || '')];
+  }));
+}
+
+function transAtualizarSnapshotModal() {
+  transModalSnapshotInicial = transFormSnapshot();
+}
+
+function transModalTemAlteracoes() {
+  return !!transModalSnapshotInicial && transFormSnapshot() !== transModalSnapshotInicial;
+}
+
+function transFecharModalPorEscape() {
+  if (document.getElementById('confirmOverlay')?.classList.contains('open')) return;
+  if (!transModalTemAlteracoes()) {
+    closeTransModal();
+    return;
+  }
+  openConfirm('Existem dados preenchidos nesta movimentação. Deseja fechar sem salvar?', () => {
+    closeTransModal();
+  }, { label: 'Fechar', color: 'var(--warning)', icon: '!' });
+}
+
 function openTransacaoModal(id = null) {
   const isEdicao = id !== null && id !== undefined && String(id).trim() !== '';
   const transacaoEditada = isEdicao ? _transFindById(id) : null;
@@ -7889,6 +7925,7 @@ function openTransacaoModal(id = null) {
   if (transacaoEditada) preencherFormTransacao(transacaoEditada);
   _transBindDescricaoPixAuto();
   _transAplicarPixPorDescricao();
+  transAtualizarSnapshotModal();
 
   document.getElementById('transModal').classList.add('open');
   if (!isEdicao) transFocarDataTransacaoAoAbrir();
@@ -7897,6 +7934,7 @@ function openTransacaoModal(id = null) {
 function closeTransModal() {
   document.getElementById('transModal').classList.remove('open');
   editandoTransId = null;
+  transModalSnapshotInicial = '';
 }
 
 /* --------------------------------------------
@@ -8135,8 +8173,16 @@ function _transDescricaoEhSupermercadosBH(valor) {
   return _transNormDescricaoChave(valor) === 'supermercadosbh';
 }
 
+function _transDescricaoEhSupermercadoEpa(valor) {
+  return _transNormDescricaoChave(valor) === 'supermercadoepa';
+}
+
 function _transDescricaoEhPontualBeers(valor) {
   return _transNormDescricaoChave(valor) === 'pontualbeers';
+}
+
+function _transDescricaoEhGriletto(valor) {
+  return _transNormDescricaoChave(valor) === 'griletto';
 }
 
 function _transDescricaoEhDrogariaSaude(valor) {
@@ -8166,8 +8212,16 @@ function _transFormDescricaoEhSupermercadosBH() {
   return _transDescricoesDoForm().some(_transDescricaoEhSupermercadosBH);
 }
 
+function _transFormDescricaoEhSupermercadoEpa() {
+  return _transDescricoesDoForm().some(_transDescricaoEhSupermercadoEpa);
+}
+
 function _transFormDescricaoEhPontualBeers() {
   return _transDescricoesDoForm().some(_transDescricaoEhPontualBeers);
+}
+
+function _transFormDescricaoEhGriletto() {
+  return _transDescricoesDoForm().some(_transDescricaoEhGriletto);
 }
 
 function _transFormDescricaoEhDrogariaSaude() {
@@ -8188,8 +8242,16 @@ function _transAplicarPixPorDescricao() {
     _transAplicarClassificacaoSupermercadosBH();
     return true;
   }
+  if (_transFormDescricaoEhSupermercadoEpa()) {
+    _transAplicarClassificacaoSupermercadoEpa();
+    return true;
+  }
   if (_transFormDescricaoEhPontualBeers()) {
     _transAplicarClassificacaoPontualBeers();
+    return true;
+  }
+  if (_transFormDescricaoEhGriletto()) {
+    _transAplicarClassificacaoGriletto();
     return true;
   }
   if (_transFormDescricaoEhDrogariaSaude()) {
@@ -8454,6 +8516,21 @@ function _transAplicarClassificacaoSupermercadosBH() {
   return true;
 }
 
+function _transClassificacaoSupermercadoEpaIds() {
+  return _transClassificacaoSupermercadosBHIds();
+}
+
+function _transAplicarClassificacaoSupermercadoEpa() {
+  if (!_transFormDescricaoEhSupermercadoEpa()) return false;
+  const ids = _transClassificacaoSupermercadoEpaIds();
+  _transSetSelectValue('f-categoria', 'categorias', ids.categoriaId);
+  _transSetSelectValue('f-subcategoria', 'subcategorias', ids.subcategoriaId);
+  _transSetSelectValue('f-natureza', 'naturezas', ids.naturezaId);
+  _transSetSelectValue('f-decisao', 'decisoes', ids.decisaoId);
+  toggleContaDestinoTransacao(false);
+  return true;
+}
+
 function _transClassificacaoPontualBeersIds() {
   const categoriaId = _transCategoriaLazerId();
   return {
@@ -8467,6 +8544,21 @@ function _transClassificacaoPontualBeersIds() {
 function _transAplicarClassificacaoPontualBeers() {
   if (!_transFormDescricaoEhPontualBeers()) return false;
   const ids = _transClassificacaoPontualBeersIds();
+  _transSetSelectValue('f-categoria', 'categorias', ids.categoriaId);
+  _transSetSelectValue('f-subcategoria', 'subcategorias', ids.subcategoriaId);
+  _transSetSelectValue('f-natureza', 'naturezas', ids.naturezaId);
+  _transSetSelectValue('f-decisao', 'decisoes', ids.decisaoId);
+  toggleContaDestinoTransacao(false);
+  return true;
+}
+
+function _transClassificacaoGrilettoIds() {
+  return _transClassificacaoPontualBeersIds();
+}
+
+function _transAplicarClassificacaoGriletto() {
+  if (!_transFormDescricaoEhGriletto()) return false;
+  const ids = _transClassificacaoGrilettoIds();
   _transSetSelectValue('f-categoria', 'categorias', ids.categoriaId);
   _transSetSelectValue('f-subcategoria', 'subcategorias', ids.subcategoriaId);
   _transSetSelectValue('f-natureza', 'naturezas', ids.naturezaId);
@@ -9508,6 +9600,12 @@ function transCopiarDataTransacaoParaBaixa() {
 }
 
 function transHandleModalShortcuts(e) {
+  if (e.key === 'Escape') {
+    if (e.defaultPrevented) return;
+    e.preventDefault();
+    transFecharModalPorEscape();
+    return;
+  }
   if (e.ctrlKey && !e.altKey && !e.shiftKey && e.key.toLowerCase() === 'c' && document.activeElement?.id === 'f-data-contabil') {
     if (transCopiarDataTransacaoParaBaixa()) e.preventDefault();
     return;
@@ -16882,7 +16980,9 @@ function impExecutar() {
       const descricaoImportadaEhPix = _transDescricaoComecaComPix(descricao) || _transDescricaoComecaComPix(descricaoTratada);
       const descricaoImportadaEhPixRecebido = _transDescricaoComecaComPixRecebido(descricao) || _transDescricaoComecaComPixRecebido(descricaoTratada);
       const descricaoImportadaEhSupermercadosBH = _transDescricaoEhSupermercadosBH(descricao) || _transDescricaoEhSupermercadosBH(descricaoTratada);
+      const descricaoImportadaEhSupermercadoEpa = _transDescricaoEhSupermercadoEpa(descricao) || _transDescricaoEhSupermercadoEpa(descricaoTratada);
       const descricaoImportadaEhPontualBeers = _transDescricaoEhPontualBeers(descricao) || _transDescricaoEhPontualBeers(descricaoTratada);
+      const descricaoImportadaEhGriletto = _transDescricaoEhGriletto(descricao) || _transDescricaoEhGriletto(descricaoTratada);
       const descricaoImportadaEhDrogariaSaude = _transDescricaoEhDrogariaSaude(descricao) || _transDescricaoEhDrogariaSaude(descricaoTratada);
       const descricaoImportadaEhIfood = _transDescricaoEhIfood(descricao) || _transDescricaoEhIfood(descricaoTratada);
       const descricaoImportadaEhTransporteApp = _transDescricaoEhTransporteApp(descricao) || _transDescricaoEhTransporteApp(descricaoTratada);
@@ -16905,6 +17005,15 @@ function impExecutar() {
         naturezaId = classificacaoSupermercado.naturezaId;
         decisaoId = classificacaoSupermercado.decisaoId;
         subcategoriaId = classificacaoSupermercado.subcategoriaId;
+        subcategoriaNome = 'Supermercado';
+      } else if (!transferenciaImportada && descricaoImportadaEhSupermercadoEpa) {
+        const classificacaoSupermercadoEpa = _transClassificacaoSupermercadoEpaIds();
+        categoriaId = classificacaoSupermercadoEpa.categoriaId;
+        categoriaNome = 'Alimentação';
+        naturezaId = classificacaoSupermercadoEpa.naturezaId;
+        decisaoId = classificacaoSupermercadoEpa.decisaoId;
+        subcategoriaId = classificacaoSupermercadoEpa.subcategoriaId;
+        subcategoriaNome = 'Supermercado';
       } else if (!transferenciaImportada && descricaoImportadaEhPontualBeers) {
         const classificacaoPontual = _transClassificacaoPontualBeersIds();
         categoriaId = classificacaoPontual.categoriaId;
@@ -16912,6 +17021,14 @@ function impExecutar() {
         naturezaId = classificacaoPontual.naturezaId;
         decisaoId = classificacaoPontual.decisaoId;
         subcategoriaId = classificacaoPontual.subcategoriaId;
+        subcategoriaNome = 'Bares';
+      } else if (!transferenciaImportada && descricaoImportadaEhGriletto) {
+        const classificacaoGriletto = _transClassificacaoGrilettoIds();
+        categoriaId = classificacaoGriletto.categoriaId;
+        categoriaNome = 'Lazer';
+        naturezaId = classificacaoGriletto.naturezaId;
+        decisaoId = classificacaoGriletto.decisaoId;
+        subcategoriaId = classificacaoGriletto.subcategoriaId;
         subcategoriaNome = 'Bares';
       } else if (!transferenciaImportada && descricaoImportadaEhDrogariaSaude) {
         const classificacaoDrogaria = _transClassificacaoDrogariaSaudeIds();
