@@ -9468,6 +9468,14 @@ function syncDataCompetencia() {
   }
 }
 
+function transAplicarDataBaixaDaColagem(dataIso) {
+  const destino = document.getElementById('f-data-competencia');
+  if (!destino || !_transDataIsoValida(dataIso)) return;
+  destino.value = dataIso;
+  destino.dispatchEvent(new Event('input', { bubbles: true }));
+  destino.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
 function transHandleDatePaste(e) {
   const input = e.currentTarget;
   const texto = e.clipboardData?.getData('text') || '';
@@ -9478,7 +9486,7 @@ function transHandleDatePaste(e) {
   input.value = convertido;
   input.dispatchEvent(new Event('input', { bubbles: true }));
   input.dispatchEvent(new Event('change', { bubbles: true }));
-  if (input.id === 'f-data-contabil') syncDataCompetencia();
+  if (input.id === 'f-data-contabil') transAplicarDataBaixaDaColagem(convertido);
 }
 
 function transBindDatePasteHandlers() {
