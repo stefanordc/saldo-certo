@@ -16455,8 +16455,73 @@ function _cartoesContasData() {
   return dbLoad('cartoes').sort((a, b) => (a.nome || '').localeCompare(b.nome || '', 'pt'));
 }
 
-function _cartoesContaNome(contaId) {
-  return _cartoesContasData().find(c => _dbSameId(c.id, contaId))?.nome || 'Conta não encontrada';
+function _cartoesContaPorTexto(texto) {
+  const norm = _transNormTexto(texto);
+  if (!norm) return null;
+  const contas = _cartoesContasData();
+  const direta = contas.find(c => _transNormTexto(c.nome) === norm);
+  if (direta) return direta;
+  const parcial = contas.find(c => {
+    const nome = _transNormTexto(c.nome);
+    return nome && (nome.includes(norm) || norm.includes(nome));
+  });
+  if (parcial) return parcial;
+  const tokensIgnorados = new Set(['banco','cartao','conta','credito','debito']);
+  const tokens = norm.split(/\s+/).filter(t => t.length >= 3 && !tokensIgnorados.has(t));
+  if (!tokens.length) return null;
+  return contas.find(c => {
+    const nome = _transNormTexto(c.nome);
+    return tokens.some(token => nome.split(/\s+/).includes(token) || nome.includes(token));
+  }) || null;
+}
+
+function _cartoesContaReferenciaId(contaId, fallbackNome = '') {
+  const valores = [contaId, fallbackNome].map(v => (v || '').toString().trim()).filter(Boolean);
+  const contas = _cartoesContasData();
+  for (const valor of valores) {
+    const porId = contas.find(c => _dbSameId(c.id, valor));
+    if (porId) return porId.id;
+    const resolvido = typeof _transResolverContaId === 'function' ? _transResolverContaId(valor) : '';
+    if (resolvido) return resolvido;
+  }
+  for (const valor of valores) {
+    const porTexto = _cartoesContaPorTexto(valor);
+    if (porTexto?.id) return porTexto.id;
+  }
+  return valores[0] || '';
+}
+
+function _cartoesContaNome(contaId, fallbackNome = '') {
+  const contaRef = _cartoesContaReferenciaId(contaId, fallbackNome);
+  const conta = _cartoesContasData().find(c => _dbSameId(c.id, contaRef))
+    || _cartoesContaPorTexto(fallbackNome)
+    || _cartoesContaPorTexto(contaId);
+  return conta?.nome || fallbackNome || contaId || 'Conta não encontrada';
+}
+
+function _cartoesFiltroConta(contaId) {
+  return {
+    dataDe: '',
+    dataAte: '',
+    cartao: contaId,
+    tipo: '',
+    forma: '',
+    perfil: '',
+    categoria: '',
+    subcategoria: '',
+    status: '',
+    valorDe: null,
+    valorAte: null,
+  };
+}
+
+function _cartoesTransacoesConta(contaId) {
+  if (!contaId) return [];
+  if (typeof _transDadosTabelaFiltrados === 'function') {
+    return _transDadosTabelaFiltrados('', _cartoesFiltroConta(contaId));
+  }
+  return _transTransacoesCanonicas(dbLoad('transacoes'))
+    .filter(t => _transContaFiltroEhConta(t, contaId));
 }
 
 function _cartoesValorMovimentoConta(t, contaId) {
@@ -16464,9 +16529,11 @@ function _cartoesValorMovimentoConta(t, contaId) {
   return _transValorExportacaoConta(t, contaId);
 }
 
-function _cartoesSaldoConta(contaId) {
-  return _transTransacoesCanonicas(dbLoad('transacoes'))
-    .reduce((saldo, t) => saldo + _cartoesValorMovimentoConta(t, contaId), 0);
+function _cartoesSaldoConta(contaId, fallbackNome = '') {
+  const contaRef = _cartoesContaReferenciaId(contaId, fallbackNome);
+  if (!contaRef) return 0;
+  return _cartoesTransacoesConta(contaRef)
+    .reduce((saldo, t) => saldo + _cartoesValorMovimentoConta(t, contaRef), 0);
 }
 
 function _cartoesSaldoClasse(valor) {
@@ -16491,7 +16558,7 @@ function cartoesRenderStats() {
   if (!stats) return;
   const cartoes = _cartoesCreditoData();
   const contasVinculadas = new Set(cartoes.map(c => String(c.conta_id || '')).filter(Boolean)).size;
-  const saldoSomado = cartoes.reduce((s, c) => s + _cartoesSaldoConta(c.conta_id), 0);
+  const saldoSomado = cartoes.reduce((s, c) => s + _cartoesSaldoConta(c.conta_id, c.conta_nome || c.nome), 0);
   stats.innerHTML = `
     <div class="stat-card">
       <div class="stat-label">Cartões cadastrados</div>
@@ -16521,14 +16588,14 @@ function cartoesRenderLista() {
     return;
   }
   lista.innerHTML = cartoes.map(c => {
-    const saldo = _cartoesSaldoConta(c.conta_id);
+    const saldo = _cartoesSaldoConta(c.conta_id, c.conta_nome || c.nome);
     const cls = _cartoesSaldoClasse(saldo);
     return `
       <div class="cartao-item">
         <div class="cartao-item-head">
           <div>
             <div class="cartao-nome">${escHtml(c.nome || 'Cartão sem nome')}</div>
-            <div class="cartao-conta">Conta vinculada: ${escHtml(_cartoesContaNome(c.conta_id))}</div>
+            <div class="cartao-conta">Conta vinculada: ${escHtml(_cartoesContaNome(c.conta_id, c.conta_nome || c.nome))}</div>
           </div>
           <span class="badge badge-blue">Cartão</span>
         </div>
@@ -16570,6 +16637,7 @@ function cartoesSalvar() {
   const contaEl = document.getElementById('cartao-conta');
   const nome = nomeEl?.value.trim() || '';
   const contaId = contaEl?.value || '';
+  const contaNome = contaEl?.selectedOptions?.[0]?.textContent?.trim() || '';
   document.getElementById('e-cartao-nome').textContent = '';
   document.getElementById('e-cartao-conta').textContent = '';
 
@@ -16590,8 +16658,8 @@ function cartoesSalvar() {
     return;
   }
 
-  if (id) dbUpdate('cartoes_credito', id, { nome, conta_id: contaId });
-  else dbInsert('cartoes_credito', { nome, conta_id: contaId });
+  if (id) dbUpdate('cartoes_credito', id, { nome, conta_id: contaId, conta_nome: contaNome });
+  else dbInsert('cartoes_credito', { nome, conta_id: contaId, conta_nome: contaNome });
   cartoesLimparFormulario();
   renderCartoes();
   toast(id ? 'Cartão atualizado!' : 'Cartão cadastrado!');
