@@ -7287,6 +7287,16 @@ function _transDataReferencia(t) {
   return _transDataCompetencia(t);
 }
 
+function _transHojeIsoLocal(base = new Date()) {
+  const d = base instanceof Date ? base : new Date(base);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function _transDataAte(t, dataLimite = _transHojeIsoLocal()) {
+  const data = _transDataReferencia(t);
+  return !data || !dataLimite || data <= dataLimite;
+}
+
 function _transTimestampCriacao(t) {
   const raw = t?.createdAt || t?.created_at || '';
   const ts = Date.parse(raw);
@@ -13014,8 +13024,9 @@ function _simMediaRecFixa() {
 
 /* -- SALDO ATUAL TOTAL (acumulado histórico) -- */
 function _simSaldoAtual() {
+  const hoje = _transHojeIsoLocal();
   return dbLoad('transacoes')
-    .filter(t => !_simIsNeutro(t))
+    .filter(t => !_simIsNeutro(t) && _transDataAte(t, hoje))
     .reduce((s,t) => {
       const v = parseFloat(t.valor)||0;
       if (_simIsEntrada(t)) return s + v;
@@ -16121,10 +16132,10 @@ function _cartoesContaNome(contaId, fallbackNome = '') {
   return conta?.nome || fallbackNome || contaId || 'Conta não encontrada';
 }
 
-function _cartoesFiltroConta(contaId) {
+function _cartoesFiltroConta(contaId, dataAte = _transHojeIsoLocal()) {
   return {
     dataDe: '',
-    dataAte: '',
+    dataAte,
     cartao: contaId,
     tipo: '',
     forma: '',
@@ -16139,11 +16150,12 @@ function _cartoesFiltroConta(contaId) {
 
 function _cartoesTransacoesConta(contaId) {
   if (!contaId) return [];
+  const dataAte = _transHojeIsoLocal();
   if (typeof _transDadosTabelaFiltrados === 'function') {
-    return _transDadosTabelaFiltrados('', _cartoesFiltroConta(contaId));
+    return _transDadosTabelaFiltrados('', _cartoesFiltroConta(contaId, dataAte));
   }
   return _transTransacoesCanonicas(dbLoad('transacoes'))
-    .filter(t => _transContaFiltroEhConta(t, contaId));
+    .filter(t => _transContaFiltroEhConta(t, contaId) && _transDataAte(t, dataAte));
 }
 
 function _cartoesValorMovimentoConta(t, contaId) {
