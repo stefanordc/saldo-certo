@@ -16082,39 +16082,13 @@ function _cartoesContaNome(contaId) {
 }
 
 function _cartoesValorMovimentoConta(t, contaId) {
-  const valorBruto = parseFloat(t?.valor || 0) || 0;
-  const valor = Math.abs(valorBruto);
-  if (!valor || !contaId) return 0;
-
-  if (_transTemContaDestinoLegada(t)) {
-    if (_transContaDestinoEhConta(t, contaId)) return valor;
-    if (_transContaOrigemEhConta(t, contaId)) return -valor;
-    return 0;
-  }
-
-  if (_transIsTransferenciaLancamento(t)) {
-    const sinalTransferencia = typeof _transSinalTransferenciaConta === 'function'
-      ? _transSinalTransferenciaConta(t, contaId)
-      : 0;
-    return sinalTransferencia ? valor * sinalTransferencia : 0;
-  }
-
-  if (!_transContaOrigemEhConta(t, contaId)) return 0;
-  return _transValorAssinadoOperacional(t);
+  if (!contaId || !_transContaFiltroEhConta(t, contaId)) return 0;
+  return _transValorExportacaoConta(t, contaId);
 }
 
 function _cartoesSaldoConta(contaId) {
-  const saldoCalculado = _transTransacoesCanonicas(dbLoad('transacoes'))
+  return _transTransacoesCanonicas(dbLoad('transacoes'))
     .reduce((saldo, t) => saldo + _cartoesValorMovimentoConta(t, contaId), 0);
-  return _cartoesSaldoContaAjustado(contaId, saldoCalculado);
-}
-
-function _cartoesSaldoContaAjustado(contaId, saldoCalculado) {
-  const contaNome = _transNormTexto(_cartoesContaNome(contaId));
-  if (contaNome === 'btg pactual' && Math.abs(saldoCalculado - 207.02) < 0.01) {
-    return 447.02;
-  }
-  return saldoCalculado;
 }
 
 function _cartoesSaldoClasse(valor) {
