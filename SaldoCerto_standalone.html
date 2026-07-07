@@ -7884,6 +7884,7 @@ function openTransacaoModal(id = null) {
 
   preencherSelects();
   limparFormTransacao();
+  transBindDatePasteHandlers();
 
   if (transacaoEditada) preencherFormTransacao(transacaoEditada);
   _transBindDescricaoPixAuto();
@@ -9465,6 +9466,28 @@ function syncDataCompetencia() {
   } else {
     document.getElementById('f-data-competencia').disabled = false;
   }
+}
+
+function transHandleDatePaste(e) {
+  const input = e.currentTarget;
+  const texto = e.clipboardData?.getData('text') || '';
+  const convertido = _transDateInputValue(texto);
+  if (!convertido || !_transDataIsoValida(convertido)) return;
+
+  e.preventDefault();
+  input.value = convertido;
+  input.dispatchEvent(new Event('input', { bubbles: true }));
+  input.dispatchEvent(new Event('change', { bubbles: true }));
+  if (input.id === 'f-data-contabil') syncDataCompetencia();
+}
+
+function transBindDatePasteHandlers() {
+  ['f-data-contabil', 'f-data-competencia'].forEach(id => {
+    const input = document.getElementById(id);
+    if (!input || input.dataset.pasteDateBound === '1') return;
+    input.addEventListener('paste', transHandleDatePaste);
+    input.dataset.pasteDateBound = '1';
+  });
 }
 
 function transCopiarDataTransacaoParaBaixa() {
