@@ -7393,7 +7393,7 @@ function _transDadosTabelaFiltrados(busca = '', fil = coletarFiltros()) {
     dados = dados.filter(t => _transDentroPeriodo(t, fil.dataDe, fil.dataAte));
   }
 
-  if (fil.cartao)       dados = dados.filter(t => _dbSameId(t.cartao_id, fil.cartao));
+  if (fil.cartao)       dados = dados.filter(t => _transContaFiltroEhConta(t, fil.cartao));
   if (fil.tipo)         dados = dados.filter(t => _dbSameId(t.natureza_id, fil.tipo));
   if (fil.forma)        dados = dados.filter(t => _dbSameId(t.forma_pagamento_id, fil.forma));
   if (fil.perfil)       dados = dados.filter(t => _dbSameId(t.decisao_id, fil.perfil));
@@ -8703,6 +8703,13 @@ function _transTemContaDestinoLegada(t) {
 
 function _transContaDestinoEhConta(t, contaId) {
   return _transContaDestinoLegadaValores(t).some(valor => _transContaValorEhConta(valor, contaId));
+}
+
+function _transContaFiltroEhConta(t, contaId) {
+  if (!contaId) return true;
+  if (_transContaOrigemEhConta(t, contaId)) return true;
+  if (!(_transIsTransferenciaLancamento(t) || _transTemContaDestinoLegada(t))) return false;
+  return _transSinalTransferenciaConta(t, contaId) !== 0;
 }
 
 function _transLookupIdByValues(colecao, ...valores) {
