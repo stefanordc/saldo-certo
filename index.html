@@ -1172,6 +1172,12 @@ td.actions { white-space: nowrap; text-align: right; }
 .cta-btn-cancelar:hover { background: #FECACA; }
 
 /* KPI cards do relatório */
+.rel-kpi-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+  margin-bottom: 20px;
+}
 .rel-kpi-card {
   background: var(--card);
   border: 1px solid var(--border);
@@ -2368,6 +2374,25 @@ body.theme-dark #page-relatorios .tab-btn.active::after {
 }
 @media (max-width: 900px) {
   .rel-two-col { grid-template-columns: 1fr; }
+}
+
+.rel-speed-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 20px;
+  margin-bottom: 20px;
+}
+.rel-speed-chart { min-height: 292px; }
+.rel-speed-chart-title {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--text);
+  margin-bottom: 12px;
+}
+.rel-speed-canvas { height: 230px; }
+@media (max-width: 640px) {
+  .rel-speed-grid { grid-template-columns: 1fr; }
+  .rel-speed-canvas { height: 220px; }
 }
 
 .rel-chart-box {
@@ -5403,6 +5428,8 @@ main {
         <button class="tab-btn" onclick="switchRelTab('semana',this)">Por Dia da Semana</button>
         <button class="tab-btn" onclick="switchRelTab('perfil',this)">Por Perfil</button>
         <button class="tab-btn" onclick="switchRelTab('status',this)">Por Status</button>
+        <button class="tab-btn" onclick="switchRelTab('gasto-dia',this)">Gasto / Dia</button>
+        <button class="tab-btn" onclick="switchRelTab('velocidade-despesas',this)">Velocidade das Despesas</button>
         <button class="tab-btn" onclick="switchRelTab('score',this)">Score</button>
       </div>
 
@@ -5665,6 +5692,83 @@ main {
           <div class="rel-chart-box" style="height:320px"><canvas id="c-status-pie"></canvas></div>
         </div>
         <div class="rel-table-box" id="tbl-status"></div>
+      </div>
+
+      <!-- -- ABA: GASTO / DIA -- -->
+      <div class="rel-tab" id="reltab-gasto-dia">
+        <div class="rel-header">
+          <div class="rel-title">Evolução do Gasto / Dia</div>
+          <div class="rel-sub">Média diária de saídas por mês, calculada por data de competência</div>
+        </div>
+        <div class="rel-filtros">
+          <div class="filtro-group">
+            <label class="filtro-label">Ano da visão mensal</label>
+            <select class="filtro-select" id="rgd-ano" onchange="relGastoDiaSelecionarAno(this.value)"></select>
+          </div>
+          <div class="filtro-group" style="align-self:flex-end">
+            <button class="btn-mes-anterior" onclick="relGastoDiaAnoAtual()">● Ano Atual</button>
+          </div>
+          <div class="filtro-group" style="align-self:flex-end;color:var(--text-muted);font-size:12px">
+            Mesma regra do card: saídas operacionais, sem neutro/transferências, dividido pelos dias do mês.
+          </div>
+        </div>
+        <div class="rel-kpi-row" id="rgd-kpis"></div>
+        <div class="rel-two-col">
+          <div class="rel-chart-box" style="height:320px"><canvas id="c-gasto-dia-line"></canvas></div>
+          <div class="rel-chart-box" style="height:320px"><canvas id="c-gasto-dia-total"></canvas></div>
+        </div>
+        <div class="rel-table-box" id="tbl-gasto-dia"></div>
+      </div>
+
+      <!-- -- ABA: VELOCIDADE DAS DESPESAS -- -->
+      <div class="rel-tab" id="reltab-velocidade-despesas">
+        <div class="rel-header">
+          <div class="rel-title">Velocidade das Despesas</div>
+          <div class="rel-sub">Dias corridos, por data de competência, para a despesa acumulada atingir cada percentual da receita fixa mensal</div>
+        </div>
+        <div class="rel-filtros">
+          <div class="filtro-group">
+            <label class="filtro-label">Ano da visão mensal</label>
+            <select class="filtro-select" id="rvd-ano" onchange="relVelocidadeDespesasSelecionarAno(this.value)"></select>
+          </div>
+          <div class="filtro-group" style="align-self:flex-end">
+            <button class="btn-mes-anterior" onclick="relVelocidadeDespesasAnoAtual()">● Ano Atual</button>
+          </div>
+          <div class="filtro-group" style="align-self:flex-end;color:var(--text-muted);font-size:12px">
+            O filtro lista anos com ao menos uma Receita Fixa cadastrada.
+          </div>
+        </div>
+        <div class="rel-speed-grid">
+          <div class="rel-chart-box rel-speed-chart">
+            <div class="rel-speed-chart-title">10% da receita fixa</div>
+            <div class="rel-speed-canvas"><canvas id="c-vel-desp-10"></canvas></div>
+          </div>
+          <div class="rel-chart-box rel-speed-chart">
+            <div class="rel-speed-chart-title">20% da receita fixa</div>
+            <div class="rel-speed-canvas"><canvas id="c-vel-desp-20"></canvas></div>
+          </div>
+          <div class="rel-chart-box rel-speed-chart">
+            <div class="rel-speed-chart-title">30% da receita fixa</div>
+            <div class="rel-speed-canvas"><canvas id="c-vel-desp-30"></canvas></div>
+          </div>
+          <div class="rel-chart-box rel-speed-chart">
+            <div class="rel-speed-chart-title">50% da receita fixa</div>
+            <div class="rel-speed-canvas"><canvas id="c-vel-desp-50"></canvas></div>
+          </div>
+          <div class="rel-chart-box rel-speed-chart">
+            <div class="rel-speed-chart-title">80% da receita fixa</div>
+            <div class="rel-speed-canvas"><canvas id="c-vel-desp-80"></canvas></div>
+          </div>
+          <div class="rel-chart-box rel-speed-chart">
+            <div class="rel-speed-chart-title">90% da receita fixa</div>
+            <div class="rel-speed-canvas"><canvas id="c-vel-desp-90"></canvas></div>
+          </div>
+          <div class="rel-chart-box rel-speed-chart">
+            <div class="rel-speed-chart-title">100% da receita fixa</div>
+            <div class="rel-speed-canvas"><canvas id="c-vel-desp-100"></canvas></div>
+          </div>
+        </div>
+        <div class="rel-table-box" id="tbl-velocidade-despesas"></div>
       </div>
 
       <!-- -- ABA: SCORE -- -->
@@ -8575,6 +8679,10 @@ function _transDescricaoEhIfood(valor) {
   return _transNormDescricaoChave(valor) === 'ifood';
 }
 
+function _transDescricaoComecaComPadaria(valor) {
+  return _transNormTexto(valor).startsWith('padaria');
+}
+
 function _transDescricaoEhTransporteApp(valor) {
   return ['uber', '99pop'].includes(_transNormDescricaoChave(valor));
 }
@@ -8618,6 +8726,10 @@ function _transFormDescricaoEhIfood() {
   return _transDescricoesDoForm().some(_transDescricaoEhIfood);
 }
 
+function _transFormDescricaoComecaComPadaria() {
+  return _transDescricoesDoForm().some(_transDescricaoComecaComPadaria);
+}
+
 function _transFormDescricaoEhTransporteApp() {
   return _transDescricoesDoForm().some(_transDescricaoEhTransporteApp);
 }
@@ -8650,6 +8762,10 @@ function _transAplicarPixPorDescricao() {
   }
   if (_transFormDescricaoEhIfood()) {
     _transAplicarClassificacaoIfood();
+    return true;
+  }
+  if (_transFormDescricaoComecaComPadaria()) {
+    _transAplicarClassificacaoPadaria();
     return true;
   }
   if (_transFormDescricaoEhTransporteApp()) {
@@ -8765,6 +8881,10 @@ function _transSubcategoriaSupermercadoId(categoriaId) {
 
 function _transSubcategoriaRestauranteId(categoriaId) {
   return _transEnsureSubcategoriaPorNome('Restaurante', categoriaId, ['Restaurantes']);
+}
+
+function _transSubcategoriaPadariaId(categoriaId) {
+  return _transEnsureSubcategoriaPorNome('Padaria', categoriaId, ['Padarias']);
 }
 
 function _transSubcategoriaBaresId(categoriaId) {
@@ -9027,6 +9147,27 @@ function _transClassificacaoIfoodIds() {
 function _transAplicarClassificacaoIfood() {
   if (!_transFormDescricaoEhIfood()) return false;
   const ids = _transClassificacaoIfoodIds();
+  _transSetSelectValue('f-categoria', 'categorias', ids.categoriaId);
+  _transSetSelectValue('f-subcategoria', 'subcategorias', ids.subcategoriaId);
+  _transSetSelectValue('f-natureza', 'naturezas', ids.naturezaId);
+  _transSetSelectValue('f-decisao', 'decisoes', ids.decisaoId);
+  toggleContaDestinoTransacao(false);
+  return true;
+}
+
+function _transClassificacaoPadariaIds() {
+  const categoriaId = _transCategoriaAlimentacaoId();
+  return {
+    categoriaId,
+    subcategoriaId: _transSubcategoriaPadariaId(categoriaId),
+    naturezaId: _transNaturezaSuperfluoId(),
+    decisaoId: _transDecisaoImpulsivoId(),
+  };
+}
+
+function _transAplicarClassificacaoPadaria() {
+  if (!_transFormDescricaoComecaComPadaria()) return false;
+  const ids = _transClassificacaoPadariaIds();
   _transSetSelectValue('f-categoria', 'categorias', ids.categoriaId);
   _transSetSelectValue('f-subcategoria', 'subcategorias', ids.subcategoriaId);
   _transSetSelectValue('f-natureza', 'naturezas', ids.naturezaId);
@@ -11254,7 +11395,7 @@ function _relApplyChartTheme(cfg) {
     ...cfg,
     data: {
       ...(cfg.data || {}),
-      datasets: (cfg.data?.datasets || []).map(ds => _relDatasetModern(ds, type, theme)),
+      datasets: (cfg.data?.datasets || []).map(ds => _relDatasetModern(ds, ds.type || type, theme)),
     },
     options,
   };
@@ -11737,6 +11878,450 @@ function renderRelStatus() {
   _relTabela('tbl-status', rows, total);
 }
 
+/* --- ABA: GASTO / DIA --------------------------------- */
+let _relGastoDiaAnoSelecionado = new Date().getFullYear();
+const RGD_MESES_LABELS = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+
+function _relGastoDiaAnosDisponiveis() {
+  const anos = new Set([new Date().getFullYear()]);
+  dbLoad('transacoes').forEach(t => {
+    const d = _transDataCompetencia(t);
+    if (d) anos.add(parseInt(d.slice(0, 4), 10));
+  });
+  return [...anos].filter(Number.isFinite).sort((a,b)=>a-b);
+}
+
+function _relGastoDiaUltimoDiaMes(ano, mesIndex) {
+  return new Date(ano, mesIndex + 1, 0).getDate();
+}
+
+function _relGastoDiaPopularAnos(anos) {
+  const sel = document.getElementById('rgd-ano');
+  if (!sel) return;
+  const atual = String(_relGastoDiaAnoSelecionado);
+  sel.innerHTML = anos.map(ano => `<option value="${ano}">${ano}</option>`).join('');
+  if (anos.includes(_relGastoDiaAnoSelecionado)) sel.value = atual;
+}
+
+function relGastoDiaSelecionarAno(ano) {
+  const n = parseInt(ano, 10);
+  if (!Number.isFinite(n)) return;
+  _relGastoDiaAnoSelecionado = n;
+  renderRelGastoDia();
+}
+
+function relGastoDiaAnoAtual() {
+  _relGastoDiaAnoSelecionado = new Date().getFullYear();
+  renderRelGastoDia();
+}
+
+function _relGastoDiaDadosAno(ano) {
+  const hoje = new Date();
+  const anoAtual = hoje.getFullYear();
+  const totalMeses = ano === anoAtual ? hoje.getMonth() + 1 : 12;
+  const trans = dbLoad('transacoes').filter(t => _relIsSaida(t) && !_relIsNeutro(t));
+
+  return Array.from({ length: totalMeses }, (_, i) => {
+    const mes = String(i + 1).padStart(2, '0');
+    const anoMes = `${ano}-${mes}`;
+    const dias = _relGastoDiaUltimoDiaMes(ano, i);
+    const doMes = trans.filter(t => (_transDataCompetencia(t) || '').startsWith(anoMes));
+    const total = doMes.reduce((s,t) => s + Math.abs(parseFloat(t.valor) || 0), 0);
+    return {
+      ano,
+      mesIndex: i,
+      mes: RGD_MESES_LABELS[i],
+      anoMes,
+      de: `${anoMes}-01`,
+      ate: `${anoMes}-${String(dias).padStart(2, '0')}`,
+      dias,
+      total,
+      gastoDia: dias > 0 ? total / dias : 0,
+      count: doMes.length,
+    };
+  });
+}
+
+function renderRelGastoDia() {
+  const anos = _relGastoDiaAnosDisponiveis();
+  if (!anos.includes(_relGastoDiaAnoSelecionado)) {
+    _relGastoDiaAnoSelecionado = new Date().getFullYear();
+  }
+  _relGastoDiaPopularAnos(anos);
+
+  const dados = _relGastoDiaDadosAno(_relGastoDiaAnoSelecionado);
+  const atual = dados[dados.length - 1] || { gastoDia:0, total:0, dias:0, count:0, mes:'-' };
+  const totalAno = dados.reduce((s,d) => s + d.total, 0);
+  const diasAno = dados.reduce((s,d) => s + d.dias, 0);
+  const mediaAno = diasAno > 0 ? totalAno / diasAno : 0;
+  const maior = dados.reduce((acc,d) => d.gastoDia > acc.gastoDia ? d : acc, dados[0] || atual);
+  const menor = dados.reduce((acc,d) => d.gastoDia < acc.gastoDia ? d : acc, dados[0] || atual);
+
+  const kpis = document.getElementById('rgd-kpis');
+  if (kpis) {
+    kpis.innerHTML = `
+      <div class="rel-kpi-card">
+        <div class="rel-kpi-label">Gasto / Dia Atual</div>
+        <div class="rel-kpi-value" style="color:var(--danger)">R$ ${fmtValor(atual.gastoDia)}</div>
+        <div class="rel-kpi-sub">${atual.mes}/${String(_relGastoDiaAnoSelecionado).slice(2)} · ${atual.dias}d · Total R$ ${fmtValor(atual.total)}</div>
+      </div>
+      <div class="rel-kpi-card">
+        <div class="rel-kpi-label">Média do Ano</div>
+        <div class="rel-kpi-value" style="color:var(--primary)">R$ ${fmtValor(mediaAno)}</div>
+        <div class="rel-kpi-sub">${diasAno}d · Total R$ ${fmtValor(totalAno)}</div>
+      </div>
+      <div class="rel-kpi-card">
+        <div class="rel-kpi-label">Maior Gasto / Dia</div>
+        <div class="rel-kpi-value" style="color:#FF857D">R$ ${fmtValor(maior.gastoDia)}</div>
+        <div class="rel-kpi-sub">${maior.mes}/${String(_relGastoDiaAnoSelecionado).slice(2)} · Total R$ ${fmtValor(maior.total)}</div>
+      </div>
+      <div class="rel-kpi-card">
+        <div class="rel-kpi-label">Menor Gasto / Dia</div>
+        <div class="rel-kpi-value" style="color:#34E89E">R$ ${fmtValor(menor.gastoDia)}</div>
+        <div class="rel-kpi-sub">${menor.mes}/${String(_relGastoDiaAnoSelecionado).slice(2)} · Total R$ ${fmtValor(menor.total)}</div>
+      </div>`;
+  }
+
+  _rc('c-gasto-dia-line', {
+    type: 'line',
+    data: {
+      labels: dados.map(d=>d.mes),
+      datasets: [
+        {
+          label: 'Gasto / dia',
+          data: dados.map(d=>d.gastoDia),
+          borderColor: '#FF857D',
+          backgroundColor: 'rgba(255,133,125,0.16)',
+          pointBackgroundColor: dados.map(d => d.gastoDia >= mediaAno ? '#FF857D' : '#78B7FF'),
+          fill: true,
+        },
+        {
+          label: 'Média do período',
+          data: dados.map(() => mediaAno),
+          borderColor: '#FFD166',
+          backgroundColor: 'transparent',
+          borderDash: [6, 6],
+          pointRadius: 0,
+          pointHoverRadius: 0,
+          fill: false,
+        },
+      ]
+    },
+    options: {
+      responsive:true,
+      maintainAspectRatio:false,
+      plugins:{
+        legend:{ position:'top' },
+        tooltip:{
+          callbacks:{
+            label: ctx => `${ctx.dataset.label}: R$ ${fmtValor(ctx.parsed.y || 0)}`
+          }
+        }
+      },
+      scales:{
+        x:{ grid:{display:false}, ticks:{font:{size:12}} },
+        y:{ min:0, grid:{color:'#EAEEF3'}, ticks:{callback:v=>'R$ '+fmtValor(v),font:{size:11}} }
+      }
+    }
+  });
+
+  _rc('c-gasto-dia-total', {
+    type: 'bar',
+    data: {
+      labels: dados.map(d=>d.mes),
+      datasets: [{
+        label: 'Total gasto',
+        data: dados.map(d=>d.total),
+        backgroundColor: dados.map(d => d.gastoDia >= mediaAno ? '#FF857D' : '#78B7FF'),
+      }]
+    },
+    options: {
+      responsive:true,
+      maintainAspectRatio:false,
+      plugins:{
+        legend:{ display:false },
+        tooltip:{ callbacks:{ label: ctx => ` Total: R$ ${fmtValor(ctx.parsed.y || 0)}` } }
+      },
+      scales:{
+        x:{ grid:{display:false}, ticks:{font:{size:12}} },
+        y:{ min:0, grid:{color:'#EAEEF3'}, ticks:{callback:v=>'R$ '+fmtValor(v),font:{size:11}} }
+      }
+    }
+  });
+
+  const tbl = document.getElementById('tbl-gasto-dia');
+  if (tbl) {
+    tbl.innerHTML = `
+      <div class="table-wrap">
+        <table class="rel-summary-table">
+          <thead><tr>
+            <th>Mês</th>
+            <th>Período</th>
+            <th>Dias</th>
+            <th>Total gasto</th>
+            <th>Gasto / dia</th>
+            <th># Transações</th>
+          </tr></thead>
+          <tbody>
+            ${dados.map(d => `<tr>
+              <td>${d.mes}/${String(d.ano).slice(2)}</td>
+              <td>${fmtDateStr(d.de)} → ${fmtDateStr(d.ate)}</td>
+              <td>${d.dias}</td>
+              <td style="font-family:var(--font-mono);font-weight:700;color:var(--danger)">R$ ${fmtValor(d.total)}</td>
+              <td style="font-family:var(--font-mono);font-weight:800;color:#FF857D">R$ ${fmtValor(d.gastoDia)}</td>
+              <td style="color:var(--text-muted)">${d.count}</td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>`;
+  }
+}
+
+/* --- ABA: VELOCIDADE DAS DESPESAS ---------------------- */
+let _relVelDespAnoSelecionado = new Date().getFullYear();
+const RVD_MESES_LABELS = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+const REL_VEL_DESP_LIMITES = [
+  { pct: 10,  cor: '#78B7FF' },
+  { pct: 20,  cor: '#34E89E' },
+  { pct: 30,  cor: '#FFD166' },
+  { pct: 50,  cor: '#FF857D' },
+  { pct: 80,  cor: '#B39DFF' },
+  { pct: 90,  cor: '#35DDEB' },
+  { pct: 100, cor: '#FF8CC6' },
+];
+
+function _relVelDespChartId(pct) {
+  return `c-vel-desp-${pct}`;
+}
+
+function _relVelDespIsReceitaFixa(t) {
+  const perfil = _transPerfilNomeNorm(t);
+  return _transIsEntradaOperacional(t) &&
+    (perfil === 'receita fixa' || (perfil.includes('receita') && perfil.includes('fixa')));
+}
+
+function _relVelDespAnosDisponiveis() {
+  const anos = new Set();
+  dbLoad('transacoes').forEach(t => {
+    if (!_relVelDespIsReceitaFixa(t) || _relIsNeutro(t)) return;
+    const d = _transDataReferencia(t);
+    const ano = parseInt((d || '').slice(0, 4), 10);
+    if (Number.isFinite(ano)) anos.add(ano);
+  });
+  return [...anos].sort((a,b)=>a-b);
+}
+
+function _relVelDespPopularAnos(anos) {
+  const sel = document.getElementById('rvd-ano');
+  if (!sel) return;
+  sel.disabled = !anos.length;
+  if (!anos.length) {
+    sel.innerHTML = '<option value="">Sem receita fixa</option>';
+    return;
+  }
+  const atual = String(_relVelDespAnoSelecionado);
+  sel.innerHTML = anos.map(ano => `<option value="${ano}">${ano}</option>`).join('');
+  if (anos.includes(_relVelDespAnoSelecionado)) sel.value = atual;
+}
+
+function _relVelDespAnoPadrao(anos) {
+  const anoAtual = new Date().getFullYear();
+  if (anos.includes(anoAtual)) return anoAtual;
+  return anos[anos.length - 1] || anoAtual;
+}
+
+function relVelocidadeDespesasSelecionarAno(ano) {
+  const n = parseInt(ano, 10);
+  if (!Number.isFinite(n)) return;
+  _relVelDespAnoSelecionado = n;
+  renderRelVelocidadeDespesas();
+}
+
+function relVelocidadeDespesasAnoAtual() {
+  const anos = _relVelDespAnosDisponiveis();
+  const anoAtual = new Date().getFullYear();
+  _relVelDespAnoSelecionado = anos.includes(anoAtual) ? anoAtual : _relVelDespAnoPadrao(anos);
+  if (anos.length && !anos.includes(anoAtual) && typeof toast === 'function') {
+    toast('Ano atual sem Receita Fixa; exibindo o ano mais recente disponível.', 'warn');
+  }
+  renderRelVelocidadeDespesas();
+}
+
+function _relVelDespUltimoDiaMes(ano, mesIndex) {
+  return new Date(ano, mesIndex + 1, 0).getDate();
+}
+
+function _relVelDespDadosAno(ano) {
+  const receitas = Array(12).fill(0);
+  const despesasPorMes = Array.from({ length: 12 }, () => []);
+
+  dbLoad('transacoes').forEach(t => {
+    const data = _transDataReferencia(t);
+    if (!data || parseInt(data.slice(0, 4), 10) !== ano) return;
+    const mesIndex = parseInt(data.slice(5, 7), 10) - 1;
+    if (mesIndex < 0 || mesIndex > 11) return;
+
+    const valor = Math.abs(parseFloat(t.valor) || 0);
+    if (!valor) return;
+
+    if (_relVelDespIsReceitaFixa(t) && !_relIsNeutro(t)) {
+      receitas[mesIndex] += valor;
+      return;
+    }
+
+    if (_relIsSaida(t) && !_relIsNeutro(t)) {
+      despesasPorMes[mesIndex].push({
+        data,
+        dia: parseInt(data.slice(8, 10), 10),
+        valor,
+      });
+    }
+  });
+
+  return Array.from({ length: 12 }, (_, i) => {
+    const despesas = despesasPorMes[i]
+      .filter(d => Number.isFinite(d.dia))
+      .sort((a,b) => a.data.localeCompare(b.data));
+    const receitaFixa = receitas[i];
+    const diasPorLimite = {};
+    let acumulado = 0;
+
+    despesas.forEach(despesa => {
+      acumulado += despesa.valor;
+      REL_VEL_DESP_LIMITES.forEach(limite => {
+        if (diasPorLimite[limite.pct] !== undefined || receitaFixa <= 0) return;
+        if (acumulado >= receitaFixa * (limite.pct / 100)) {
+          diasPorLimite[limite.pct] = despesa.dia;
+        }
+      });
+    });
+
+    return {
+      ano,
+      mesIndex: i,
+      mes: RVD_MESES_LABELS[i],
+      receitaFixa,
+      despesaTotal: despesas.reduce((s,d) => s + d.valor, 0),
+      count: despesas.length,
+      diasMes: _relVelDespUltimoDiaMes(ano, i),
+      diasPorLimite,
+    };
+  });
+}
+
+function _relVelDespDestroyCharts() {
+  REL_VEL_DESP_LIMITES.forEach(limite => {
+    const id = _relVelDespChartId(limite.pct);
+    if (_relCharts[id]) {
+      _relCharts[id].destroy();
+      delete _relCharts[id];
+    }
+  });
+}
+
+function _relVelDespRenderVazio(msg) {
+  _relVelDespDestroyCharts();
+  const tbl = document.getElementById('tbl-velocidade-despesas');
+  if (tbl) {
+    tbl.innerHTML = `<div style="text-align:center;padding:34px;color:var(--text-muted);font-size:13px">${msg}</div>`;
+  }
+}
+
+function _relVelDespTextoDias(mes, pct) {
+  if (!mes || mes.receitaFixa <= 0) return '<span style="color:var(--text-muted)">Sem receita</span>';
+  const dias = mes.diasPorLimite[pct];
+  if (!Number.isFinite(dias)) return '<span style="color:var(--text-muted)">Não atingiu</span>';
+  return `${dias} dia${dias === 1 ? '' : 's'}`;
+}
+
+function _relVelDespRenderGrafico(limite, dados) {
+  _rc(_relVelDespChartId(limite.pct), {
+    type: 'bar',
+    data: {
+      labels: dados.map(d=>d.mes),
+      datasets: [{
+        label: `${limite.pct}% da receita fixa`,
+        data: dados.map(d => Number.isFinite(d.diasPorLimite[limite.pct]) ? d.diasPorLimite[limite.pct] : null),
+        backgroundColor: limite.cor,
+      }]
+    },
+    options: {
+      responsive:true,
+      maintainAspectRatio:false,
+      plugins:{
+        legend:{ display:false },
+        tooltip:{
+          callbacks:{
+            label: ctx => {
+              const mes = dados[ctx.dataIndex];
+              const dias = ctx.raw;
+              if (!Number.isFinite(dias)) {
+                return mes?.receitaFixa > 0 ? ' Não atingiu' : ' Sem receita fixa';
+              }
+              return ` ${dias} dia${dias === 1 ? '' : 's'}`;
+            },
+            afterLabel: ctx => {
+              const mes = dados[ctx.dataIndex];
+              if (!mes) return '';
+              return `Receita fixa: R$ ${fmtValor(mes.receitaFixa)} | Despesa: R$ ${fmtValor(mes.despesaTotal)}`;
+            }
+          }
+        }
+      },
+      scales:{
+        x:{ grid:{display:false}, ticks:{font:{size:12}} },
+        y:{
+          min:0,
+          max:31,
+          grid:{color:'#EAEEF3'},
+          ticks:{ stepSize:5, callback:v=>`${v}d`, font:{size:11} }
+        }
+      }
+    }
+  });
+}
+
+function renderRelVelocidadeDespesas() {
+  const anos = _relVelDespAnosDisponiveis();
+  if (!anos.length) {
+    _relVelDespPopularAnos(anos);
+    _relVelDespRenderVazio('Cadastre ao menos uma transação com perfil Receita Fixa para liberar este relatório.');
+    return;
+  }
+
+  if (!anos.includes(_relVelDespAnoSelecionado)) {
+    _relVelDespAnoSelecionado = _relVelDespAnoPadrao(anos);
+  }
+  _relVelDespPopularAnos(anos);
+
+  const dados = _relVelDespDadosAno(_relVelDespAnoSelecionado);
+  REL_VEL_DESP_LIMITES.forEach(limite => _relVelDespRenderGrafico(limite, dados));
+
+  const tbl = document.getElementById('tbl-velocidade-despesas');
+  if (!tbl) return;
+  tbl.innerHTML = `
+    <div class="table-wrap">
+      <table class="rel-summary-table">
+        <thead><tr>
+          <th>Mês</th>
+          <th>Receita fixa</th>
+          <th>Despesa total</th>
+          ${REL_VEL_DESP_LIMITES.map(l => `<th>${l.pct}%</th>`).join('')}
+          <th># Despesas</th>
+        </tr></thead>
+        <tbody>
+          ${dados.map(d => `<tr>
+            <td>${d.mes}/${String(d.ano).slice(2)}</td>
+            <td style="font-family:var(--font-mono);font-weight:700;color:#00875A">R$ ${fmtValor(d.receitaFixa)}</td>
+            <td style="font-family:var(--font-mono);font-weight:700;color:var(--danger)">R$ ${fmtValor(d.despesaTotal)}</td>
+            ${REL_VEL_DESP_LIMITES.map(l => `<td>${_relVelDespTextoDias(d, l.pct)}</td>`).join('')}
+            <td style="color:var(--text-muted)">${d.count}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
+}
+
 /* --- ABA: SCORE --------------------------------------- */
 let _relScoreAnoSelecionado = new Date().getFullYear();
 const SCORE_MESES_LABELS = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
@@ -11921,6 +12506,8 @@ const _relRenders = {
   semana: () => { _rsPopularSelects(); renderRelSemana(); },
   perfil: () => { _relPopularSelects('rp',  renderRelPerfil); renderRelPerfil(); },
   status: () => { _relPopularSelects('rst', renderRelStatus); renderRelStatus(); },
+  'gasto-dia': () => { renderRelGastoDia(); },
+  'velocidade-despesas': () => { renderRelVelocidadeDespesas(); },
   score:  () => { renderRelScore(); },
 };
 let _relTabAtiva = 'cat';
@@ -17415,6 +18002,7 @@ function impExecutar() {
       const descricaoImportadaEhGriletto = _transDescricaoEhGriletto(descricao) || _transDescricaoEhGriletto(descricaoTratada);
       const descricaoImportadaEhDrogariaSaude = _transDescricaoEhDrogariaSaude(descricao) || _transDescricaoEhDrogariaSaude(descricaoTratada);
       const descricaoImportadaEhIfood = _transDescricaoEhIfood(descricao) || _transDescricaoEhIfood(descricaoTratada);
+      const descricaoImportadaComecaComPadaria = _transDescricaoComecaComPadaria(descricao) || _transDescricaoComecaComPadaria(descricaoTratada);
       const descricaoImportadaEhTransporteApp = _transDescricaoEhTransporteApp(descricao) || _transDescricaoEhTransporteApp(descricaoTratada);
       let naturezaId = findId(naturezas, get('natureza')) || (transferenciaImportada ? _transNaturezaIdTransferencia() : '');
       let decisaoId = findId(decisoes, get('decisao')) || (transferenciaImportada ? _transDecisaoIdTransferencia() : '');
@@ -17485,6 +18073,14 @@ function impExecutar() {
         decisaoId = classificacaoIfood.decisaoId;
         subcategoriaId = classificacaoIfood.subcategoriaId;
         subcategoriaNome = 'Restaurante';
+      } else if (!transferenciaImportada && descricaoImportadaComecaComPadaria) {
+        const classificacaoPadaria = _transClassificacaoPadariaIds();
+        categoriaId = classificacaoPadaria.categoriaId;
+        categoriaNome = 'Alimentação';
+        naturezaId = classificacaoPadaria.naturezaId;
+        decisaoId = classificacaoPadaria.decisaoId;
+        subcategoriaId = classificacaoPadaria.subcategoriaId;
+        subcategoriaNome = 'Padaria';
       } else if (!transferenciaImportada && descricaoImportadaEhTransporteApp) {
         const classificacaoTransporte = _transClassificacaoTransporteAppIds();
         categoriaId = classificacaoTransporte.categoriaId;
@@ -17935,7 +18531,7 @@ function _pdfCabecalho(titulo, subtitulo, orientacao) {
 /* -- RELATÓRIOS de transações (gráficos + tabelas do painel Relatórios) -- */
 function exportarRelatoriosPDF() {
   const { doc, y: startY } = _pdfCabecalho('Relatórios de Transações',
-    'Análise por categoria, subcategoria, dia da semana, perfil e status');
+    'Análise por categoria, subcategoria, dia da semana, perfil, status, gasto/dia e score');
   let y = startY;
 
   // Varrer todos os canvas de gráficos visíveis e todas as tabelas
