@@ -5798,6 +5798,12 @@ main {
           <div class="filtro-group" style="align-self:flex-end">
             <button class="btn-mes-anterior" onclick="relVelocidadeDespesasAnoAtual()">● Ano Atual</button>
           </div>
+          <div class="filtro-group" style="align-self:flex-end;min-width:210px">
+            <label class="checkbox-row" style="margin:0 0 7px">
+              <input type="checkbox" id="rvd-considerar-cartao" checked onchange="renderRelVelocidadeDespesas()">
+              <span>Considerar cartão de crédito</span>
+            </label>
+          </div>
           <div class="filtro-group" style="align-self:flex-end;color:var(--text-muted);font-size:12px">
             O filtro lista anos com ao menos uma Receita Fixa cadastrada.
           </div>
@@ -12164,6 +12170,28 @@ function _relVelDespIsReceitaFixa(t) {
     (perfil === 'receita fixa' || (perfil.includes('receita') && perfil.includes('fixa')));
 }
 
+function _relVelDespConsiderarCartao() {
+  const el = document.getElementById('rvd-considerar-cartao');
+  return !el || el.checked;
+}
+
+function _relVelDespFormaNomeNorm(t) {
+  return (_transNomeColecao('formas', t?.forma_pagamento_id) || t?.forma_pagamento || '')
+    .toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .trim();
+}
+
+function _relVelDespFormaEhAVista(t) {
+  const forma = _relVelDespFormaNomeNorm(t);
+  return forma === 'pix' || forma.includes('debito') || forma.includes('dinheiro');
+}
+
+function _relVelDespDespesaPermitida(t, considerarCartao = _relVelDespConsiderarCartao()) {
+  if (!_relIsSaida(t) || _relIsNeutro(t)) return false;
+  return considerarCartao || _relVelDespFormaEhAVista(t);
+}
+
 function _relVelDespAnosDisponiveis() {
   const anos = new Set();
   dbLoad('transacoes').forEach(t => {
@@ -12218,8 +12246,11 @@ function _relVelDespUltimoDiaMes(ano, mesIndex) {
 function _relVelDespDadosAno(ano) {
   const receitas = Array(12).fill(0);
   const despesasPorMes = Array.from({ length: 12 }, () => []);
+  const considerarCartao = _relVelDespConsiderarCartao();
 
   dbLoad('transacoes').forEach(t => {
+    if (_relIsNeutro(t)) return;
+
     const data = _transDataReferencia(t);
     if (!data || parseInt(data.slice(0, 4), 10) !== ano) return;
     const mesIndex = parseInt(data.slice(5, 7), 10) - 1;
@@ -12228,12 +12259,12 @@ function _relVelDespDadosAno(ano) {
     const valor = Math.abs(parseFloat(t.valor) || 0);
     if (!valor) return;
 
-    if (_relVelDespIsReceitaFixa(t) && !_relIsNeutro(t)) {
+    if (_relVelDespIsReceitaFixa(t)) {
       receitas[mesIndex] += valor;
       return;
     }
 
-    if (_relIsSaida(t) && !_relIsNeutro(t)) {
+    if (_relVelDespDespesaPermitida(t, considerarCartao)) {
       despesasPorMes[mesIndex].push({
         data,
         dia: parseInt(data.slice(8, 10), 10),
