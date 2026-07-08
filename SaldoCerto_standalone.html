@@ -2048,6 +2048,13 @@ tr.trans-selected td { background: transparent; }
 /* ==========================================
    ORÇAMENTOS
 ========================================== */
+.orc-tabs-bar {
+  margin-bottom: 18px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+.orc-tab-panel { display: none; }
+.orc-tab-panel.active { display: block; }
 .orc-summary-card {
   background: var(--card);
   border: 1px solid var(--border);
@@ -2143,6 +2150,30 @@ tr.trans-selected td { background: transparent; }
   font-size: 13px;
 }
 .orc-empty-state div:first-child { font-size: 32px; margin-bottom: 8px; }
+.orc-int-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.orc-int-table thead tr {
+  background: #F8FAFD;
+  border-bottom: 2px solid var(--border);
+}
+.orc-int-table th {
+  padding: 10px 12px;
+  font-size: 11.5px;
+  font-weight: 800;
+  color: var(--text-muted);
+  text-align: left;
+  text-transform: uppercase;
+}
+.orc-int-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.orc-int-table tbody tr:hover { background: #F8FAFD; }
+body.theme-dark .orc-int-table thead tr { background: #11171E; }
+body.theme-dark .orc-int-table tbody tr:hover { background: rgba(120,183,255,0.06); }
 
 
 /* ==========================================
@@ -3730,39 +3761,72 @@ body.theme-dark #page-relatorios .rel-summary-table tbody tr:hover {
       </button>
     </div>
 
-    <!-- Filtros -->
-    <div class="card" style="margin-bottom:20px;padding:16px 20px">
-      <div style="display:flex;align-items:center;flex-wrap:wrap;gap:12px">
-        <div style="font-size:13px;font-weight:600;color:var(--text-muted)">Período:</div>
-        <input type="date" class="filtro-input" id="orc-data-de" style="width:150px" oninput="renderOrcamentos()">
-        <span style="color:var(--text-muted);font-size:13px">até</span>
-        <input type="date" class="filtro-input" id="orc-data-ate" style="width:150px" oninput="renderOrcamentos()">
-        <button class="btn-mes-anterior" id="orc-btn-mes" onclick="orcMesAnterior()" style="">◀ Mês anterior</button>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-left:auto">
-          <select class="filtro-select" id="orc-fil-cat" onchange="renderOrcamentos()" style="width:150px"><option value="">Todas as categorias</option></select>
-          <select class="filtro-select" id="orc-fil-subcat" onchange="renderOrcamentos()" style="width:160px"><option value="">Todas as subcategorias</option></select>
-          <select class="filtro-select" id="orc-fil-perfil" onchange="renderOrcamentos()" style="width:140px"><option value="">Todos os perfis</option></select>
-          <select class="filtro-select" id="orc-fil-status" onchange="renderOrcamentos()" style="width:140px"><option value="">Todos os status</option></select>
-          <button class="btn btn-ghost btn-sm" onclick="orcLimparFiltros()">✕ Limpar</button>
+    <div class="tabs-bar orc-tabs-bar" id="orcTabsBar">
+      <button class="tab-btn active" onclick="switchOrcTab('orcamento',this)">Orçamento</button>
+      <button class="tab-btn" onclick="switchOrcTab('inteligente',this)">Orçamento Inteligente</button>
+    </div>
+
+    <div class="orc-tab-panel active" id="orc-tab-orcamento">
+      <!-- Filtros -->
+      <div class="card" style="margin-bottom:20px;padding:16px 20px">
+        <div style="display:flex;align-items:center;flex-wrap:wrap;gap:12px">
+          <div style="font-size:13px;font-weight:600;color:var(--text-muted)">Período:</div>
+          <input type="date" class="filtro-input" id="orc-data-de" style="width:150px" oninput="renderOrcamentos()">
+          <span style="color:var(--text-muted);font-size:13px">até</span>
+          <input type="date" class="filtro-input" id="orc-data-ate" style="width:150px" oninput="renderOrcamentos()">
+          <button class="btn-mes-anterior" id="orc-btn-mes" onclick="orcMesAnterior()" style="">◀ Mês anterior</button>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-left:auto">
+            <select class="filtro-select" id="orc-fil-cat" onchange="renderOrcamentos()" style="width:150px"><option value="">Todas as categorias</option></select>
+            <select class="filtro-select" id="orc-fil-subcat" onchange="renderOrcamentos()" style="width:160px"><option value="">Todas as subcategorias</option></select>
+            <select class="filtro-select" id="orc-fil-perfil" onchange="renderOrcamentos()" style="width:140px"><option value="">Todos os perfis</option></select>
+            <select class="filtro-select" id="orc-fil-status" onchange="renderOrcamentos()" style="width:140px"><option value="">Todos os status</option></select>
+            <button class="btn btn-ghost btn-sm" onclick="orcLimparFiltros()">✕ Limpar</button>
+          </div>
         </div>
+      </div>
+
+      <!-- Cards de resumo -->
+      <div id="orc-cards" style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:24px"></div>
+
+      <!-- Barra de orçamentos -->
+      <div class="card" id="orc-lista-card">
+        <div style="padding:18px 22px 6px;display:flex;align-items:center;justify-content:space-between">
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="color:var(--danger);font-size:16px">↘</span>
+            <span style="font-size:14px;font-weight:700;color:var(--text)">Orçamentos de Despesas</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <button class="btn btn-ghost btn-sm" id="orc-toggle-receitas" onclick="orcToggleTipo()" style="font-size:12px">Ver Receitas</button>
+          </div>
+        </div>
+        <div id="orc-lista" style="padding:0 22px 18px"></div>
       </div>
     </div>
 
-    <!-- Cards de resumo -->
-    <div id="orc-cards" style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:24px"></div>
-
-    <!-- Barra de orçamentos -->
-    <div class="card" id="orc-lista-card">
-      <div style="padding:18px 22px 6px;display:flex;align-items:center;justify-content:space-between">
-        <div style="display:flex;align-items:center;gap:10px">
-          <span style="color:var(--danger);font-size:16px">↘</span>
-          <span style="font-size:14px;font-weight:700;color:var(--text)">Orçamentos de Despesas</span>
-        </div>
-        <div style="display:flex;align-items:center;gap:8px">
-          <button class="btn btn-ghost btn-sm" id="orc-toggle-receitas" onclick="orcToggleTipo()" style="font-size:12px">Ver Receitas</button>
+    <div class="orc-tab-panel" id="orc-tab-inteligente">
+      <div class="card" style="margin-bottom:20px;padding:16px 20px">
+        <div style="display:flex;align-items:center;flex-wrap:wrap;gap:12px">
+          <div style="font-size:13px;font-weight:600;color:var(--text-muted)">Mês do orçamento:</div>
+          <input type="month" class="filtro-input" id="orc-int-mes" style="width:150px" onchange="renderOrcamentoInteligente()">
+          <div id="orc-int-periodo" style="color:var(--text-muted);font-size:12px"></div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-left:auto">
+            <button class="btn btn-primary btn-sm" onclick="salvarOrcamentoInteligente()">Salvar Orçamento Inteligente</button>
+          </div>
         </div>
       </div>
-      <div id="orc-lista" style="padding:0 22px 18px"></div>
+
+      <div id="orc-int-cards" style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:24px"></div>
+
+      <div class="card" id="orc-int-lista-card">
+        <div style="padding:18px 22px 6px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="color:#1558B0;font-size:16px">◎</span>
+            <span style="font-size:14px;font-weight:700;color:var(--text)">Orçamento Inteligente de Despesas</span>
+          </div>
+          <span id="orc-int-total-label" style="font-family:var(--font-mono);font-weight:800;color:var(--danger);font-size:13px"></span>
+        </div>
+        <div id="orc-int-lista" style="padding:0 22px 18px"></div>
+      </div>
     </div>
   </main>
 </div>
@@ -12392,6 +12456,68 @@ function renderAnaliseDiaria() {
 
 let _orcEditId     = null;
 let _orcTipoAtivo  = 'Saída';  // 'Entrada' | 'Saída'
+let _orcTabAtiva   = 'orcamento';
+const ORC_MESES_CURTOS = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+
+function switchOrcTab(tab, btn) {
+  _orcTabAtiva = tab === 'inteligente' ? 'inteligente' : 'orcamento';
+  document.querySelectorAll('#orcTabsBar .tab-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  document.querySelectorAll('#page-orcamentos .orc-tab-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById(`orc-tab-${_orcTabAtiva}`)?.classList.add('active');
+  renderOrcamentosPage();
+}
+
+function renderOrcamentosPage() {
+  if (_orcTabAtiva === 'inteligente') {
+    _orcIntInitMes();
+    renderOrcamentoInteligente();
+  } else {
+    renderOrcamentos();
+  }
+}
+
+function _orcAnoMesAtual(base = new Date()) {
+  return `${base.getFullYear()}-${String(base.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function _orcAddMeses(anoMes, delta) {
+  const ref = /^\d{4}-\d{2}$/.test(anoMes || '') ? anoMes : _orcAnoMesAtual();
+  const [ano, mes] = ref.split('-').map(Number);
+  const dt = new Date(ano, mes - 1 + delta, 1);
+  return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function _orcUltimoDiaMes(anoMes) {
+  const [ano, mes] = anoMes.split('-').map(Number);
+  return new Date(ano, mes, 0).getDate();
+}
+
+function _orcMesLabelCurto(anoMes) {
+  if (!/^\d{4}-\d{2}$/.test(anoMes || '')) return '';
+  const [ano, mes] = anoMes.split('-').map(Number);
+  return `${ORC_MESES_CURTOS[mes - 1]}/${String(ano).slice(2)}`;
+}
+
+function _orcIntMesSelecionado() {
+  return document.getElementById('orc-int-mes')?.value || _orcAnoMesAtual();
+}
+
+function _orcIntInitMes() {
+  const el = document.getElementById('orc-int-mes');
+  if (!el || el.value) return;
+  const dataDe = document.getElementById('orc-data-de')?.value || '';
+  el.value = /^\d{4}-\d{2}/.test(dataDe) ? dataDe.slice(0, 7) : _orcAnoMesAtual();
+}
+
+function _orcIntPeriodoBase(anoMes) {
+  const meses = [-3, -2, -1].map(delta => _orcAddMeses(anoMes, delta));
+  return {
+    meses,
+    de: `${meses[0]}-01`,
+    ate: `${meses[2]}-${String(_orcUltimoDiaMes(meses[2])).padStart(2, '0')}`,
+  };
+}
 
 /* -- INIT DO PERÍODO -- */
 function _orcInitPeriodo() {
@@ -12638,6 +12764,191 @@ function renderOrcamentos() {
   }).join('');
 }
 
+/* -- ORÇAMENTO INTELIGENTE -- */
+function _orcIntGerarDados(anoMes = _orcIntMesSelecionado()) {
+  const periodo = _orcIntPeriodoBase(anoMes);
+  const mesesSet = new Set(periodo.meses);
+  const categorias = dbLoad('categorias');
+  const subcategorias = dbLoad('subcategorias');
+  const mapa = new Map();
+
+  dbLoad('transacoes')
+    .filter(t => _orcIsSaida(t) && !_orcIsNeutro(t))
+    .forEach(t => {
+      const data = _transDataCompetencia(t);
+      if (!data) return;
+      const mes = data.slice(0, 7);
+      if (!mesesSet.has(mes)) return;
+
+      const categoriaId = t.categoria_id || '';
+      if (!categoriaId) return;
+      const subcategoriaId = t.subcategoria_id || '';
+      const valor = Math.abs(parseFloat(t.valor) || 0);
+      if (!valor) return;
+
+      const chave = `${categoriaId}::${subcategoriaId}`;
+      if (!mapa.has(chave)) {
+        const catNome = categorias.find(c => _dbSameId(c.id, categoriaId))?.nome || 'Sem categoria';
+        const subNome = subcategoriaId ? (subcategorias.find(s => _dbSameId(s.id, subcategoriaId))?.nome || 'Sem subcategoria') : '';
+        mapa.set(chave, {
+          categoriaId,
+          subcategoriaId,
+          catNome,
+          subNome,
+          meses: Object.fromEntries(periodo.meses.map(m => [m, 0])),
+          total: 0,
+          count: 0,
+        });
+      }
+
+      const item = mapa.get(chave);
+      item.meses[mes] += valor;
+      item.total += valor;
+      item.count += 1;
+    });
+
+  const linhas = [...mapa.values()].map(item => {
+    const valores = periodo.meses.map(m => item.meses[m] || 0);
+    const media = item.total / periodo.meses.length;
+    return {
+      ...item,
+      valores,
+      media,
+      label: item.subNome ? `${item.catNome} › ${item.subNome}` : item.catNome,
+    };
+  }).sort((a,b) => b.media - a.media || a.label.localeCompare(b.label, 'pt-BR'));
+
+  return {
+    anoMes,
+    periodo,
+    linhas,
+    totalPeriodo: linhas.reduce((s,l) => s + l.total, 0),
+    totalMensal: linhas.reduce((s,l) => s + l.media, 0),
+    totalCategorias: new Set(linhas.map(l => l.categoriaId)).size,
+  };
+}
+
+function renderOrcamentoInteligente() {
+  _orcIntInitMes();
+  const dados = _orcIntGerarDados(_orcIntMesSelecionado());
+  const periodoEl = document.getElementById('orc-int-periodo');
+  if (periodoEl) {
+    periodoEl.textContent = `Base: ${_orcMesLabelCurto(dados.periodo.meses[0])} a ${_orcMesLabelCurto(dados.periodo.meses[2])}`;
+  }
+
+  const cardsEl = document.getElementById('orc-int-cards');
+  if (cardsEl) {
+    cardsEl.innerHTML = `
+      <div class="orc-summary-card">
+        <div class="orc-card-title">Orçamento Médio <span class="orc-card-icon" style="color:#D93025">↘</span></div>
+        <div class="orc-row">
+          <span class="orc-row-label">Mensal:</span>
+          <span class="orc-row-val" style="color:#D93025">R$ ${fmtValor(dados.totalMensal)}</span>
+        </div>
+        <div class="orc-row">
+          <span class="orc-row-label">Base 3 meses:</span>
+          <span class="orc-row-val">R$ ${fmtValor(dados.totalPeriodo)}</span>
+        </div>
+      </div>
+      <div class="orc-summary-card">
+        <div class="orc-card-title">Categorias</div>
+        <div class="orc-row">
+          <span class="orc-row-label">Categorias:</span>
+          <span class="orc-row-val">${dados.totalCategorias}</span>
+        </div>
+        <div class="orc-row">
+          <span class="orc-row-label">Subcategorias:</span>
+          <span class="orc-row-val">${dados.linhas.length}</span>
+        </div>
+      </div>
+      <div class="orc-saldo-card">
+        <div class="orc-saldo-title">Mês de Referência</div>
+        <div class="orc-saldo-value" style="color:#1558B0;font-size:28px">${_orcMesLabelCurto(dados.anoMes)}</div>
+        <div class="orc-saldo-sub">${dados.linhas.length ? 'Pronto para salvar' : 'Sem despesas na base'}</div>
+      </div>`;
+  }
+
+  const totalLabel = document.getElementById('orc-int-total-label');
+  if (totalLabel) totalLabel.textContent = `Total mensal: R$ ${fmtValor(dados.totalMensal)}`;
+
+  const listaEl = document.getElementById('orc-int-lista');
+  if (!listaEl) return;
+
+  if (!dados.linhas.length) {
+    listaEl.innerHTML = `<div class="orc-empty-state">
+      <div>◎</div>
+      <div>Nenhuma despesa classificada nos 3 meses anteriores.</div>
+    </div>`;
+    return;
+  }
+
+  listaEl.innerHTML = `
+    <div class="table-wrap" style="margin-top:10px">
+      <table class="orc-int-table">
+        <thead>
+          <tr>
+            <th>Categoria / Subcategoria</th>
+            ${dados.periodo.meses.map(m => `<th>${_orcMesLabelCurto(m)}</th>`).join('')}
+            <th>Média mensal</th>
+            <th># Transações</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${dados.linhas.map(l => `<tr>
+            <td><strong>${escHtml(l.label)}</strong></td>
+            ${l.valores.map(v => `<td style="font-family:var(--font-mono)">R$ ${fmtValor(v)}</td>`).join('')}
+            <td style="font-family:var(--font-mono);font-weight:800;color:#D93025">R$ ${fmtValor(l.media)}</td>
+            <td style="color:var(--text-muted)">${l.count}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+function salvarOrcamentoInteligente() {
+  _orcIntInitMes();
+  const dadosInteligentes = _orcIntGerarDados(_orcIntMesSelecionado());
+  if (!dadosInteligentes.linhas.length) {
+    toast('Não há despesas nos 3 meses anteriores para criar o orçamento.', 'warn');
+    return;
+  }
+
+  let dados = dbLoad('orcamentos').slice();
+  let criados = 0;
+  let atualizados = 0;
+
+  dadosInteligentes.linhas.forEach(linha => {
+    const valor = Number(linha.media.toFixed(2));
+    const existente = dados.find(o =>
+      o.mes === dadosInteligentes.anoMes &&
+      o.tipo === 'Saída' &&
+      _dbSameId(o.categoria_id, linha.categoriaId) &&
+      String(o.subcategoria_id || '') === String(linha.subcategoriaId || '')
+    );
+
+    if (existente) {
+      existente.valor = valor;
+      existente.updatedAt = new Date().toISOString();
+      atualizados += 1;
+    } else {
+      dados.push({
+        id: uid(),
+        mes: dadosInteligentes.anoMes,
+        tipo: 'Saída',
+        categoria_id: linha.categoriaId,
+        subcategoria_id: linha.subcategoriaId,
+        valor,
+        createdAt: new Date().toISOString(),
+      });
+      criados += 1;
+    }
+  });
+
+  dbSave('orcamentos', dados);
+  toast(`Orçamento inteligente salvo: ${criados} criado(s), ${atualizados} atualizado(s).`);
+  renderOrcamentosPage();
+}
+
 /* -- MODAL: ABRIR / FECHAR -- */
 function abrirModalOrcamento(id=null) {
   _orcEditId = id;
@@ -12731,7 +13042,7 @@ function salvarOrcamento() {
   }
   dbSave('orcamentos', dados);
   fecharModalOrcamento();
-  renderOrcamentos();
+  renderOrcamentosPage();
 }
 
 /* -- EDITAR / EXCLUIR -- */
@@ -12741,7 +13052,7 @@ function excluirOrcamento(id) {
   openConfirm('Excluir este orçamento?', () => {
     dbSave('orcamentos', dbLoad('orcamentos').filter(x=>x.id!==id));
     toast('Orçamento excluído.', 'warn');
-    renderOrcamentos();
+    renderOrcamentosPage();
   });
 }
 
@@ -17155,7 +17466,7 @@ function showPage(id) {
   if (id === 'inicio')         renderInicio();
   if (id === 'transacoes')     renderTransacoes();
   if (id === 'cartoes')        renderCartoes();
-  if (id === 'orcamentos')     { _orcInitPeriodo(); renderOrcamentos(); }
+  if (id === 'orcamentos')     { _orcInitPeriodo(); _orcIntInitMes(); renderOrcamentosPage(); }
   if (id === 'metas')          renderMetas();
   if (id === 'contas-receber')  { _ctaInitMesAtual('receber'); renderContas('receber'); }
   if (id === 'contas-pagar')    { _ctaInitMesAtual('pagar');   renderContas('pagar');   }
