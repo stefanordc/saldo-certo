@@ -8363,6 +8363,10 @@ function _transDescricaoEhPontualBeers(valor) {
   return _transNormDescricaoChave(valor) === 'pontualbeers';
 }
 
+function _transDescricaoEhBiroskaBeer(valor) {
+  return _transNormDescricaoChave(valor) === 'biroskabeer';
+}
+
 function _transDescricaoEhGriletto(valor) {
   return _transNormDescricaoChave(valor) === 'griletto';
 }
@@ -8419,6 +8423,10 @@ function _transFormDescricaoEhPontualBeers() {
   return _transDescricoesDoForm().some(_transDescricaoEhPontualBeers);
 }
 
+function _transFormDescricaoEhBiroskaBeer() {
+  return _transDescricoesDoForm().some(_transDescricaoEhBiroskaBeer);
+}
+
 function _transFormDescricaoEhGriletto() {
   return _transDescricoesDoForm().some(_transDescricaoEhGriletto);
 }
@@ -8463,6 +8471,10 @@ function _transAplicarPixPorDescricao() {
   }
   if (_transFormDescricaoEhPontualBeers()) {
     _transAplicarClassificacaoPontualBeers();
+    return true;
+  }
+  if (_transFormDescricaoEhBiroskaBeer()) {
+    _transAplicarClassificacaoBiroskaBeer();
     return true;
   }
   if (_transFormDescricaoEhGriletto()) {
@@ -8835,6 +8847,21 @@ function _transClassificacaoPontualBeersIds() {
 function _transAplicarClassificacaoPontualBeers() {
   if (!_transFormDescricaoEhPontualBeers()) return false;
   const ids = _transClassificacaoPontualBeersIds();
+  _transSetSelectValue('f-categoria', 'categorias', ids.categoriaId);
+  _transSetSelectValue('f-subcategoria', 'subcategorias', ids.subcategoriaId);
+  _transSetSelectValue('f-natureza', 'naturezas', ids.naturezaId);
+  _transSetSelectValue('f-decisao', 'decisoes', ids.decisaoId);
+  toggleContaDestinoTransacao(false);
+  return true;
+}
+
+function _transClassificacaoBiroskaBeerIds() {
+  return _transClassificacaoPontualBeersIds();
+}
+
+function _transAplicarClassificacaoBiroskaBeer() {
+  if (!_transFormDescricaoEhBiroskaBeer()) return false;
+  const ids = _transClassificacaoBiroskaBeerIds();
   _transSetSelectValue('f-categoria', 'categorias', ids.categoriaId);
   _transSetSelectValue('f-subcategoria', 'subcategorias', ids.subcategoriaId);
   _transSetSelectValue('f-natureza', 'naturezas', ids.naturezaId);
@@ -18054,6 +18081,7 @@ function impExecutar() {
       const descricaoImportadaEhSupermercadosBH = _transDescricaoEhSupermercadosBH(descricao) || _transDescricaoEhSupermercadosBH(descricaoTratada);
       const descricaoImportadaEhSupermercadoEpa = _transDescricaoEhSupermercadoEpa(descricao) || _transDescricaoEhSupermercadoEpa(descricaoTratada);
       const descricaoImportadaEhPontualBeers = _transDescricaoEhPontualBeers(descricao) || _transDescricaoEhPontualBeers(descricaoTratada);
+      const descricaoImportadaEhBiroskaBeer = _transDescricaoEhBiroskaBeer(descricao) || _transDescricaoEhBiroskaBeer(descricaoTratada);
       const descricaoImportadaEhGriletto = _transDescricaoEhGriletto(descricao) || _transDescricaoEhGriletto(descricaoTratada);
       const descricaoImportadaEhDrogariaSaude = _transDescricaoEhDrogariaSaude(descricao) || _transDescricaoEhDrogariaSaude(descricaoTratada);
       const descricaoImportadaEhIfood = _transDescricaoEhIfood(descricao) || _transDescricaoEhIfood(descricaoTratada);
@@ -18105,6 +18133,14 @@ function impExecutar() {
         naturezaId = classificacaoPontual.naturezaId;
         decisaoId = classificacaoPontual.decisaoId;
         subcategoriaId = classificacaoPontual.subcategoriaId;
+        subcategoriaNome = 'Bares';
+      } else if (!transferenciaImportada && descricaoImportadaEhBiroskaBeer) {
+        const classificacaoBiroska = _transClassificacaoBiroskaBeerIds();
+        categoriaId = classificacaoBiroska.categoriaId;
+        categoriaNome = 'Lazer';
+        naturezaId = classificacaoBiroska.naturezaId;
+        decisaoId = classificacaoBiroska.decisaoId;
+        subcategoriaId = classificacaoBiroska.subcategoriaId;
         subcategoriaNome = 'Bares';
       } else if (!transferenciaImportada && descricaoImportadaEhGriletto) {
         const classificacaoGriletto = _transClassificacaoGrilettoIds();
