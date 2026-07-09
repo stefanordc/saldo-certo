@@ -8375,6 +8375,11 @@ function _transDescricaoEhIfood(valor) {
   return _transNormDescricaoChave(valor) === 'ifood';
 }
 
+function _transDescricaoEhStreamingAssinatura(valor) {
+  return ['hbomax', 'netflix', 'appletv', 'primevideo', 'disneyplus', 'paramount']
+    .includes(_transNormDescricaoChave(valor));
+}
+
 function _transDescricaoEhRecargaTim(valor) {
   return _transNormTexto(valor) === 'recarga tim';
 }
@@ -8426,6 +8431,10 @@ function _transFormDescricaoEhIfood() {
   return _transDescricoesDoForm().some(_transDescricaoEhIfood);
 }
 
+function _transFormDescricaoEhStreamingAssinatura() {
+  return _transDescricoesDoForm().some(_transDescricaoEhStreamingAssinatura);
+}
+
 function _transFormDescricaoEhRecargaTim() {
   return _transDescricoesDoForm().some(_transDescricaoEhRecargaTim);
 }
@@ -8466,6 +8475,10 @@ function _transAplicarPixPorDescricao() {
   }
   if (_transFormDescricaoEhIfood()) {
     _transAplicarClassificacaoIfood();
+    return true;
+  }
+  if (_transFormDescricaoEhStreamingAssinatura()) {
+    _transAplicarClassificacaoStreamingAssinatura();
     return true;
   }
   if (_transFormDescricaoEhRecargaTim()) {
@@ -8546,6 +8559,10 @@ function _transCategoriaPessoalId() {
   return _transEnsureConfigId('categorias', 'Pessoal');
 }
 
+function _transCategoriaAssinaturaId() {
+  return _transEnsureConfigId('categorias', 'Assinatura');
+}
+
 function _transNaturezaRendaId() {
   return _transEnsureConfigId('naturezas', 'Renda');
 }
@@ -8556,6 +8573,10 @@ function _transNaturezaRecuperacaoId() {
 
 function _transNaturezaConvenienciaId() {
   return _transEnsureConfigId('naturezas', 'Conveniência', ['Conveniencia']);
+}
+
+function _transNaturezaQualidadeVidaId() {
+  return _transEnsureConfigId('naturezas', 'Qualidade de vida');
 }
 
 function _transDecisaoEventualId() {
@@ -8617,6 +8638,10 @@ function _transSubcategoriaUber99Id(categoriaId) {
 
 function _transSubcategoriaInternetId(categoriaId) {
   return _transEnsureSubcategoriaPorNome('Internet', categoriaId);
+}
+
+function _transSubcategoriaStreamingId(categoriaId) {
+  return _transEnsureSubcategoriaPorNome('Streaming', categoriaId);
 }
 
 function _transCategoriaOutrosId() {
@@ -8867,6 +8892,29 @@ function _transClassificacaoIfoodIds() {
 function _transAplicarClassificacaoIfood() {
   if (!_transFormDescricaoEhIfood()) return false;
   const ids = _transClassificacaoIfoodIds();
+  _transSetSelectValue('f-categoria', 'categorias', ids.categoriaId);
+  _transSetSelectValue('f-subcategoria', 'subcategorias', ids.subcategoriaId);
+  _transSetSelectValue('f-natureza', 'naturezas', ids.naturezaId);
+  _transSetSelectValue('f-decisao', 'decisoes', ids.decisaoId);
+  toggleContaDestinoTransacao(false);
+  return true;
+}
+
+function _transClassificacaoStreamingAssinaturaIds() {
+  const categoriaId = _transCategoriaAssinaturaId();
+  return {
+    perfilId: _transPerfilDespesaFixaId(),
+    categoriaId,
+    subcategoriaId: _transSubcategoriaStreamingId(categoriaId),
+    naturezaId: _transNaturezaQualidadeVidaId(),
+    decisaoId: _transDecisaoRecorrenteId(),
+  };
+}
+
+function _transAplicarClassificacaoStreamingAssinatura() {
+  if (!_transFormDescricaoEhStreamingAssinatura()) return false;
+  const ids = _transClassificacaoStreamingAssinaturaIds();
+  _transSetSelectValue('f-perfil-despesa', 'perfis', ids.perfilId);
   _transSetSelectValue('f-categoria', 'categorias', ids.categoriaId);
   _transSetSelectValue('f-subcategoria', 'subcategorias', ids.subcategoriaId);
   _transSetSelectValue('f-natureza', 'naturezas', ids.naturezaId);
@@ -18009,6 +18057,7 @@ function impExecutar() {
       const descricaoImportadaEhGriletto = _transDescricaoEhGriletto(descricao) || _transDescricaoEhGriletto(descricaoTratada);
       const descricaoImportadaEhDrogariaSaude = _transDescricaoEhDrogariaSaude(descricao) || _transDescricaoEhDrogariaSaude(descricaoTratada);
       const descricaoImportadaEhIfood = _transDescricaoEhIfood(descricao) || _transDescricaoEhIfood(descricaoTratada);
+      const descricaoImportadaEhStreamingAssinatura = _transDescricaoEhStreamingAssinatura(descricao) || _transDescricaoEhStreamingAssinatura(descricaoTratada);
       const descricaoImportadaEhRecargaTim = _transDescricaoEhRecargaTim(descricao) || _transDescricaoEhRecargaTim(descricaoTratada);
       const descricaoImportadaComecaComPadaria = _transDescricaoComecaComPadaria(descricao) || _transDescricaoComecaComPadaria(descricaoTratada);
       const descricaoImportadaEhTransporteApp = _transDescricaoEhTransporteApp(descricao) || _transDescricaoEhTransporteApp(descricaoTratada);
@@ -18081,6 +18130,15 @@ function impExecutar() {
         decisaoId = classificacaoIfood.decisaoId;
         subcategoriaId = classificacaoIfood.subcategoriaId;
         subcategoriaNome = 'Restaurante';
+      } else if (!transferenciaImportada && descricaoImportadaEhStreamingAssinatura) {
+        const classificacaoStreaming = _transClassificacaoStreamingAssinaturaIds();
+        categoriaId = classificacaoStreaming.categoriaId;
+        categoriaNome = 'Assinatura';
+        perfilId = classificacaoStreaming.perfilId;
+        naturezaId = classificacaoStreaming.naturezaId;
+        decisaoId = classificacaoStreaming.decisaoId;
+        subcategoriaId = classificacaoStreaming.subcategoriaId;
+        subcategoriaNome = 'Streaming';
       } else if (!transferenciaImportada && descricaoImportadaEhRecargaTim) {
         const classificacaoRecargaTim = _transClassificacaoRecargaTimIds();
         categoriaId = classificacaoRecargaTim.categoriaId;
