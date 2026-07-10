@@ -8799,6 +8799,10 @@ function _transDescricaoEhBiroskaBeer(valor) {
   return _transNormDescricaoChave(valor) === 'biroskabeer';
 }
 
+function _transDescricaoEhPagamentoEfetuado(valor) {
+  return _transNormTexto(valor) === 'pagamento efetuado';
+}
+
 function _transDescricaoEhGriletto(valor) {
   return _transNormDescricaoChave(valor) === 'griletto';
 }
@@ -8863,6 +8867,10 @@ function _transFormDescricaoEhBiroskaBeer() {
   return _transDescricoesDoForm().some(_transDescricaoEhBiroskaBeer);
 }
 
+function _transFormDescricaoEhPagamentoEfetuado() {
+  return _transDescricoesDoForm().some(_transDescricaoEhPagamentoEfetuado);
+}
+
 function _transFormDescricaoEhGriletto() {
   return _transDescricoesDoForm().some(_transDescricaoEhGriletto);
 }
@@ -8915,6 +8923,10 @@ function _transAplicarPixPorDescricao() {
   }
   if (_transFormDescricaoEhBiroskaBeer()) {
     _transAplicarClassificacaoBiroskaBeer();
+    return true;
+  }
+  if (_transFormDescricaoEhPagamentoEfetuado()) {
+    _transAplicarClassificacaoPagamentoEfetuado();
     return true;
   }
   if (_transFormDescricaoEhGriletto()) {
@@ -9333,6 +9345,21 @@ function _transClassificacaoBiroskaBeerIds() {
 function _transAplicarClassificacaoBiroskaBeer() {
   if (!_transFormDescricaoEhBiroskaBeer()) return false;
   const ids = _transClassificacaoBiroskaBeerIds();
+  _transSetSelectValue('f-categoria', 'categorias', ids.categoriaId);
+  _transSetSelectValue('f-subcategoria', 'subcategorias', ids.subcategoriaId);
+  _transSetSelectValue('f-natureza', 'naturezas', ids.naturezaId);
+  _transSetSelectValue('f-decisao', 'decisoes', ids.decisaoId);
+  toggleContaDestinoTransacao(false);
+  return true;
+}
+
+function _transClassificacaoPagamentoEfetuadoIds() {
+  return _transClassificacaoCategoriaOutrosIds();
+}
+
+function _transAplicarClassificacaoPagamentoEfetuado() {
+  if (!_transFormDescricaoEhPagamentoEfetuado()) return false;
+  const ids = _transClassificacaoPagamentoEfetuadoIds();
   _transSetSelectValue('f-categoria', 'categorias', ids.categoriaId);
   _transSetSelectValue('f-subcategoria', 'subcategorias', ids.subcategoriaId);
   _transSetSelectValue('f-natureza', 'naturezas', ids.naturezaId);
@@ -18799,6 +18826,7 @@ function impExecutar() {
       const descricaoImportadaEhSupermercadoEpa = _transDescricaoEhSupermercadoEpa(descricao) || _transDescricaoEhSupermercadoEpa(descricaoTratada);
       const descricaoImportadaEhPontualBeers = _transDescricaoEhPontualBeers(descricao) || _transDescricaoEhPontualBeers(descricaoTratada);
       const descricaoImportadaEhBiroskaBeer = _transDescricaoEhBiroskaBeer(descricao) || _transDescricaoEhBiroskaBeer(descricaoTratada);
+      const descricaoImportadaEhPagamentoEfetuado = _transDescricaoEhPagamentoEfetuado(descricao) || _transDescricaoEhPagamentoEfetuado(descricaoTratada);
       const descricaoImportadaEhGriletto = _transDescricaoEhGriletto(descricao) || _transDescricaoEhGriletto(descricaoTratada);
       const descricaoImportadaEhDrogariaSaude = _transDescricaoEhDrogariaSaude(descricao) || _transDescricaoEhDrogariaSaude(descricaoTratada);
       const descricaoImportadaEhIfood = _transDescricaoEhIfood(descricao) || _transDescricaoEhIfood(descricaoTratada);
@@ -18869,6 +18897,14 @@ function impExecutar() {
         decisaoId = classificacaoBiroska.decisaoId;
         subcategoriaId = classificacaoBiroska.subcategoriaId;
         subcategoriaNome = 'Bares';
+      } else if (!transferenciaImportada && descricaoImportadaEhPagamentoEfetuado) {
+        const classificacaoPagamentoEfetuado = _transClassificacaoPagamentoEfetuadoIds();
+        categoriaId = classificacaoPagamentoEfetuado.categoriaId;
+        categoriaNome = 'Outros';
+        naturezaId = classificacaoPagamentoEfetuado.naturezaId;
+        decisaoId = classificacaoPagamentoEfetuado.decisaoId;
+        subcategoriaId = classificacaoPagamentoEfetuado.subcategoriaId;
+        subcategoriaNome = 'Não identificado';
       } else if (!transferenciaImportada && descricaoImportadaEhGriletto) {
         const classificacaoGriletto = _transClassificacaoGrilettoIds();
         categoriaId = classificacaoGriletto.categoriaId;
