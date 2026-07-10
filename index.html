@@ -5471,7 +5471,7 @@ main {
     <div class="page-header">
       <div>
         <div class="page-title">Relatórios</div>
-        <div class="page-subtitle">Análises visuais das suas despesas — status neutro sempre excluído</div>
+        <div class="page-subtitle">Análises visuais das suas despesas — status neutro e faturas excluídos dos cálculos gerais</div>
       </div>
       <button class="btn btn-ghost" onclick="exportarRelatoriosPDF()" title="Exportar relatório atual em PDF">
         📄 Exportar PDF
@@ -5485,6 +5485,7 @@ main {
         <button class="tab-btn" onclick="switchRelTab('semana',this)">Por Dia da Semana</button>
         <button class="tab-btn" onclick="switchRelTab('perfil',this)">Por Perfil</button>
         <button class="tab-btn" onclick="switchRelTab('status',this)">Por Status</button>
+        <button class="tab-btn" onclick="switchRelTab('faturas',this)">Faturas</button>
         <button class="tab-btn" onclick="switchRelTab('gasto-dia',this)">Gasto / Dia</button>
         <button class="tab-btn" onclick="switchRelTab('velocidade-despesas',this)">Velocidade das Despesas</button>
         <button class="tab-btn" onclick="switchRelTab('score',this)">Score</button>
@@ -5730,6 +5731,49 @@ main {
           <div class="rel-chart-box" style="height:320px"><canvas id="c-status-pie"></canvas></div>
         </div>
         <div class="rel-table-box" id="tbl-status"></div>
+      </div>
+
+      <!-- -- ABA: FATURAS -- -->
+      <div class="rel-tab" id="reltab-faturas">
+        <div class="rel-header">
+          <div class="rel-title">Pagamentos de Faturas</div>
+          <div class="rel-sub">Somente saídas cuja subcategoria é Fatura, isoladas dos demais cálculos dos relatórios</div>
+        </div>
+        <div class="rel-filtros">
+          <div class="filtro-group">
+            <label class="filtro-label">Data De</label>
+            <input type="date" class="filtro-input" id="rfat-data-de" oninput="renderRelFaturas()">
+          </div>
+          <div class="filtro-group">
+            <label class="filtro-label">Data Até</label>
+            <input type="date" class="filtro-input" id="rfat-data-ate" oninput="renderRelFaturas()">
+          </div>
+          <div class="filtro-group">
+            <label class="filtro-label">Tipo de Data</label>
+            <select class="filtro-select" id="rfat-tipo-data" onchange="renderRelFaturas()">
+              <option value="competencia">Data de Competência</option>
+              <option value="contabil">Data Contábil</option>
+            </select>
+          </div>
+          <div class="filtro-group" style="display:flex;gap:6px;align-items:flex-end;flex-wrap:wrap">
+            <button class="btn-mes-anterior" id="rfat-btn-mes-atual" onclick="_relMesAtual('rfat',renderRelFaturas)" style="margin-top:16px">● Mês Atual</button>
+            <button class="btn-mes-anterior" id="rfat-btn-mes" onclick="rfatMesAnterior()" style="margin-top:16px">◀ Mês Anterior</button>
+            <button class="btn-mes-anterior" id="rfat-btn-mes-proximo" onclick="rfatMesProximo()" style="margin-top:16px">Próximo mês ▶</button>
+          </div>
+          <div class="filtro-group">
+            <label class="filtro-label">Conta</label>
+            <select class="filtro-select" id="rfat-conta" onchange="renderRelFaturas()"><option value="">Todas</option></select>
+          </div>
+          <div class="filtro-group" style="align-self:flex-end">
+            <button class="btn btn-ghost btn-sm" onclick="rfatLimpar()">✕ Limpar</button>
+          </div>
+        </div>
+        <div class="rel-kpi-row" id="rfat-kpis"></div>
+        <div class="rel-two-col">
+          <div class="rel-chart-box" style="height:320px"><canvas id="c-faturas-dia"></canvas></div>
+          <div class="rel-chart-box" style="height:320px"><canvas id="c-faturas-conta"></canvas></div>
+        </div>
+        <div class="rel-table-box" id="tbl-faturas"></div>
       </div>
 
       <!-- -- ABA: GASTO / DIA -- -->
@@ -8131,7 +8175,12 @@ function _transDadosTabelaFiltrados(busca = '', fil = coletarFiltros()) {
   if (fil.cartao)       dados = dados.filter(t => _transContaFiltroEhConta(t, fil.cartao));
   if (fil.tipo)         dados = dados.filter(t => _dbSameId(t.natureza_id, fil.tipo));
   if (fil.forma)        dados = dados.filter(t => _dbSameId(t.forma_pagamento_id, fil.forma));
-  if (fil.perfil)       dados = dados.filter(t => _dbSameId(t.perfil_despesa_id, fil.perfil));
+  if (fil.perfil) {
+    const perfilFiltroEhDespesaFixa = _transPerfilNomeEhDespesaFixa(_transNomeColecao('perfis', fil.perfil));
+    dados = dados.filter(t => perfilFiltroEhDespesaFixa
+      ? _transLancamentoEhDespesaFixa(t)
+      : _dbSameId(t.perfil_despesa_id, fil.perfil));
+  }
   if (fil.categoria)    dados = dados.filter(t => _dbSameId(t.categoria_id, fil.categoria));
   if (fil.subcategoria) dados = dados.filter(t => _dbSameId(t.subcategoria_id, fil.subcategoria));
 
@@ -8598,12 +8647,41 @@ function _transPerfilNomeEhSaida(v) {
          (n.includes('despesa') && (n.includes('fixa') || n.includes('variavel')));
 }
 
+function _transPerfilNomeEhDespesaFixa(v) {
+  const n = _transNormTexto(v);
+  return n === 'despesa fixa' || (n.includes('despesa') && n.includes('fixa'));
+}
+
 function _transPerfilEhEntrada(t) {
   return _transPerfilNomeEhEntrada(_transPerfilNomeNorm(t));
 }
 
 function _transPerfilEhSaida(t) {
   return _transPerfilNomeEhSaida(_transPerfilNomeNorm(t));
+}
+
+function _transPerfilEhTransferencia(t) {
+  return _transIsTransferenciaNome(_transPerfilNomeNorm(t));
+}
+
+function _transSubcategoriaNomeNorm(t) {
+  return _transNormTexto(
+    _transNomeColecao('subcategorias', t?.subcategoria_id) ||
+    t?.subcategoria ||
+    t?.subcategoria_nome ||
+    ''
+  );
+}
+
+function _transLancamentoEhFatura(t) {
+  return _transSubcategoriaNomeNorm(t) === 'fatura';
+}
+
+function _transLancamentoEhDespesaFixa(t) {
+  if (_transPerfilEhTransferencia(t) || _transIsTransferenciaLancamento(t) || _transLancamentoEhFatura(t)) {
+    return false;
+  }
+  return _transPerfilNomeEhDespesaFixa(_transPerfilNomeNorm(t));
 }
 
 function _transSinalOperacional(t) {
@@ -9163,7 +9241,7 @@ function _transAplicarClassificacaoFatura() {
   _transSetSelectValue('f-subcategoria', 'subcategorias', ids.subcategoriaId);
   _transSetSelectValue('f-natureza', 'naturezas', ids.naturezaId);
   _transSetSelectValue('f-decisao', 'decisoes', ids.decisaoId);
-  toggleContaDestinoTransacao(false);
+  toggleContaDestinoTransacao(_transFormExigeContaDestino());
   return true;
 }
 
@@ -9468,6 +9546,10 @@ function _transFormEhTransferencia() {
     'f-decisao',
     'f-tipo-pagamento',
   ].some(_transSelectEhTransferencia);
+}
+
+function _transFormExigeContaDestino() {
+  return _transPerfilSelecionadoEhTransferencia() || _transFormEhTransferencia();
 }
 
 function _transEnsureSubcategoriaTransferencia(categoriaId) {
@@ -9878,7 +9960,7 @@ function _transCategoriaSelecionadaEhTransferencia() {
   return _transFormEhTransferencia();
 }
 
-function toggleContaDestinoTransacao(isTransferencia = _transCategoriaSelecionadaEhTransferencia()) {
+function toggleContaDestinoTransacao(isTransferencia = _transFormExigeContaDestino()) {
   const grupo = document.getElementById('grp-conta-destino');
   const selDestino = document.getElementById('f-conta-destino');
   const exibir = !!isTransferencia;
@@ -10310,7 +10392,7 @@ function preencherFormTransacao(t) {
     base.status_compra
   );
 
-  toggleContaDestinoTransacao(!!transf || _transFormEhTransferencia());
+  toggleContaDestinoTransacao(!!transf || _transFormExigeContaDestino());
   if (destinoId) setValue('f-conta-destino', destinoId);
   setValue('f-obs', _transObservacoesTexto(base) || _transFirstValue(base, ['observacoes','observações','observacao','observação','obs','notes','nota']));
 
@@ -10465,11 +10547,12 @@ function saveTransacao() {
     }
   }
 
+  const exigeContaDestino = _transFormExigeContaDestino();
   const transferenciaAtual = _transCategoriaSelecionadaEhTransferencia();
   const transferenciaNova = !editandoTransId && transferenciaAtual;
   const contaOrigemId = document.getElementById('f-cartao').value;
   const contaDestinoId = document.getElementById('f-conta-destino')?.value || '';
-  if (transferenciaAtual) {
+  if (exigeContaDestino) {
     if (!contaDestinoId) {
       mostrarErro('f-conta-destino', 'e-conta-destino', 'Conta destino é obrigatória');
       valido = false;
@@ -10531,7 +10614,7 @@ function saveTransacao() {
     data_competencia:  dataContabilBase,
     data_insercao:     dataInsercaoBase,
     cartao_id:         contaOrigemId,
-    conta_destino_id:  transferenciaAtual ? contaDestinoId : null,
+    conta_destino_id:  exigeContaDestino ? contaDestinoId : null,
     tipo_pagamento_id: tipoOperacionalId,
     forma_pagamento_id:formaPagamentoId,
     descricao:         document.getElementById('f-descricao').value.trim(),
@@ -11635,6 +11718,12 @@ function _relIsNeutro(t) { const s=_relNomeStatus(t); return s==='neutro'||s==='
 function _relIsSaida(t) {
   return _transIsSaidaOperacional(t);
 }
+function _relIncluirNosCalculos(t) {
+  return !_transPerfilEhTransferencia(t) && !_relIsNeutro(t) && !_transLancamentoEhFatura(t);
+}
+function _relSaidasCalculo() {
+  return dbLoad('transacoes').filter(t => _relIsSaida(t) && _relIncluirNosCalculos(t));
+}
 
 /* Agrupa despesas por campo de lookup */
 function _agrupar(transacoes, colecao, id_field) {
@@ -11825,7 +11914,7 @@ function rstLimpar()       { _relLimpar('rst',      renderRelStatus); }
 /* --- ABA: CATEGORIA ----------------------------------- */
 function renderRelCat() {
   const f = _relGetFiltros('rc');
-  let trans = dbLoad('transacoes').filter(t => _relIsSaida(t) && !_relIsNeutro(t));
+  let trans = _relSaidasCalculo();
   trans = _relAplicarFiltros(trans, f);
 
   const rows = _agrupar(trans, 'categorias', 'categoria_id');
@@ -11870,7 +11959,7 @@ function renderRelCat() {
 /* --- ABA: SUBCATEGORIA -------------------------------- */
 function renderRelSubcat() {
   const f = _relGetFiltros('rsc');
-  let trans = dbLoad('transacoes').filter(t => _relIsSaida(t) && !_relIsNeutro(t));
+  let trans = _relSaidasCalculo();
   trans = _relAplicarFiltros(trans, f);
 
   const rows = _agrupar(trans, 'subcategorias', 'subcategoria_id');
@@ -11959,7 +12048,7 @@ function rsLimpar() {
 
 function renderRelSemana() {
   const f = _rsGetFiltros();
-  let trans = dbLoad('transacoes').filter(t => _relIsSaida(t) && !_relIsNeutro(t));
+  let trans = _relSaidasCalculo();
 
   if (f.dataDe)  trans = trans.filter(t => _transDataCompetencia(t) >= f.dataDe);
   if (f.dataAte) trans = trans.filter(t => _transDataCompetencia(t) <= f.dataAte);
@@ -12034,7 +12123,7 @@ function renderRelSemana() {
 /* --- ABA: PERFIL -------------------------------------- */
 function renderRelPerfil() {
   const f = _relGetFiltros('rp');
-  let trans = dbLoad('transacoes').filter(t => _relIsSaida(t) && !_relIsNeutro(t));
+  let trans = _relSaidasCalculo();
   trans = _relAplicarFiltros(trans, f);
 
   const rows = _agrupar(trans, 'perfis', 'perfil_despesa_id');
@@ -12078,7 +12167,7 @@ function renderRelPerfil() {
 /* --- ABA: STATUS --------------------------------------- */
 function renderRelStatus() {
   const f = _relGetFiltros('rst');
-  let trans = dbLoad('transacoes').filter(t => _relIsSaida(t) && !_relIsNeutro(t));
+  let trans = _relSaidasCalculo();
   trans = _relAplicarFiltros(trans, f);
 
   const rows = _agrupar(trans, 'status', 'status_compra_id');
@@ -12120,6 +12209,198 @@ function renderRelStatus() {
   _relTabela('tbl-status', rows, total);
 }
 
+/* --- ABA: FATURAS -------------------------------------- */
+function _relFaturasGetFiltros() {
+  return {
+    dataDe: document.getElementById('rfat-data-de')?.value || '',
+    dataAte: document.getElementById('rfat-data-ate')?.value || '',
+    tipoData: document.getElementById('rfat-tipo-data')?.value || 'competencia',
+    conta: document.getElementById('rfat-conta')?.value || '',
+  };
+}
+
+function _relFaturasPopularContas() {
+  const sel = document.getElementById('rfat-conta');
+  if (!sel) return;
+  const atual = sel.value;
+  sel.innerHTML = '<option value="">Todas</option>';
+  dbLoad('cartoes')
+    .sort((a,b) => (a.nome || '').localeCompare(b.nome || '', 'pt'))
+    .forEach(conta => {
+      sel.innerHTML += `<option value="${conta.id}">${escHtml(conta.nome || 'Sem nome')}</option>`;
+    });
+  if (atual) sel.value = atual;
+}
+
+function rfatMesAnterior() {
+  _relMesAnterior('rfat', renderRelFaturas);
+}
+
+function rfatMesProximo() {
+  _relMesProximo('rfat', renderRelFaturas);
+}
+
+function rfatLimpar() {
+  ['rfat-data-de','rfat-data-ate','rfat-conta'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  ['rfat-btn-mes','rfat-btn-mes-atual','rfat-btn-mes-proximo']
+    .forEach(id => document.getElementById(id)?.classList.remove('ativo'));
+  renderRelFaturas();
+}
+
+function _relFaturasContaNome(t) {
+  return _transNomeColecao('cartoes', t?.cartao_id) || t?.cartao || t?.conta || '(Sem conta)';
+}
+
+function _relFaturasPerfilNome(t) {
+  return _transNomeColecao('perfis', t?.perfil_despesa_id) ||
+    t?.perfil_despesa ||
+    t?.perfil ||
+    '(Sem perfil)';
+}
+
+function _relFaturasDadosFiltrados() {
+  const f = _relFaturasGetFiltros();
+  const dataFn = f.tipoData === 'contabil' ? _transDataContabil : _transDataCompetencia;
+  let trans = dbLoad('transacoes')
+    .filter(t => _transLancamentoEhFatura(t) && _relIsSaida(t));
+
+  if (f.dataDe) trans = trans.filter(t => dataFn(t) >= f.dataDe);
+  if (f.dataAte) trans = trans.filter(t => dataFn(t) <= f.dataAte);
+  if (f.conta) trans = trans.filter(t => _transContaOrigemEhConta(t, f.conta));
+
+  return trans.sort((a,b) => {
+    const porData = dataFn(b).localeCompare(dataFn(a));
+    if (porData) return porData;
+    return (a.descricao || '').localeCompare(b.descricao || '', 'pt');
+  });
+}
+
+function renderRelFaturas() {
+  const f = _relFaturasGetFiltros();
+  const dataFn = f.tipoData === 'contabil' ? _transDataContabil : _transDataCompetencia;
+  const trans = _relFaturasDadosFiltrados();
+  const total = trans.reduce((s,t) => s + Math.abs(parseFloat(t.valor) || 0), 0);
+  const media = trans.length ? total / trans.length : 0;
+  const contasUsadas = new Set(trans.map(_relFaturasContaNome)).size;
+
+  const kpis = document.getElementById('rfat-kpis');
+  if (kpis) {
+    kpis.innerHTML = `
+      <div class="rel-kpi-card">
+        <div class="rel-kpi-label">Total Pago</div>
+        <div class="rel-kpi-value" style="color:var(--danger)">R$ ${fmtValor(total)}</div>
+        <div class="rel-kpi-sub">Subcategoria Fatura</div>
+      </div>
+      <div class="rel-kpi-card">
+        <div class="rel-kpi-label">Pagamentos</div>
+        <div class="rel-kpi-value" style="color:var(--primary)">${trans.length}</div>
+        <div class="rel-kpi-sub">No período selecionado</div>
+      </div>
+      <div class="rel-kpi-card">
+        <div class="rel-kpi-label">Valor Médio</div>
+        <div class="rel-kpi-value" style="color:#B8860B">R$ ${fmtValor(media)}</div>
+        <div class="rel-kpi-sub">Por pagamento</div>
+      </div>
+      <div class="rel-kpi-card">
+        <div class="rel-kpi-label">Contas</div>
+        <div class="rel-kpi-value" style="color:#00875A">${contasUsadas}</div>
+        <div class="rel-kpi-sub">Com pagamento de fatura</div>
+      </div>`;
+  }
+
+  const porDataMap = new Map();
+  trans.forEach(t => {
+    const data = dataFn(t) || '';
+    if (!data) return;
+    porDataMap.set(data, (porDataMap.get(data) || 0) + Math.abs(parseFloat(t.valor) || 0));
+  });
+  const porData = [...porDataMap.entries()].sort((a,b) => a[0].localeCompare(b[0]));
+
+  const porContaMap = new Map();
+  trans.forEach(t => {
+    const conta = _relFaturasContaNome(t);
+    const atual = porContaMap.get(conta) || { total:0, count:0 };
+    atual.total += Math.abs(parseFloat(t.valor) || 0);
+    atual.count += 1;
+    porContaMap.set(conta, atual);
+  });
+  const porConta = [...porContaMap.entries()]
+    .map(([nome,dados]) => ({ nome, ...dados }))
+    .sort((a,b) => b.total - a.total);
+
+  _rc('c-faturas-dia', {
+    type: 'line',
+    data: {
+      labels: porData.map(([data]) => fmtDateStr(data)),
+      datasets: [{
+        label: 'Pagamentos por data',
+        data: porData.map(([,valor]) => valor),
+        borderColor: '#FF857D',
+        backgroundColor: 'rgba(255,133,125,0.16)',
+        fill: true,
+      }]
+    },
+    options: {
+      responsive:true,
+      maintainAspectRatio:false,
+      plugins:{ legend:{ position:'top' }, tooltip:_ttFmt },
+      scales:{
+        x:{ grid:{display:false}, ticks:{font:{size:12}} },
+        y:{ min:0, grid:{color:'#EAEEF3'}, ticks:{callback:v=>'R$ '+fmtValor(v),font:{size:11}} }
+      }
+    }
+  });
+
+  _rc('c-faturas-conta', {
+    type: 'bar',
+    data: {
+      labels: porConta.map(item => item.nome),
+      datasets: [{
+        label: 'Total por conta',
+        data: porConta.map(item => item.total),
+        backgroundColor: porConta.map((_,i) => REL_CORES[i % REL_CORES.length]),
+      }]
+    },
+    options: {
+      responsive:true,
+      maintainAspectRatio:false,
+      indexAxis:'y',
+      plugins:{ legend:{ display:false }, tooltip:_ttFmtH },
+      scales:{
+        x:{ min:0, grid:{color:'#EAEEF3'}, ticks:{callback:v=>'R$ '+fmtValor(v),font:{size:11}} },
+        y:{ grid:{display:false}, ticks:{font:{size:12}} }
+      }
+    }
+  });
+
+  const tbl = document.getElementById('tbl-faturas');
+  if (!tbl) return;
+  tbl.innerHTML = `
+    <div class="table-wrap">
+      <table class="rel-summary-table">
+        <thead><tr>
+          <th>Data</th>
+          <th>Descrição</th>
+          <th>Conta</th>
+          <th>Perfil</th>
+          <th>Valor</th>
+        </tr></thead>
+        <tbody>
+          ${trans.length ? trans.map(t => `<tr>
+            <td>${fmtDateStr(dataFn(t))}</td>
+            <td>${escHtml(t.descricao_tratada || t.descricao || '(Sem descrição)')}</td>
+            <td>${escHtml(_relFaturasContaNome(t))}</td>
+            <td>${escHtml(_relFaturasPerfilNome(t))}</td>
+            <td style="font-family:var(--font-mono);font-weight:700;color:var(--danger)">R$ ${fmtValor(Math.abs(parseFloat(t.valor) || 0))}</td>
+          </tr>`).join('') : '<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:28px">Nenhum pagamento de fatura no período.</td></tr>'}
+        </tbody>
+      </table>
+    </div>`;
+}
+
 /* --- ABA: GASTO / DIA --------------------------------- */
 let _relGastoDiaAnoSelecionado = new Date().getFullYear();
 const RGD_MESES_LABELS = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
@@ -12127,6 +12408,7 @@ const RGD_MESES_LABELS = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set',
 function _relGastoDiaAnosDisponiveis() {
   const anos = new Set([new Date().getFullYear()]);
   dbLoad('transacoes').forEach(t => {
+    if (!_relIsSaida(t) || !_relIncluirNosCalculos(t)) return;
     const d = _transDataCompetencia(t);
     if (d) anos.add(parseInt(d.slice(0, 4), 10));
   });
@@ -12161,7 +12443,7 @@ function _relGastoDiaDadosAno(ano) {
   const hoje = new Date();
   const anoAtual = hoje.getFullYear();
   const totalMeses = ano === anoAtual ? hoje.getMonth() + 1 : 12;
-  const trans = dbLoad('transacoes').filter(t => _relIsSaida(t) && !_relIsNeutro(t));
+  const trans = _relSaidasCalculo();
 
   return Array.from({ length: totalMeses }, (_, i) => {
     const mes = String(i + 1).padStart(2, '0');
@@ -12360,14 +12642,14 @@ function _relVelDespFormaEhAVista(t) {
 }
 
 function _relVelDespDespesaPermitida(t, considerarCartao = _relVelDespConsiderarCartao()) {
-  if (!_relIsSaida(t) || _relIsNeutro(t)) return false;
+  if (!_relIsSaida(t) || !_relIncluirNosCalculos(t)) return false;
   return considerarCartao || _relVelDespFormaEhAVista(t);
 }
 
 function _relVelDespAnosDisponiveis() {
   const anos = new Set();
   dbLoad('transacoes').forEach(t => {
-    if (!_relVelDespIsReceitaFixa(t) || _relIsNeutro(t)) return;
+    if (!_relVelDespIsReceitaFixa(t) || !_relIncluirNosCalculos(t)) return;
     const d = _transDataReferencia(t);
     const ano = parseInt((d || '').slice(0, 4), 10);
     if (Number.isFinite(ano)) anos.add(ano);
@@ -12421,7 +12703,7 @@ function _relVelDespDadosAno(ano) {
   const considerarCartao = _relVelDespConsiderarCartao();
 
   dbLoad('transacoes').forEach(t => {
-    if (_relIsNeutro(t)) return;
+    if (!_relIncluirNosCalculos(t)) return;
 
     const data = _transDataReferencia(t);
     if (!data || parseInt(data.slice(0, 4), 10) !== ano) return;
@@ -12607,6 +12889,7 @@ function _relScoreFaixa(score) {
 function _relScoreAnosDisponiveis() {
   const anos = new Set([new Date().getFullYear()]);
   dbLoad('transacoes').forEach(t => {
+    if (!_relIncluirNosCalculos(t)) return;
     const d = _relScoreData(t);
     if (d) anos.add(parseInt(d.slice(0,4), 10));
   });
@@ -12618,11 +12901,12 @@ function _relScoreAnosDisponiveis() {
 }
 
 function _relScorePeriodo(de, ate, historico) {
-  const trans = historico.filter(t => {
+  const historicoCalculo = historico.filter(_relIncluirNosCalculos);
+  const trans = historicoCalculo.filter(t => {
     const d = _relScoreData(t);
     return d && d >= de && d <= ate;
   });
-  const result = calcularScore(trans, { asOfDate: ate, historico });
+  const result = calcularScore(trans, { asOfDate: ate, historico: historicoCalculo });
   return { score: result.score || 0, count: trans.length };
 }
 
@@ -12773,6 +13057,7 @@ const _relRenders = {
   semana: () => { _rsPopularSelects(); renderRelSemana(); },
   perfil: () => { _relPopularSelects('rp',  renderRelPerfil); renderRelPerfil(); },
   status: () => { _relPopularSelects('rst', renderRelStatus); renderRelStatus(); },
+  faturas: () => { _relFaturasPopularContas(); renderRelFaturas(); },
   'gasto-dia': () => { renderRelGastoDia(); },
   'velocidade-despesas': () => { renderRelVelocidadeDespesas(); },
   score:  () => { renderRelScore(); },
@@ -12780,7 +13065,7 @@ const _relRenders = {
 let _relTabAtiva = 'cat';
 
 /* Mapeamento de aba → prefixo de filtros */
-const _REL_PFX = { cat:'rc', subcat:'rsc', semana:'rs', perfil:'rp', status:'rst' };
+const _REL_PFX = { cat:'rc', subcat:'rsc', semana:'rs', perfil:'rp', status:'rst', faturas:'rfat' };
 
 function switchRelTab(chave, btn) {
   _relTabAtiva = chave;
@@ -12917,7 +13202,7 @@ function renderAnaliseDiaria() {
   // Receita fixa = perfil contém "receita fixa" ou "receita"+"fixa"
   const recFixa   = entradas.filter(t => _adIsPerfil(t,'receita') && _adIsPerfil(t,'fixa') || _adNomePerfil(t)==='receita fixa');
   const recTotal  = entradas;
-  const despFixa  = saidas.filter(t   => _adIsPerfil(t,'despesa') && _adIsPerfil(t,'fixa') || _adNomePerfil(t)==='despesa fixa');
+  const despFixa  = saidas.filter(_transLancamentoEhDespesaFixa);
   const despVar   = saidas.filter(t   => _adIsPerfil(t,'variavel') || _adIsPerfil(t,'variável') || _adNomePerfil(t)==='despesa variavel' || _adNomePerfil(t)==='despesa variável');
   const fatura    = saidas.filter(t   => _adIsCat(t,'fatura'));
   const despTotal = saidas;
@@ -14663,8 +14948,7 @@ function _simIsNeutro(t) { const s=_simNomeStatus(t); return s==='neutro'||s==='
 function _simIsEntrada(t){ return _transIsEntradaOperacional(t); }
 function _simIsSaida(t)  { return _transIsSaidaOperacional(t); }
 function _simIsDespFixa(t) {
-  const p = _simNomePerfil(t);
-  return p==='despesa fixa' || (p.includes('despesa')&&p.includes('fixa'));
+  return _transLancamentoEhDespesaFixa(t);
 }
 function _simIsDespVar(t) {
   const p = _simNomePerfil(t);
@@ -18661,6 +18945,9 @@ function impExecutar() {
       }
       const perfilImportadoEhTransferencia = transferenciaBancariaImportada ||
         (!descricaoImportadaContemFatura && _transIsTransferenciaNome(dbLoad('perfis').find(x => x.id === perfilId)?.nome || get('perfil')));
+      const perfilImportadoExigeContaDestino = _transIsTransferenciaNome(
+        dbLoad('perfis').find(x => x.id === perfilId)?.nome || get('perfil')
+      );
       const formaPagamentoId = descricaoImportadaContemFatura
         ? _transFormaIdDebito()
         : (perfilImportadoEhTransferencia || descricaoImportadaEhPix)
@@ -18707,7 +18994,9 @@ function impExecutar() {
         data_competencia:   dataContabil,
         data_insercao:      dataInsercao,
         cartao_id:          contaOrigemId,
-        conta_destino_id:   transferenciaBancariaImportada && contaDestinoId ? contaDestinoId : null,
+        conta_destino_id:   perfilImportadoExigeContaDestino && contaDestinoId && contaDestinoId !== contaOrigemId
+          ? contaDestinoId
+          : null,
         tipo_pagamento_id:  tipoId,
         forma_pagamento_id: formaPagamentoId,
         descricao:          descricao,
@@ -19089,7 +19378,7 @@ function _pdfCabecalho(titulo, subtitulo, orientacao) {
 /* -- RELATÓRIOS de transações (gráficos + tabelas do painel Relatórios) -- */
 function exportarRelatoriosPDF() {
   const { doc, y: startY } = _pdfCabecalho('Relatórios de Transações',
-    'Análise por categoria, subcategoria, dia da semana, perfil, status, gasto/dia e score');
+    'Análise por categoria, subcategoria, dia da semana, perfil, status, faturas, gasto/dia e score');
   let y = startY;
 
   // Varrer todos os canvas de gráficos visíveis e todas as tabelas
