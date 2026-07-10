@@ -8721,6 +8721,17 @@ function _transDescricaoComecaComPixRecebido(valor) {
   return _transNormTexto(valor).startsWith('pix recebido');
 }
 
+function _transDescricaoContemFatura(valor) {
+  return /\bfatura\b/.test(_transNormTexto(valor));
+}
+
+function _transLancamentoDescricaoContemFatura(t) {
+  return [
+    t?.descricao,
+    t?.descricao_tratada,
+  ].some(_transDescricaoContemFatura);
+}
+
 function _transDescricaoEhReceitaFixaSalario(valor) {
   return ['beteltecnologiasoftwareltda', 'clickdigital'].includes(_transNormDescricaoChave(valor));
 }
@@ -8781,6 +8792,10 @@ function _transFormDescricaoEhPixRecebido() {
   return _transDescricoesDoForm().some(_transDescricaoComecaComPixRecebido);
 }
 
+function _transFormDescricaoContemFatura() {
+  return _transDescricoesDoForm().some(_transDescricaoContemFatura);
+}
+
 function _transFormDescricaoEhReceitaFixaSalario() {
   return _transDescricoesDoForm().some(_transDescricaoEhReceitaFixaSalario);
 }
@@ -8831,6 +8846,10 @@ function _transFormDescricaoEhTransporteApp() {
 
 function _transAplicarPixPorDescricao() {
   const descricoes = _transDescricoesDoForm();
+  if (_transFormDescricaoContemFatura()) {
+    _transAplicarClassificacaoFatura();
+    return true;
+  }
   if (_transFormDescricaoEhReceitaFixaSalario()) {
     _transAplicarClassificacaoReceitaFixaSalario();
     return true;
@@ -8994,6 +9013,10 @@ function _transSubcategoriaSalarioId(categoriaId) {
   return _transEnsureSubcategoriaPorNome('Salário', categoriaId, ['Salario']);
 }
 
+function _transSubcategoriaFaturaId(categoriaId) {
+  return _transEnsureSubcategoriaPorNome('Fatura', categoriaId);
+}
+
 function _transSubcategoriaReembolsoId(categoriaId) {
   return _transEnsureSubcategoriaPorNome('Reembolso', categoriaId);
 }
@@ -9022,8 +9045,8 @@ function _transSubcategoriaUber99Id(categoriaId) {
   return _transEnsureSubcategoriaPorNome('Uber / 99', categoriaId);
 }
 
-function _transSubcategoriaInternetId(categoriaId) {
-  return _transEnsureSubcategoriaPorNome('Internet', categoriaId);
+function _transSubcategoriaInternetMovelId(categoriaId) {
+  return _transEnsureSubcategoriaPorNome('Internet móvel', categoriaId, ['Internet movel']);
 }
 
 function _transSubcategoriaStreamingId(categoriaId) {
@@ -9145,6 +9168,33 @@ function _transAplicarClassificacaoBares() {
   _transSetSelectValue('f-natureza', 'naturezas', ids.naturezaId);
   _transSetSelectValue('f-decisao', 'decisoes', ids.decisaoId);
   toggleContaDestinoTransacao(_transFormEhTransferencia());
+  return true;
+}
+
+function _transClassificacaoFaturaIds() {
+  const categoriaId = _transCategoriaFinanceiroId();
+  return {
+    tipoId: _transTipoSaidaId(),
+    formaPagamentoId: _transFormaIdDebito(),
+    perfilId: _transPerfilIdTransferencia(),
+    categoriaId,
+    subcategoriaId: _transSubcategoriaFaturaId(categoriaId),
+    naturezaId: _transNaturezaEssencialId(),
+    decisaoId: _transDecisaoRecorrenteId(),
+  };
+}
+
+function _transAplicarClassificacaoFatura() {
+  if (!_transFormDescricaoContemFatura()) return false;
+  const ids = _transClassificacaoFaturaIds();
+  _transSetSelectValue('f-tipo-pagamento', 'tipos', ids.tipoId);
+  _transSetSelectValue('f-forma-pagamento', 'formas', ids.formaPagamentoId);
+  _transSetSelectValue('f-perfil-despesa', 'perfis', ids.perfilId);
+  _transSetSelectValue('f-categoria', 'categorias', ids.categoriaId);
+  _transSetSelectValue('f-subcategoria', 'subcategorias', ids.subcategoriaId);
+  _transSetSelectValue('f-natureza', 'naturezas', ids.naturezaId);
+  _transSetSelectValue('f-decisao', 'decisoes', ids.decisaoId);
+  toggleContaDestinoTransacao(false);
   return true;
 }
 
@@ -9329,7 +9379,7 @@ function _transClassificacaoRecargaTimIds() {
   return {
     perfilId: _transPerfilDespesaFixaId(),
     categoriaId,
-    subcategoriaId: _transSubcategoriaInternetId(categoriaId),
+    subcategoriaId: _transSubcategoriaInternetMovelId(categoriaId),
     naturezaId: _transNaturezaEssencialId(),
     decisaoId: _transDecisaoRecorrenteId(),
   };
@@ -9410,7 +9460,7 @@ function _transPerfilSelecionadoEhTransferencia() {
 }
 
 function _transAplicarPixQuandoPerfilTransferencia() {
-  if (_transPerfilSelecionadoEhTransferencia()) {
+  if (_transPerfilSelecionadoEhTransferencia() && !_transFormDescricaoContemFatura()) {
     _transSetSelectValue('f-forma-pagamento', 'formas', _transFormaIdPix());
   }
 }
@@ -9440,6 +9490,7 @@ function _transSelectEhTransferencia(selectId) {
 }
 
 function _transFormEhTransferencia() {
+  if (_transFormDescricaoContemFatura()) return false;
   return [
     'f-perfil-despesa',
     'f-categoria',
@@ -9895,6 +9946,10 @@ function onTransContaDestinoChange() {
 }
 
 function onTransTransferenciaFieldChange(changedId = '') {
+  if (_transFormDescricaoContemFatura()) {
+    _transAplicarClassificacaoFatura();
+    return;
+  }
   const isTransferencia = _transFormEhTransferencia();
   if (changedId && _transSelectEhTransferencia(changedId)) {
     _transAplicarTransferenciaNoForm();
@@ -10493,8 +10548,9 @@ function saveTransacao() {
   const tipoOperacionalId = _transTipoOperacionalId(naturezaId, categoriaId);
   const perfilDespesaId = document.getElementById('f-perfil-despesa').value;
   const perfilEhTransferencia = _transIsTransferenciaNome(_transNomeColecao('perfis', perfilDespesaId));
-  const formaPagamentoId = perfilEhTransferencia ? _transFormaIdPix() : document.getElementById('f-forma-pagamento').value;
-  if (perfilEhTransferencia) {
+  const perfilEhTransferenciaBancaria = perfilEhTransferencia && !_transFormDescricaoContemFatura();
+  const formaPagamentoId = perfilEhTransferenciaBancaria ? _transFormaIdPix() : document.getElementById('f-forma-pagamento').value;
+  if (perfilEhTransferenciaBancaria) {
     _transSetSelectValue('f-forma-pagamento', 'formas', formaPagamentoId);
   }
   let dados = dbLoad('transacoes');
@@ -10708,6 +10764,7 @@ function _transDecisao(t) {
 }
 
 function _transIsTransferenciaLancamento(t) {
+  if (_transLancamentoDescricaoContemFatura(t)) return false;
   return [
     t.tipo_pagamento,
     t.categoria,
@@ -18459,6 +18516,7 @@ function impExecutar() {
       const descricaoTratada = get('descricao_tratada') || descricao;
       const descricaoImportadaEhPix = _transDescricaoComecaComPix(descricao) || _transDescricaoComecaComPix(descricaoTratada);
       const descricaoImportadaEhPixRecebido = _transDescricaoComecaComPixRecebido(descricao) || _transDescricaoComecaComPixRecebido(descricaoTratada);
+      const descricaoImportadaContemFatura = _transDescricaoContemFatura(descricao) || _transDescricaoContemFatura(descricaoTratada);
       const descricaoImportadaEhReceitaFixaSalario = _transDescricaoEhReceitaFixaSalario(descricao) || _transDescricaoEhReceitaFixaSalario(descricaoTratada);
       const descricaoImportadaEhSupermercadosBH = _transDescricaoEhSupermercadosBH(descricao) || _transDescricaoEhSupermercadosBH(descricaoTratada);
       const descricaoImportadaEhSupermercadoEpa = _transDescricaoEhSupermercadoEpa(descricao) || _transDescricaoEhSupermercadoEpa(descricaoTratada);
@@ -18471,12 +18529,22 @@ function impExecutar() {
       const descricaoImportadaEhRecargaTim = _transDescricaoEhRecargaTim(descricao) || _transDescricaoEhRecargaTim(descricaoTratada);
       const descricaoImportadaComecaComPadaria = _transDescricaoComecaComPadaria(descricao) || _transDescricaoComecaComPadaria(descricaoTratada);
       const descricaoImportadaEhTransporteApp = _transDescricaoEhTransporteApp(descricao) || _transDescricaoEhTransporteApp(descricaoTratada);
+      const transferenciaBancariaImportada = transferenciaImportada && !descricaoImportadaContemFatura;
       let naturezaId = findId(naturezas, get('natureza')) || (transferenciaImportada ? _transNaturezaIdTransferencia() : '');
       let decisaoId = findId(decisoes, get('decisao')) || (transferenciaImportada ? _transDecisaoIdTransferencia() : '');
       let perfilId = findId(perfis, get('perfil')) || (transferenciaImportada ? _transPerfilIdTransferencia() : '');
       let subcategoriaId = findId(subcat, get('subcategoria')) || (transferenciaImportada ? _transEnsureSubcategoriaTransferencia(categoriaId) : '');
       let subcategoriaNome = subcat.find(x => x.id === subcategoriaId)?.nome || get('subcategoria');
-      if (!transferenciaImportada && descricaoImportadaEhReceitaFixaSalario) {
+      if (descricaoImportadaContemFatura) {
+        const classificacaoFatura = _transClassificacaoFaturaIds();
+        categoriaId = classificacaoFatura.categoriaId;
+        categoriaNome = 'Financeiro';
+        perfilId = classificacaoFatura.perfilId;
+        naturezaId = classificacaoFatura.naturezaId;
+        decisaoId = classificacaoFatura.decisaoId;
+        subcategoriaId = classificacaoFatura.subcategoriaId;
+        subcategoriaNome = 'Fatura';
+      } else if (!transferenciaImportada && descricaoImportadaEhReceitaFixaSalario) {
         const classificacaoReceitaFixa = _transClassificacaoReceitaFixaSalarioIds();
         categoriaId = classificacaoReceitaFixa.categoriaId;
         categoriaNome = 'Financeiro';
@@ -18565,7 +18633,7 @@ function impExecutar() {
         naturezaId = classificacaoRecargaTim.naturezaId;
         decisaoId = classificacaoRecargaTim.decisaoId;
         subcategoriaId = classificacaoRecargaTim.subcategoriaId;
-        subcategoriaNome = 'Internet';
+        subcategoriaNome = 'Internet móvel';
       } else if (!transferenciaImportada && descricaoImportadaComecaComPadaria) {
         const classificacaoPadaria = _transClassificacaoPadariaIds();
         categoriaId = classificacaoPadaria.categoriaId;
@@ -18598,10 +18666,13 @@ function impExecutar() {
         decisaoId = classificacaoOutros.decisaoId;
         subcategoriaId = classificacaoOutros.subcategoriaId;
       }
-      const perfilImportadoEhTransferencia = transferenciaImportada || _transIsTransferenciaNome(dbLoad('perfis').find(x => x.id === perfilId)?.nome || get('perfil'));
-      const formaPagamentoId = (perfilImportadoEhTransferencia || descricaoImportadaEhPix)
-        ? pixFormaId
-        : findId(formas, get('forma'));
+      const perfilImportadoEhTransferencia = transferenciaBancariaImportada ||
+        (!descricaoImportadaContemFatura && _transIsTransferenciaNome(dbLoad('perfis').find(x => x.id === perfilId)?.nome || get('perfil')));
+      const formaPagamentoId = descricaoImportadaContemFatura
+        ? _transFormaIdDebito()
+        : (perfilImportadoEhTransferencia || descricaoImportadaEhPix)
+          ? pixFormaId
+          : findId(formas, get('forma'));
 
       /* -- Tipo operacional: Entrada/Saída para saldo; Natureza é campo separado -- */
       const tipoRawOrig = get('tipo');
@@ -18633,6 +18704,7 @@ function impExecutar() {
       }
       if (!tipoId) tipoId = _transTipoOperacionalId(naturezaId, categoriaId);
       if (descricaoImportadaEhReceitaFixaSalario) tipoId = _transTipoEntradaId();
+      if (descricaoImportadaContemFatura) tipoId = _transTipoSaidaId();
 
       /* -- Campos de lookup — usar os nomes corretos do sistema -- */
       const dataInsercao = new Date().toISOString();
@@ -18642,7 +18714,7 @@ function impExecutar() {
         data_competencia:   dataContabil,
         data_insercao:      dataInsercao,
         cartao_id:          contaOrigemId,
-        conta_destino_id:   transferenciaImportada && contaDestinoId ? contaDestinoId : null,
+        conta_destino_id:   transferenciaBancariaImportada && contaDestinoId ? contaDestinoId : null,
         tipo_pagamento_id:  tipoId,
         forma_pagamento_id: formaPagamentoId,
         descricao:          descricao,
@@ -18662,7 +18734,7 @@ function impExecutar() {
         importado:          true,
       };
 
-      if (transferenciaImportada && contaDestinoId && contaDestinoId !== contaOrigemId) {
+      if (transferenciaBancariaImportada && contaDestinoId && contaDestinoId !== contaOrigemId) {
         transacoes.push({
           ...nova,
           id: uid(),
