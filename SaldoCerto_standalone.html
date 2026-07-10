@@ -3631,6 +3631,13 @@ body.theme-dark #page-relatorios .rel-summary-table tbody tr:hover {
             </div>
 
             <div class="filtro-group">
+              <label class="filtro-label">Perfil da despesa</label>
+              <select class="filtro-select" id="fil-perfil" onchange="renderTransacoes()">
+                <option value="">Todos</option>
+              </select>
+            </div>
+
+            <div class="filtro-group">
               <label class="filtro-label">Natureza</label>
               <select class="filtro-select" id="fil-tipo" onchange="renderTransacoes()">
                 <option value="">Todos</option>
@@ -3645,13 +3652,6 @@ body.theme-dark #page-relatorios .rel-summary-table tbody tr:hover {
             </div>
 
             <div class="filtro-group">
-              <label class="filtro-label">Decisão</label>
-              <select class="filtro-select" id="fil-perfil" onchange="renderTransacoes()">
-                <option value="">Todos</option>
-              </select>
-            </div>
-
-            <div class="filtro-group">
               <label class="filtro-label">Categoria</label>
               <select class="filtro-select" id="fil-categoria" onchange="renderTransacoes()">
                 <option value="">Todos</option>
@@ -3661,13 +3661,6 @@ body.theme-dark #page-relatorios .rel-summary-table tbody tr:hover {
             <div class="filtro-group">
               <label class="filtro-label">Subcategoria</label>
               <select class="filtro-select" id="fil-subcategoria" onchange="renderTransacoes()">
-                <option value="">Todos</option>
-              </select>
-            </div>
-
-            <div class="filtro-group">
-              <label class="filtro-label">Status da Compra</label>
-              <select class="filtro-select" id="fil-status" onchange="renderTransacoes()">
                 <option value="">Todos</option>
               </select>
             </div>
@@ -5276,10 +5269,6 @@ body.theme-dark #page-relatorios .rel-summary-table tbody tr:hover {
             <label class="filtro-label">Perfil</label>
             <select class="filtro-select" id="rc-perfil" onchange="renderRelCat()"><option value="">Todos</option></select>
           </div>
-          <div class="filtro-group">
-            <label class="filtro-label">Status</label>
-            <select class="filtro-select" id="rc-status" onchange="renderRelCat()"><option value="">Todos</option></select>
-          </div>
           <div class="filtro-group" style="align-self:flex-end">
             <button class="btn btn-ghost btn-sm" onclick="rcLimpar()">✕ Limpar</button>
           </div>
@@ -5321,10 +5310,6 @@ body.theme-dark #page-relatorios .rel-summary-table tbody tr:hover {
           <div class="filtro-group">
             <label class="filtro-label">Perfil</label>
             <select class="filtro-select" id="rsc-perfil" onchange="renderRelSubcat()"><option value="">Todos</option></select>
-          </div>
-          <div class="filtro-group">
-            <label class="filtro-label">Status</label>
-            <select class="filtro-select" id="rsc-status" onchange="renderRelSubcat()"><option value="">Todos</option></select>
           </div>
           <div class="filtro-group" style="align-self:flex-end">
             <button class="btn btn-ghost btn-sm" onclick="rscLimpar()">✕ Limpar</button>
@@ -5374,10 +5359,6 @@ body.theme-dark #page-relatorios .rel-summary-table tbody tr:hover {
             <label class="filtro-label">Perfil</label>
             <select class="filtro-select" id="rs-perfil" onchange="renderRelSemana()"><option value="">Todos</option></select>
           </div>
-          <div class="filtro-group">
-            <label class="filtro-label">Status</label>
-            <select class="filtro-select" id="rs-status" onchange="renderRelSemana()"><option value="">Todos</option></select>
-          </div>
           <div class="filtro-group" style="align-self:flex-end">
             <button class="btn btn-ghost btn-sm" onclick="rsLimpar()">✕ Limpar</button>
           </div>
@@ -5413,9 +5394,10 @@ body.theme-dark #page-relatorios .rel-summary-table tbody tr:hover {
               <option value="contabil">Data Contábil</option>
             </select>
           </div>
-          <div class="filtro-group" style="display:flex;gap:6px;align-items:flex-end">
+          <div class="filtro-group" style="display:flex;gap:6px;align-items:flex-end;flex-wrap:wrap">
             <button class="btn-mes-anterior" id="rp-btn-mes-atual" onclick="_relMesAtual('rp',renderRelPerfil)" style="margin-top:16px">● Mês Atual</button>
             <button class="btn-mes-anterior" id="rp-btn-mes" onclick="rpMesAnterior()" style="margin-top:16px">◀ Mês Anterior</button>
+            <button class="btn-mes-anterior" id="rp-btn-mes-proximo" onclick="rpMesProximo()" style="margin-top:16px">Próximo mês ▶</button>
           </div>
           <div class="filtro-group">
             <label class="filtro-label">Categoria</label>
@@ -5428,10 +5410,6 @@ body.theme-dark #page-relatorios .rel-summary-table tbody tr:hover {
           <div class="filtro-group">
             <label class="filtro-label">Perfil</label>
             <select class="filtro-select" id="rp-perfil" onchange="renderRelPerfil()"><option value="">Todos</option></select>
-          </div>
-          <div class="filtro-group">
-            <label class="filtro-label">Status</label>
-            <select class="filtro-select" id="rp-status" onchange="renderRelPerfil()"><option value="">Todos</option></select>
           </div>
           <div class="filtro-group" style="align-self:flex-end">
             <button class="btn btn-ghost btn-sm" onclick="rpLimpar()">✕ Limpar</button>
@@ -5482,10 +5460,6 @@ body.theme-dark #page-relatorios .rel-summary-table tbody tr:hover {
           <div class="filtro-group">
             <label class="filtro-label">Perfil</label>
             <select class="filtro-select" id="rst-perfil" onchange="renderRelStatus()"><option value="">Todos</option></select>
-          </div>
-          <div class="filtro-group">
-            <label class="filtro-label">Status</label>
-            <select class="filtro-select" id="rst-status" onchange="renderRelStatus()"><option value="">Todos</option></select>
           </div>
           <div class="filtro-group" style="align-self:flex-end">
             <button class="btn btn-ghost btn-sm" onclick="rstLimpar()">✕ Limpar</button>
@@ -7581,12 +7555,11 @@ function toggleFiltrosPanel() {
 function popularSelectsFiltro() {
   const mapa = {
     'fil-cartao':      'cartoes',
+    'fil-perfil':      'perfis',
     'fil-tipo':        'naturezas',
     'fil-forma':       'formas',
-    'fil-perfil':      'decisoes',
     'fil-categoria':   'categorias',
     'fil-subcategoria':'subcategorias',
-    'fil-status':      'status',
   };
   Object.entries(mapa).forEach(([selId, colecao]) => {
     const sel = document.getElementById(selId);
@@ -7649,7 +7622,7 @@ function filtroProximoMes() {
 /* Limpa todos os filtros */
 function limparFiltros() {
   ['fil-data-de','fil-data-ate','fil-cartao','fil-tipo','fil-forma',
-   'fil-perfil','fil-categoria','fil-subcategoria','fil-status',
+   'fil-perfil','fil-categoria','fil-subcategoria',
    'fil-valor-de','fil-valor-ate'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.value = '';
@@ -7683,7 +7656,6 @@ function coletarFiltros() {
     perfil:      document.getElementById('fil-perfil')?.value || '',
     categoria:   document.getElementById('fil-categoria')?.value || '',
     subcategoria:document.getElementById('fil-subcategoria')?.value || '',
-    status:      document.getElementById('fil-status')?.value || '',
     valorDe:     parseValorFiltro('fil-valor-de'),
     valorAte:    parseValorFiltro('fil-valor-ate'),
   };
@@ -7699,7 +7671,6 @@ function contarFiltrosAtivos(f) {
   if (f.perfil)       n++;
   if (f.categoria)    n++;
   if (f.subcategoria) n++;
-  if (f.status)       n++;
   if (f.valorDe !== null || f.valorAte !== null) n++;
   return n;
 }
@@ -7729,10 +7700,9 @@ function atualizarChips(f) {
   if (f.cartao)       chips.push({ label: `Cartão: ${getNome('cartoes', f.cartao)}`, clear: () => { document.getElementById('fil-cartao').value=''; renderTransacoes(); }});
   if (f.tipo)         chips.push({ label: `Natureza: ${getNome('naturezas', f.tipo)}`, clear: () => { document.getElementById('fil-tipo').value=''; renderTransacoes(); }});
   if (f.forma)        chips.push({ label: `Forma: ${getNome('formas', f.forma)}`, clear: () => { document.getElementById('fil-forma').value=''; renderTransacoes(); }});
-  if (f.perfil)       chips.push({ label: `Decisão: ${getNome('decisoes', f.perfil)}`, clear: () => { document.getElementById('fil-perfil').value=''; renderTransacoes(); }});
+  if (f.perfil)       chips.push({ label: `Perfil: ${getNome('perfis', f.perfil)}`, clear: () => { document.getElementById('fil-perfil').value=''; renderTransacoes(); }});
   if (f.categoria)    chips.push({ label: `Categoria: ${getNome('categorias', f.categoria)}`, clear: () => { document.getElementById('fil-categoria').value=''; renderTransacoes(); }});
   if (f.subcategoria) chips.push({ label: `Subcategoria: ${getNome('subcategorias', f.subcategoria)}`, clear: () => { document.getElementById('fil-subcategoria').value=''; renderTransacoes(); }});
-  if (f.status)       chips.push({ label: `Status: ${getNome('status', f.status)}`, clear: () => { document.getElementById('fil-status').value=''; renderTransacoes(); }});
   if (f.valorDe !== null || f.valorAte !== null) {
     const de  = f.valorDe  !== null ? 'R$ ' + fmtValor(f.valorDe)  : '…';
     const ate = f.valorAte !== null ? 'R$ ' + fmtValor(f.valorAte) : '…';
@@ -7787,10 +7757,9 @@ function _transDadosTabelaFiltrados(busca = '', fil = coletarFiltros()) {
   if (fil.cartao)       dados = dados.filter(t => _transContaFiltroEhConta(t, fil.cartao));
   if (fil.tipo)         dados = dados.filter(t => _dbSameId(t.natureza_id, fil.tipo));
   if (fil.forma)        dados = dados.filter(t => _dbSameId(t.forma_pagamento_id, fil.forma));
-  if (fil.perfil)       dados = dados.filter(t => _dbSameId(t.decisao_id, fil.perfil));
+  if (fil.perfil)       dados = dados.filter(t => _dbSameId(t.perfil_despesa_id, fil.perfil));
   if (fil.categoria)    dados = dados.filter(t => _dbSameId(t.categoria_id, fil.categoria));
   if (fil.subcategoria) dados = dados.filter(t => _dbSameId(t.subcategoria_id, fil.subcategoria));
-  if (fil.status)       dados = dados.filter(t => _dbSameId(t.status_compra_id, fil.status));
 
   if (fil.valorDe  !== null) dados = dados.filter(t => (parseFloat(t.valor) || 0) >= fil.valorDe);
   if (fil.valorAte !== null) dados = dados.filter(t => (parseFloat(t.valor) || 0) <= fil.valorAte);
@@ -11349,7 +11318,6 @@ function _relGetFiltros(pfx) {
     cat:       document.getElementById(pfx+'-cat')?.value        || '',
     subcat:    document.getElementById(pfx+'-subcat')?.value     || '',
     perfil:    document.getElementById(pfx+'-perfil')?.value     || '',
-    status:    document.getElementById(pfx+'-status')?.value     || '',
   };
 }
 
@@ -11358,11 +11326,10 @@ function _relPopularSelects(pfx, renderFn) {
     [pfx+'-cat']:    'categorias',
     [pfx+'-subcat']: 'subcategorias',
     [pfx+'-perfil']: 'perfis',
-    [pfx+'-status']: 'status',
   };
   const labels = {
     [pfx+'-cat']:'Todas', [pfx+'-subcat']:'Todas',
-    [pfx+'-perfil']:'Todos', [pfx+'-status']:'Todos'
+    [pfx+'-perfil']:'Todos'
   };
   Object.entries(mapa).forEach(([selId, colecao]) => {
     const sel = document.getElementById(selId);
@@ -11381,6 +11348,7 @@ function _relMesAtual(pfx, renderFn) {
   document.getElementById(pfx+'-data-ate').value = periodo.ate;
   // Desativar botão mês anterior se ativo
   document.getElementById(pfx+'-btn-mes')?.classList.remove('ativo');
+  document.getElementById(pfx+'-btn-mes-proximo')?.classList.remove('ativo');
   document.getElementById(pfx+'-btn-mes-atual')?.classList.add('ativo');
   renderFn();
 }
@@ -11412,13 +11380,41 @@ function _relMesAnterior(pfx, renderFn) {
   // Destacar botão Mês Anterior, desativar Mês Atual
   document.getElementById(pfx+'-btn-mes')?.classList.add('ativo');
   document.getElementById(pfx+'-btn-mes-atual')?.classList.remove('ativo');
+  document.getElementById(pfx+'-btn-mes-proximo')?.classList.remove('ativo');
+  renderFn();
+}
+
+function _relMesProximo(pfx, renderFn) {
+  const deEl  = document.getElementById(pfx+'-data-de');
+  const ateEl = document.getElementById(pfx+'-data-ate');
+  let baseAno, baseMes;
+
+  if (deEl?.value) {
+    const [ano, mes] = deEl.value.split('-').map(Number);
+    baseAno = ano;
+    baseMes = mes - 1;
+  } else {
+    const [ano, mes] = _transMesReferenciaAtual().split('-').map(Number);
+    baseAno = ano;
+    baseMes = mes - 1;
+  }
+
+  const ini = new Date(baseAno, baseMes + 1, 1);
+  const fim = new Date(baseAno, baseMes + 2, 0);
+  if (deEl)  deEl.value  = ini.toISOString().slice(0, 10);
+  if (ateEl) ateEl.value = fim.toISOString().slice(0, 10);
+
+  document.getElementById(pfx+'-btn-mes')?.classList.remove('ativo');
+  document.getElementById(pfx+'-btn-mes-atual')?.classList.remove('ativo');
+  document.getElementById(pfx+'-btn-mes-proximo')?.classList.add('ativo');
   renderFn();
 }
 
 function _relLimpar(pfx, renderFn) {
-  [pfx+'-data-de', pfx+'-data-ate', pfx+'-cat', pfx+'-subcat', pfx+'-perfil', pfx+'-status']
+  [pfx+'-data-de', pfx+'-data-ate', pfx+'-cat', pfx+'-subcat', pfx+'-perfil']
     .forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
-  document.getElementById(pfx+'-btn-mes')?.classList.remove('ativo');
+  [pfx+'-btn-mes', pfx+'-btn-mes-atual', pfx+'-btn-mes-proximo']
+    .forEach(id => document.getElementById(id)?.classList.remove('ativo'));
   renderFn();
 }
 
@@ -11430,7 +11426,6 @@ function _relAplicarFiltros(trans, f) {
   if (f.cat)     trans = trans.filter(t => _dbSameId(t.categoria_id, f.cat));
   if (f.subcat)  trans = trans.filter(t => _dbSameId(t.subcategoria_id, f.subcat));
   if (f.perfil)  trans = trans.filter(t => _dbSameId(t.perfil_despesa_id, f.perfil));
-  if (f.status)  trans = trans.filter(t => _dbSameId(t.status_compra_id, f.status));
   return trans;
 }
 
@@ -11440,6 +11435,7 @@ function rcLimpar()        { _relLimpar('rc',       renderRelCat);    }
 function rscMesAnterior() { _relMesAnterior('rsc', renderRelSubcat); }
 function rscLimpar()       { _relLimpar('rsc',      renderRelSubcat); }
 function rpMesAnterior()  { _relMesAnterior('rp',  renderRelPerfil); }
+function rpMesProximo()   { _relMesProximo('rp',   renderRelPerfil); }
 function rpLimpar()        { _relLimpar('rp',       renderRelPerfil); }
 function rstMesAnterior() { _relMesAnterior('rst', renderRelStatus); }
 function rstLimpar()       { _relLimpar('rst',      renderRelStatus); }
@@ -11533,7 +11529,6 @@ function _rsGetFiltros() {
     cat:     document.getElementById('rs-cat')?.value      || '',
     subcat:  document.getElementById('rs-subcat')?.value   || '',
     perfil:  document.getElementById('rs-perfil')?.value   || '',
-    status:  document.getElementById('rs-status')?.value   || '',
   };
 }
 
@@ -11542,9 +11537,8 @@ function _rsPopularSelects() {
     'rs-cat':    'categorias',
     'rs-subcat': 'subcategorias',
     'rs-perfil': 'perfis',
-    'rs-status': 'status',
   };
-  const labels = { 'rs-cat':'Todas','rs-subcat':'Todas','rs-perfil':'Todos','rs-status':'Todos' };
+  const labels = { 'rs-cat':'Todas','rs-subcat':'Todas','rs-perfil':'Todos' };
   Object.entries(campos).forEach(([selId, colecao]) => {
     const sel = document.getElementById(selId);
     if (!sel) return;
@@ -11573,7 +11567,7 @@ function rsMesAnterior() {
 }
 
 function rsLimpar() {
-  ['rs-data-de','rs-data-ate','rs-cat','rs-subcat','rs-perfil','rs-status'].forEach(id => {
+  ['rs-data-de','rs-data-ate','rs-cat','rs-subcat','rs-perfil'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.value = '';
   });
@@ -11590,7 +11584,6 @@ function renderRelSemana() {
   if (f.cat)     trans = trans.filter(t => _dbSameId(t.categoria_id, f.cat));
   if (f.subcat)  trans = trans.filter(t => _dbSameId(t.subcategoria_id, f.subcat));
   if (f.perfil)  trans = trans.filter(t => _dbSameId(t.perfil_despesa_id, f.perfil));
-  if (f.status)  trans = trans.filter(t => _dbSameId(t.status_compra_id, f.status));
 
   /* Agrupa por dia da semana (0=Dom … 6=Sáb) */
   const totais  = Array(7).fill(0);
