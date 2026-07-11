@@ -8257,7 +8257,7 @@ function _transFindById(id) {
 }
 
 function _transCriarDuplicata(t, createdAt) {
-  const copia = { ...t, id: uid(), createdAt };
+  const copia = { ...t, id: uid(), data_insercao: createdAt, createdAt };
   delete copia.created_at;
   delete copia.updatedAt;
   delete copia.updated_at;
@@ -8535,7 +8535,7 @@ function _transDescricaoEhPontualBeers(valor) {
 }
 
 function _transDescricaoEhBiroskaBeer(valor) {
-  return _transNormDescricaoChave(valor) === 'biroskabeer';
+  return ['biroskabeer', 'reidaresenha'].includes(_transNormDescricaoChave(valor));
 }
 
 function _transDescricaoEhPagamentoEfetuado(valor) {
