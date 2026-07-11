@@ -6145,7 +6145,7 @@ main {
     </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeTransModal()">✕ Cancelar</button>
-      <button class="btn btn-success" onclick="saveTransacao()">✔ Salvar</button>
+      <button class="btn btn-success" id="trans-save-btn" onclick="saveTransacao()">✔ Salvar</button>
     </div>
   </div>
 </div>
@@ -6431,8 +6431,51 @@ function _dbSameId(a, b) {
   return String(a) === String(b);
 }
 
+function _dbCoalescerTransacoesPendentes(dados) {
+  if (!Array.isArray(dados)) return [];
+  const saida = [];
+  const locaisPorAssinatura = new Map();
+  const assinatura = t => [
+    t?.data_contabil || '',
+    t?.data_competencia || '',
+    t?.data_insercao || t?.createdAt || '',
+    t?.cartao_id || '',
+    t?.conta_destino_id || '',
+    t?.tipo_pagamento_id || '',
+    t?.forma_pagamento_id || '',
+    t?.perfil_despesa_id || '',
+    t?.natureza_id || '',
+    t?.decisao_id || '',
+    t?.categoria_id || '',
+    t?.subcategoria_id || '',
+    t?.status_compra_id || '',
+    (t?.descricao || '').toString().trim().toLowerCase(),
+    (t?.descricao_tratada || '').toString().trim().toLowerCase(),
+    String(Math.abs(parseFloat(t?.valor || 0) || 0)),
+    t?.parcelado || '',
+    t?.parcela_atual || '',
+    t?.parcela_maxima || '',
+  ].join('|');
+
+  dados.forEach(item => {
+    if (!_dbIsPendingLocalRow(item)) {
+      saida.push(item);
+      return;
+    }
+    const key = assinatura(item);
+    if (locaisPorAssinatura.has(key)) {
+      saida[locaisPorAssinatura.get(key)] = item;
+      return;
+    }
+    locaisPorAssinatura.set(key, saida.length);
+    saida.push(item);
+  });
+  return saida;
+}
+
 /* -- SALVA no cache local + Supabase (assíncrono em background) -- */
 function dbSave(colecao, dados) {
+  if (colecao === 'transacoes') dados = _dbCoalescerTransacoesPendentes(dados);
   const anteriores = DB_CACHE[colecao] || [];
   const idsAtuais = new Set(dados.map(item => String(item.id || '')).filter(Boolean));
   anteriores
@@ -6492,13 +6535,41 @@ function dbDelete(colecao, id) {
 /* ==== SUPABASE SYNC — Background ==== */
 
 function _dbScheduleSyncSave(colecao, dados) {
-  const snapshot = dados.map(item => ({ ...item }));
-  const sync = () => _sbSyncSave(colecao, snapshot);
-  const afterPaint = () => setTimeout(sync, 80);
+  if (_dbIsLocalOnly(colecao)) return;
+  window._dbSyncSaveState = window._dbSyncSaveState || {};
+  const state = window._dbSyncSaveState[colecao] || { snapshot: [], timer: null, running: false, dirty: false };
+  state.snapshot = dados.map(item => ({ ...item }));
+  if (state.running) state.dirty = true;
+  window._dbSyncSaveState[colecao] = state;
+  if (state.timer) return;
+
+  const scheduleRun = () => {
+    state.timer = setTimeout(run, 80);
+  };
+
+  const run = async () => {
+    state.timer = null;
+    if (state.running) {
+      state.dirty = true;
+      return;
+    }
+    state.running = true;
+    try {
+      do {
+        state.dirty = false;
+        const snapshot = (state.snapshot || []).map(item => ({ ...item }));
+        await _sbSyncSave(colecao, snapshot);
+      } while (state.dirty);
+    } finally {
+      state.running = false;
+      if (state.dirty && !state.timer) scheduleRun();
+    }
+  };
+
   if (typeof requestAnimationFrame === 'function') {
-    requestAnimationFrame(() => requestAnimationFrame(afterPaint));
+    requestAnimationFrame(() => requestAnimationFrame(scheduleRun));
   } else {
-    afterPaint();
+    scheduleRun();
   }
 }
 
@@ -6555,6 +6626,34 @@ function _dbResolveId(colecao, id) {
   return atual;
 }
 
+function _sbFiltroValor(query, col, val) {
+  return (val === null || val === undefined || val === '')
+    ? query.is(col, null)
+    : query.eq(col, val);
+}
+
+async function _sbFindExistingLocalInsert(colecao, row) {
+  if (colecao !== 'transacoes' || !window._authUser?.id) return null;
+  const sb = _getSB();
+  if (!sb) return null;
+  const cols = [
+    'data_contabil','data_competencia','data_insercao','cartao_id','conta_destino_id',
+    'tipo_pagamento_id','forma_pagamento_id','perfil_despesa_id','natureza_id','decisao_id',
+    'categoria_id','subcategoria_id','status_compra_id','descricao','descricao_tratada',
+    'valor','parcelado','parcela_atual','parcela_maxima'
+  ];
+  let query = sb.from(_sbTable(colecao)).select('id').eq('user_id', window._authUser.id).limit(1);
+  cols.forEach(col => {
+    query = _sbFiltroValor(query, col, row[col]);
+  });
+  const { data, error } = await query;
+  if (error) {
+    console.warn('[SB syncSave dedupe erro]', colecao, error.message);
+    return null;
+  }
+  return Array.isArray(data) && data[0]?.id ? data[0].id : null;
+}
+
 function _dbReplaceId(colecao, localId, dbId) {
   if (!localId || !dbId || String(localId) === String(dbId)) return;
   _dbRememberIdAlias(colecao, localId, dbId);
@@ -6580,7 +6679,13 @@ function _dbWriteFailed(colecao, message) {
   const msg = colecao === 'transacoes'
     ? 'Movimentação salva localmente. Banco indisponível; vamos tentar sincronizar novamente.'
     : 'Alteração salva localmente. Banco indisponível; vamos tentar sincronizar novamente.';
-  toast(msg, 'warn');
+  window._dbWriteFailedToastAt = window._dbWriteFailedToastAt || {};
+  const agora = Date.now();
+  const ultima = window._dbWriteFailedToastAt[colecao] || 0;
+  if (agora - ultima > 12000) {
+    window._dbWriteFailedToastAt[colecao] = agora;
+    toast(msg, 'warn');
+  }
   _dbRerenderActivePage();
 }
 
@@ -6720,8 +6825,15 @@ async function _sbSyncSave(colecao, dados) {
 
   // INSERT dos novos (banco gera id sequencial)
   for (const r of novos) {
+    const localIdOriginal = r.id;
+    if (!_dbSameId(_dbResolveId(colecao, localIdOriginal), localIdOriginal)) continue;
     const row = _sbInjectUser(_sbNormalizeRow(r, tbl));
     const localId = row.id;
+    const existenteId = await _sbFindExistingLocalInsert(colecao, row);
+    if (existenteId) {
+      _dbReplaceId(colecao, localId, existenteId);
+      continue;
+    }
     // Gerar UUID real para o banco (compatível com UUID e bigserial)
     row.id = _dbNewUuid();
     const { data: inserted, error } = await sb.from(tbl).insert(row).select('id').single();
@@ -6987,7 +7099,8 @@ async function sbSyncDown(forceCols = null, silentEmpty = false) {
         continue;
       }
 
-      const local = _dbMergePendingLocalRows(col, (data || []).map(row => _sbToLocalRow(col, row)));
+      const localMesclado = _dbMergePendingLocalRows(col, (data || []).map(row => _sbToLocalRow(col, row)));
+      const local = col === 'transacoes' ? _dbCoalescerTransacoesPendentes(localMesclado) : localMesclado;
       DB_CACHE[col] = local.map(item => ({ ...item }));
       _dbPersistCache(col);
       total += local.length;
@@ -10524,7 +10637,26 @@ function toggleRecorrenciaTransacao() {
 /* --------------------------------------------
    SALVA A TRANSAÇÃO
 -------------------------------------------- */
+function _transSetSaveLock(ativo) {
+  window._transSaveInProgress = !!ativo;
+  const btn = document.getElementById('trans-save-btn');
+  if (!btn) return;
+  btn.disabled = !!ativo;
+  btn.style.opacity = ativo ? '0.65' : '';
+  btn.style.pointerEvents = ativo ? 'none' : '';
+}
+
 function saveTransacao() {
+  if (window._transSaveInProgress) return;
+  _transSetSaveLock(true);
+  try {
+    return _saveTransacaoExecutar();
+  } finally {
+    _transSetSaveLock(false);
+  }
+}
+
+function _saveTransacaoExecutar() {
   limparErros();
   _transAplicarPixQuandoPerfilTransferencia();
   _transAplicarPixPorDescricao();
