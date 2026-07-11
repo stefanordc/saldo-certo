@@ -8938,7 +8938,8 @@ function _transDescricaoEhRecargaTim(valor) {
 }
 
 function _transDescricaoComecaComPadaria(valor) {
-  return _transNormTexto(valor).startsWith('padaria');
+  return _transNormTexto(valor).startsWith('padaria') ||
+    _transNormDescricaoChave(valor) === 'rmpanificacao';
 }
 
 function _transDescricaoEhTransporteApp(valor) {
@@ -9575,6 +9576,8 @@ function _transClassificacaoRecargaTimIds() {
 function _transAplicarClassificacaoRecargaTim() {
   if (!_transFormDescricaoEhRecargaTim()) return false;
   const ids = _transClassificacaoRecargaTimIds();
+  const valorEl = document.getElementById('f-valor');
+  if (valorEl) valorEl.value = '60,00';
   _transSetSelectValue('f-perfil-despesa', 'perfis', ids.perfilId);
   _transSetSelectValue('f-categoria', 'categorias', ids.categoriaId);
   _transSetSelectValue('f-subcategoria', 'subcategorias', ids.subcategoriaId);
@@ -18912,8 +18915,7 @@ function impExecutar() {
       };
 
       /* -- Valor -- */
-      const valor = parseValorBR(get('valor'));
-      if (!valor) { erros++; continue; }
+      let valor = parseValorBR(get('valor'));
 
       /* -- Datas -- */
       const dataCompetenciaRaw = get('data_competencia');
@@ -18966,6 +18968,8 @@ function impExecutar() {
       const descricaoImportadaEhRecargaTim = _transDescricaoEhRecargaTim(descricao) || _transDescricaoEhRecargaTim(descricaoTratada);
       const descricaoImportadaComecaComPadaria = _transDescricaoComecaComPadaria(descricao) || _transDescricaoComecaComPadaria(descricaoTratada);
       const descricaoImportadaEhTransporteApp = _transDescricaoEhTransporteApp(descricao) || _transDescricaoEhTransporteApp(descricaoTratada);
+      if (descricaoImportadaEhRecargaTim) valor = 60;
+      if (!valor) { erros++; continue; }
       const transferenciaBancariaImportada = transferenciaImportada && !descricaoImportadaContemFatura;
       let naturezaId = findId(naturezas, get('natureza')) || (transferenciaImportada ? _transNaturezaIdTransferencia() : '');
       let decisaoId = findId(decisoes, get('decisao')) || (transferenciaImportada ? _transDecisaoIdTransferencia() : '');
