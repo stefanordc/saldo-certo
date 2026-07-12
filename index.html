@@ -5986,15 +5986,13 @@ main {
 
         <div class="form-group full">
           <label class="form-label">Descrição <span class="req">*</span></label>
-          <input type="text" class="form-input" id="f-descricao" placeholder="Descrição da movimentação"
-                 oninput="_transAplicarPixPorDescricao()" onchange="_transAplicarPixPorDescricao()" onblur="_transAplicarPixPorDescricao()">
+          <input type="text" class="form-input" id="f-descricao" placeholder="Descrição da movimentação">
           <span class="form-error" id="e-descricao"></span>
         </div>
 
         <div class="form-group full">
           <label class="form-label">Descrição tratada <span class="req">*</span></label>
-          <input type="text" class="form-input" id="f-descricao-tratada" placeholder="Descrição padronizada"
-                 onfocus="_transAplicarPixPorDescricao()" oninput="_transAplicarPixPorDescricao()" onchange="_transAplicarPixPorDescricao()" onblur="_transAplicarPixPorDescricao()">
+          <input type="text" class="form-input" id="f-descricao-tratada" placeholder="Descrição padronizada">
           <span class="form-error" id="e-descricao-tratada"></span>
         </div>
 
@@ -8607,7 +8605,6 @@ function openTransacaoModal(id = null) {
 
   if (transacaoEditada) preencherFormTransacao(transacaoEditada);
   _transBindDescricaoPixAuto();
-  _transAplicarPixPorDescricao();
   transAtualizarSnapshotModal();
 
   document.getElementById('transModal').classList.add('open');
@@ -9092,8 +9089,8 @@ function _transBindDescricaoPixAuto() {
     const input = document.getElementById(id);
     if (!input || input.dataset.pixAutoBound === '1') return;
     input.dataset.pixAutoBound = '1';
+    // A classificação é apenas uma sugestão durante a digitação.
     input.addEventListener('input', _transAplicarPixPorDescricao);
-    input.addEventListener('blur', _transAplicarPixPorDescricao);
   });
 }
 
@@ -10140,29 +10137,19 @@ function onTransContaDestinoChange() {
 }
 
 function onTransTransferenciaFieldChange(changedId = '') {
-  if (_transFormDescricaoContemFatura()) {
-    _transAplicarClassificacaoFatura();
-    return;
-  }
   const isTransferencia = _transFormEhTransferencia();
   if (changedId && _transSelectEhTransferencia(changedId)) {
     _transAplicarTransferenciaNoForm();
   }
-  _transAplicarPixQuandoPerfilTransferencia();
   toggleContaDestinoTransacao(isTransferencia);
 }
 
 function onTransCategoriaChange() {
   onTransTransferenciaFieldChange('f-categoria');
-  _transAplicarClassificacaoCategoriaOutros();
-  _transAplicarClassificacaoLazerAlimentacao();
-  _transAplicarClassificacaoBares();
 }
 
 function onTransSubcategoriaChange() {
   onTransTransferenciaFieldChange('f-subcategoria');
-  _transAplicarClassificacaoLazerAlimentacao();
-  _transAplicarClassificacaoBares();
 }
 
 function _transTipoNomeNorm(t) {
@@ -10550,7 +10537,6 @@ function preencherFormTransacao(t) {
     chkRec.disabled = true;
   }
   document.getElementById('recorrenciaSection')?.classList.remove('visible');
-  _transAplicarPixQuandoPerfilTransferencia();
   transRefreshSearchableSelects();
 }
 
@@ -10661,11 +10647,7 @@ function saveTransacao() {
 
 function _saveTransacaoExecutar() {
   limparErros();
-  _transAplicarPixQuandoPerfilTransferencia();
-  _transAplicarPixPorDescricao();
-  _transAplicarClassificacaoCategoriaOutros();
-  _transAplicarClassificacaoLazerAlimentacao();
-  _transAplicarClassificacaoBares();
+  // O save deve preservar exatamente as escolhas manuais do formulário.
   const isNovaTransacao = !editandoTransId;
 
   // Campos obrigatórios
@@ -10761,12 +10743,7 @@ function _saveTransacaoExecutar() {
   const decisaoId = document.getElementById('f-decisao').value;
   const tipoOperacionalId = _transTipoOperacionalId(naturezaId, categoriaId);
   const perfilDespesaId = document.getElementById('f-perfil-despesa').value;
-  const perfilEhTransferencia = _transIsTransferenciaNome(_transNomeColecao('perfis', perfilDespesaId));
-  const perfilEhTransferenciaBancaria = perfilEhTransferencia && !_transFormDescricaoContemFatura();
-  const formaPagamentoId = perfilEhTransferenciaBancaria ? _transFormaIdPix() : document.getElementById('f-forma-pagamento').value;
-  if (perfilEhTransferenciaBancaria) {
-    _transSetSelectValue('f-forma-pagamento', 'formas', formaPagamentoId);
-  }
+  const formaPagamentoId = document.getElementById('f-forma-pagamento').value;
   let dados = dbLoad('transacoes');
   const transacaoOriginal = editandoTransId ? dados.find(x => _dbSameId(x.id, editandoTransId)) : null;
   const dataInsercaoBase = transacaoOriginal?.data_insercao || transacaoOriginal?.created_at || transacaoOriginal?.createdAt || new Date().toISOString();
