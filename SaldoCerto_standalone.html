@@ -8580,6 +8580,11 @@ function _transDescricaoEhTransporteApp(valor) {
   return ['uber', '99pop'].includes(_transNormDescricaoChave(valor));
 }
 
+function _transDescricaoContemBarbearia(valor) {
+  const chave = _transNormDescricaoChave(valor);
+  return chave.includes('barbeariamarrocos') || chave.includes('barbeariaboy');
+}
+
 function _transDescricoesDoForm() {
   return [
     document.getElementById('f-descricao')?.value || '',
@@ -8647,6 +8652,10 @@ function _transFormDescricaoEhTransporteApp() {
   return _transDescricoesDoForm().some(_transDescricaoEhTransporteApp);
 }
 
+function _transFormDescricaoContemBarbearia() {
+  return _transDescricoesDoForm().some(_transDescricaoContemBarbearia);
+}
+
 function _transAplicarPixPorDescricao() {
   const descricoes = _transDescricoesDoForm();
   if (_transFormDescricaoContemFatura()) {
@@ -8699,6 +8708,10 @@ function _transAplicarPixPorDescricao() {
   }
   if (_transFormDescricaoComecaComPadaria()) {
     _transAplicarClassificacaoPadaria();
+    return true;
+  }
+  if (_transFormDescricaoContemBarbearia()) {
+    _transAplicarClassificacaoBarbearia();
     return true;
   }
   if (_transFormDescricaoEhTransporteApp()) {
@@ -8844,6 +8857,10 @@ function _transSubcategoriaBaresId(categoriaId) {
   return _transEnsureSubcategoriaPorNome('Bares', categoriaId, ['Bar']);
 }
 
+function _transSubcategoriaBarbeariaId(categoriaId) {
+  return _transEnsureSubcategoriaPorNome('Barbearia', categoriaId);
+}
+
 function _transSubcategoriaFarmaciaId(categoriaId) {
   return _transEnsureSubcategoriaPorNome('Farmácia', categoriaId, ['Farmacia']);
 }
@@ -8961,7 +8978,7 @@ function _transClassificacaoBaresIds() {
 }
 
 function _transAplicarClassificacaoLazerAlimentacao() {
-  if (!_transCategoriaSelecionadaEhLazer() || !_transSubcategoriaSelecionadaEhAlimentacao()) return false;
+  if (!_transSubcategoriaSelecionadaEhAlimentacao()) return false;
   const ids = _transClassificacaoLazerAlimentacaoIds();
   _transSetSelectValue('f-natureza', 'naturezas', ids.naturezaId);
   _transSetSelectValue('f-decisao', 'decisoes', ids.decisaoId);
@@ -8975,6 +8992,29 @@ function _transAplicarClassificacaoBares() {
   _transSetSelectValue('f-natureza', 'naturezas', ids.naturezaId);
   _transSetSelectValue('f-decisao', 'decisoes', ids.decisaoId);
   toggleContaDestinoTransacao(_transFormEhTransferencia());
+  return true;
+}
+
+function _transClassificacaoBarbeariaIds() {
+  const categoriaId = _transCategoriaPessoalId();
+  return {
+    perfilId: _transPerfilDespesaFixaId(),
+    categoriaId,
+    subcategoriaId: _transSubcategoriaBarbeariaId(categoriaId),
+    naturezaId: _transNaturezaEssencialId(),
+    decisaoId: _transDecisaoRecorrenteId(),
+  };
+}
+
+function _transAplicarClassificacaoBarbearia() {
+  if (!_transFormDescricaoContemBarbearia()) return false;
+  const ids = _transClassificacaoBarbeariaIds();
+  _transSetSelectValue('f-perfil-despesa', 'perfis', ids.perfilId);
+  _transSetSelectValue('f-categoria', 'categorias', ids.categoriaId);
+  _transSetSelectValue('f-subcategoria', 'subcategorias', ids.subcategoriaId);
+  _transSetSelectValue('f-natureza', 'naturezas', ids.naturezaId);
+  _transSetSelectValue('f-decisao', 'decisoes', ids.decisaoId);
+  toggleContaDestinoTransacao(false);
   return true;
 }
 
@@ -9784,10 +9824,14 @@ function onTransTransferenciaFieldChange(changedId = '') {
 function onTransCategoriaChange() {
   onTransTransferenciaFieldChange('f-categoria');
   _transAplicarClassificacaoCategoriaOutros();
+  _transAplicarClassificacaoLazerAlimentacao();
+  _transAplicarClassificacaoBares();
 }
 
 function onTransSubcategoriaChange() {
   onTransTransferenciaFieldChange('f-subcategoria');
+  _transAplicarClassificacaoLazerAlimentacao();
+  _transAplicarClassificacaoBares();
 }
 
 function _transTipoNomeNorm(t) {
@@ -18578,6 +18622,7 @@ function impExecutar() {
       const descricaoImportadaEhStreamingAssinatura = _transDescricaoEhStreamingAssinatura(descricao) || _transDescricaoEhStreamingAssinatura(descricaoTratada);
       const descricaoImportadaEhRecargaTim = _transDescricaoEhRecargaTim(descricao) || _transDescricaoEhRecargaTim(descricaoTratada);
       const descricaoImportadaComecaComPadaria = _transDescricaoComecaComPadaria(descricao) || _transDescricaoComecaComPadaria(descricaoTratada);
+      const descricaoImportadaContemBarbearia = _transDescricaoContemBarbearia(descricao) || _transDescricaoContemBarbearia(descricaoTratada);
       const descricaoImportadaEhTransporteApp = _transDescricaoEhTransporteApp(descricao) || _transDescricaoEhTransporteApp(descricaoTratada);
       if (descricaoImportadaEhRecargaTim) valor = 60;
       if (!valor) { erros++; continue; }
@@ -18702,6 +18747,15 @@ function impExecutar() {
         decisaoId = classificacaoPadaria.decisaoId;
         subcategoriaId = classificacaoPadaria.subcategoriaId;
         subcategoriaNome = 'Padaria';
+      } else if (!transferenciaImportada && descricaoImportadaContemBarbearia) {
+        const classificacaoBarbearia = _transClassificacaoBarbeariaIds();
+        categoriaId = classificacaoBarbearia.categoriaId;
+        categoriaNome = 'Pessoal';
+        perfilId = classificacaoBarbearia.perfilId;
+        naturezaId = classificacaoBarbearia.naturezaId;
+        decisaoId = classificacaoBarbearia.decisaoId;
+        subcategoriaId = classificacaoBarbearia.subcategoriaId;
+        subcategoriaNome = 'Barbearia';
       } else if (!transferenciaImportada && descricaoImportadaEhTransporteApp) {
         const classificacaoTransporte = _transClassificacaoTransporteAppIds();
         categoriaId = classificacaoTransporte.categoriaId;
@@ -18710,7 +18764,7 @@ function impExecutar() {
         decisaoId = classificacaoTransporte.decisaoId;
         subcategoriaId = classificacaoTransporte.subcategoriaId;
         subcategoriaNome = 'Uber / 99';
-      } else if (!transferenciaImportada && _transCategoriaNomeEhLazer(categoriaNome) && _transSubcategoriaNomeEhAlimentacao(subcategoriaNome)) {
+      } else if (!transferenciaImportada && _transSubcategoriaNomeEhAlimentacao(subcategoriaNome || get('subcategoria'))) {
         const classificacaoLazer = _transClassificacaoLazerAlimentacaoIds();
         naturezaId = classificacaoLazer.naturezaId;
         decisaoId = classificacaoLazer.decisaoId;
