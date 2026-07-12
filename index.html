@@ -7763,6 +7763,13 @@ const TRANS_MODAL_DIRTY_FIELDS = [
   'f-recorrente', 'f-recorrencia-frequencia', 'f-recorrencia-fim', 'f-obs',
 ];
 
+const TRANS_CAMPOS_SUGERIDOS = [
+  'f-tipo-pagamento', 'f-forma-pagamento', 'f-perfil-despesa', 'f-categoria',
+  'f-subcategoria', 'f-natureza', 'f-decisao', 'f-valor',
+];
+let transCamposAlteradosManualmente = new Set();
+let transAplicandoSugestao = 0;
+
 function _transFiltroAssinatura(busca, fil) {
   return JSON.stringify({ busca, ...fil });
 }
@@ -8606,6 +8613,8 @@ function openTransacaoModal(id = null) {
     return;
   }
   editandoTransId = transacaoEditada ? transacaoEditada.id : null;
+  _transLimparEdicoesManuais();
+  _transBindEdicoesManuais();
 
   document.getElementById('transModalTitle').textContent =
     isEdicao ? 'Editar Movimentação' : 'Adicionar Movimentação';
@@ -9031,6 +9040,7 @@ function _transFormDescricaoContemBarbearia() {
 }
 
 function _transAplicarPixPorDescricao() {
+  return _transExecutarSugestao(() => {
   const descricoes = _transDescricoesDoForm();
   if (_transFormDescricaoContemFatura()) {
     _transAplicarClassificacaoFatura();
@@ -9106,6 +9116,7 @@ function _transAplicarPixPorDescricao() {
     return true;
   }
   return false;
+  });
 }
 
 function _transBindDescricaoPixAuto() {
@@ -9333,7 +9344,7 @@ function _transAplicarClassificacaoCategoriaOutros() {
   _transSetSelectValue('f-subcategoria', 'subcategorias', ids.subcategoriaId);
   _transSetSelectValue('f-natureza', 'naturezas', ids.naturezaId);
   _transSetSelectValue('f-decisao', 'decisoes', ids.decisaoId);
-  toggleContaDestinoTransacao(_transFormEhTransferencia());
+  toggleContaDestinoTransacao(_transFormExigeContaDestino());
   return true;
 }
 
@@ -9356,7 +9367,7 @@ function _transAplicarClassificacaoLazerAlimentacao() {
   const ids = _transClassificacaoLazerAlimentacaoIds();
   _transSetSelectValue('f-natureza', 'naturezas', ids.naturezaId);
   _transSetSelectValue('f-decisao', 'decisoes', ids.decisaoId);
-  toggleContaDestinoTransacao(_transFormEhTransferencia());
+  toggleContaDestinoTransacao(_transFormExigeContaDestino());
   return true;
 }
 
@@ -9365,7 +9376,7 @@ function _transAplicarClassificacaoBares() {
   const ids = _transClassificacaoBaresIds();
   _transSetSelectValue('f-natureza', 'naturezas', ids.naturezaId);
   _transSetSelectValue('f-decisao', 'decisoes', ids.decisaoId);
-  toggleContaDestinoTransacao(_transFormEhTransferencia());
+  toggleContaDestinoTransacao(_transFormExigeContaDestino());
   return true;
 }
 
@@ -9388,7 +9399,7 @@ function _transAplicarClassificacaoBarbearia() {
   _transSetSelectValue('f-subcategoria', 'subcategorias', ids.subcategoriaId);
   _transSetSelectValue('f-natureza', 'naturezas', ids.naturezaId);
   _transSetSelectValue('f-decisao', 'decisoes', ids.decisaoId);
-  toggleContaDestinoTransacao(false);
+  toggleContaDestinoTransacao(_transFormExigeContaDestino());
   return true;
 }
 
@@ -9439,7 +9450,7 @@ function _transAplicarClassificacaoReceitaFixaSalario() {
   _transSetSelectValue('f-subcategoria', 'subcategorias', ids.subcategoriaId);
   _transSetSelectValue('f-natureza', 'naturezas', ids.naturezaId);
   _transSetSelectValue('f-decisao', 'decisoes', ids.decisaoId);
-  toggleContaDestinoTransacao(false);
+  toggleContaDestinoTransacao(_transFormExigeContaDestino());
   return true;
 }
 
@@ -9460,7 +9471,7 @@ function _transAplicarClassificacaoSupermercadosBH() {
   _transSetSelectValue('f-subcategoria', 'subcategorias', ids.subcategoriaId);
   _transSetSelectValue('f-natureza', 'naturezas', ids.naturezaId);
   _transSetSelectValue('f-decisao', 'decisoes', ids.decisaoId);
-  toggleContaDestinoTransacao(false);
+  toggleContaDestinoTransacao(_transFormExigeContaDestino());
   return true;
 }
 
@@ -9475,7 +9486,7 @@ function _transAplicarClassificacaoSupermercadoEpa() {
   _transSetSelectValue('f-subcategoria', 'subcategorias', ids.subcategoriaId);
   _transSetSelectValue('f-natureza', 'naturezas', ids.naturezaId);
   _transSetSelectValue('f-decisao', 'decisoes', ids.decisaoId);
-  toggleContaDestinoTransacao(false);
+  toggleContaDestinoTransacao(_transFormExigeContaDestino());
   return true;
 }
 
@@ -9496,7 +9507,7 @@ function _transAplicarClassificacaoPontualBeers() {
   _transSetSelectValue('f-subcategoria', 'subcategorias', ids.subcategoriaId);
   _transSetSelectValue('f-natureza', 'naturezas', ids.naturezaId);
   _transSetSelectValue('f-decisao', 'decisoes', ids.decisaoId);
-  toggleContaDestinoTransacao(false);
+  toggleContaDestinoTransacao(_transFormExigeContaDestino());
   return true;
 }
 
@@ -9511,7 +9522,7 @@ function _transAplicarClassificacaoBiroskaBeer() {
   _transSetSelectValue('f-subcategoria', 'subcategorias', ids.subcategoriaId);
   _transSetSelectValue('f-natureza', 'naturezas', ids.naturezaId);
   _transSetSelectValue('f-decisao', 'decisoes', ids.decisaoId);
-  toggleContaDestinoTransacao(false);
+  toggleContaDestinoTransacao(_transFormExigeContaDestino());
   return true;
 }
 
@@ -9526,7 +9537,7 @@ function _transAplicarClassificacaoPagamentoEfetuado() {
   _transSetSelectValue('f-subcategoria', 'subcategorias', ids.subcategoriaId);
   _transSetSelectValue('f-natureza', 'naturezas', ids.naturezaId);
   _transSetSelectValue('f-decisao', 'decisoes', ids.decisaoId);
-  toggleContaDestinoTransacao(false);
+  toggleContaDestinoTransacao(_transFormExigeContaDestino());
   return true;
 }
 
@@ -9541,7 +9552,7 @@ function _transAplicarClassificacaoGriletto() {
   _transSetSelectValue('f-subcategoria', 'subcategorias', ids.subcategoriaId);
   _transSetSelectValue('f-natureza', 'naturezas', ids.naturezaId);
   _transSetSelectValue('f-decisao', 'decisoes', ids.decisaoId);
-  toggleContaDestinoTransacao(false);
+  toggleContaDestinoTransacao(_transFormExigeContaDestino());
   return true;
 }
 
@@ -9562,7 +9573,7 @@ function _transAplicarClassificacaoDrogariaSaude() {
   _transSetSelectValue('f-subcategoria', 'subcategorias', ids.subcategoriaId);
   _transSetSelectValue('f-natureza', 'naturezas', ids.naturezaId);
   _transSetSelectValue('f-decisao', 'decisoes', ids.decisaoId);
-  toggleContaDestinoTransacao(false);
+  toggleContaDestinoTransacao(_transFormExigeContaDestino());
   return true;
 }
 
@@ -9583,7 +9594,7 @@ function _transAplicarClassificacaoIfood() {
   _transSetSelectValue('f-subcategoria', 'subcategorias', ids.subcategoriaId);
   _transSetSelectValue('f-natureza', 'naturezas', ids.naturezaId);
   _transSetSelectValue('f-decisao', 'decisoes', ids.decisaoId);
-  toggleContaDestinoTransacao(false);
+  toggleContaDestinoTransacao(_transFormExigeContaDestino());
   return true;
 }
 
@@ -9606,7 +9617,7 @@ function _transAplicarClassificacaoStreamingAssinatura() {
   _transSetSelectValue('f-subcategoria', 'subcategorias', ids.subcategoriaId);
   _transSetSelectValue('f-natureza', 'naturezas', ids.naturezaId);
   _transSetSelectValue('f-decisao', 'decisoes', ids.decisaoId);
-  toggleContaDestinoTransacao(false);
+  toggleContaDestinoTransacao(_transFormExigeContaDestino());
   return true;
 }
 
@@ -9624,14 +9635,13 @@ function _transClassificacaoRecargaTimIds() {
 function _transAplicarClassificacaoRecargaTim() {
   if (!_transFormDescricaoEhRecargaTim()) return false;
   const ids = _transClassificacaoRecargaTimIds();
-  const valorEl = document.getElementById('f-valor');
-  if (valorEl) valorEl.value = '60,00';
+  _transSetValorSugestao('f-valor', '60,00');
   _transSetSelectValue('f-perfil-despesa', 'perfis', ids.perfilId);
   _transSetSelectValue('f-categoria', 'categorias', ids.categoriaId);
   _transSetSelectValue('f-subcategoria', 'subcategorias', ids.subcategoriaId);
   _transSetSelectValue('f-natureza', 'naturezas', ids.naturezaId);
   _transSetSelectValue('f-decisao', 'decisoes', ids.decisaoId);
-  toggleContaDestinoTransacao(false);
+  toggleContaDestinoTransacao(_transFormExigeContaDestino());
   return true;
 }
 
@@ -9652,7 +9662,7 @@ function _transAplicarClassificacaoPadaria() {
   _transSetSelectValue('f-subcategoria', 'subcategorias', ids.subcategoriaId);
   _transSetSelectValue('f-natureza', 'naturezas', ids.naturezaId);
   _transSetSelectValue('f-decisao', 'decisoes', ids.decisaoId);
-  toggleContaDestinoTransacao(false);
+  toggleContaDestinoTransacao(_transFormExigeContaDestino());
   return true;
 }
 
@@ -9673,7 +9683,7 @@ function _transAplicarClassificacaoTransporteApp() {
   _transSetSelectValue('f-subcategoria', 'subcategorias', ids.subcategoriaId);
   _transSetSelectValue('f-natureza', 'naturezas', ids.naturezaId);
   _transSetSelectValue('f-decisao', 'decisoes', ids.decisaoId);
-  toggleContaDestinoTransacao(false);
+  toggleContaDestinoTransacao(_transFormExigeContaDestino());
   return true;
 }
 
@@ -9690,7 +9700,7 @@ function _transAplicarClassificacaoPixRecebido() {
   _transSetSelectValue('f-subcategoria', 'subcategorias', subcatId);
   _transSetSelectValue('f-natureza', 'naturezas', naturezaId);
   _transSetSelectValue('f-decisao', 'decisoes', decisaoId);
-  toggleContaDestinoTransacao(false);
+  toggleContaDestinoTransacao(_transFormExigeContaDestino());
 }
 
 function _transPerfilSelecionadoEhTransferencia() {
@@ -9751,15 +9761,53 @@ function _transEnsureSubcategoriaTransferencia(categoriaId) {
   return dados.find(item => _transIsTransferenciaNome(item.nome) && (!categoriaId || _dbSameId(item.categoria_id, categoriaId)))?.id || '';
 }
 
+function _transExecutarSugestao(callback) {
+  transAplicandoSugestao++;
+  try {
+    return callback();
+  } finally {
+    transAplicandoSugestao--;
+  }
+}
+
+function _transRegistrarEdicaoManual(event) {
+  if (transAplicandoSugestao) return;
+  const id = event.currentTarget?.id;
+  if (id && TRANS_CAMPOS_SUGERIDOS.includes(id)) transCamposAlteradosManualmente.add(id);
+}
+
+function _transLimparEdicoesManuais() {
+  transCamposAlteradosManualmente.clear();
+}
+
+function _transBindEdicoesManuais() {
+  TRANS_CAMPOS_SUGERIDOS.forEach(id => {
+    const campo = document.getElementById(id);
+    if (!campo || campo.dataset.transEdicaoManualBound === '1') return;
+    campo.dataset.transEdicaoManualBound = '1';
+    campo.addEventListener(id === 'f-valor' ? 'input' : 'change', _transRegistrarEdicaoManual, true);
+  });
+}
+
+function _transSetValorSugestao(id, valor) {
+  if (transAplicandoSugestao && transCamposAlteradosManualmente.has(id)) return false;
+  const campo = document.getElementById(id);
+  if (!campo) return false;
+  campo.value = valor;
+  return true;
+}
+
 function _transSetSelectValue(selectId, colecao, id) {
+  if (transAplicandoSugestao && transCamposAlteradosManualmente.has(selectId)) return false;
   const sel = document.getElementById(selectId);
-  if (!sel || !id) return;
+  if (!sel || !id) return false;
   if (!Array.from(sel.options).some(opt => _dbSameId(opt.value, id))) {
     const item = dbLoad(colecao).find(x => _dbSameId(x.id, id));
     if (item) sel.innerHTML += `<option value="${item.id}">${escHtml(item.nome)}</option>`;
   }
   sel.value = String(id);
   transRefreshSearchableSelect(selectId);
+  return true;
 }
 
 function _transSelectPlaceholder(select) {
@@ -10188,24 +10236,30 @@ function onTransContaDestinoChange() {
 }
 
 function onTransTransferenciaFieldChange(changedId = '') {
-  const isTransferencia = _transFormEhTransferencia();
   if (changedId && _transSelectEhTransferencia(changedId)) {
-    _transAplicarTransferenciaNoForm();
+    _transExecutarSugestao(() => {
+      _transAplicarTransferenciaNoForm();
+      _transAplicarPixQuandoPerfilTransferencia();
+    });
   }
-  toggleContaDestinoTransacao(isTransferencia);
+  toggleContaDestinoTransacao(_transFormExigeContaDestino());
 }
 
 function onTransCategoriaChange() {
   onTransTransferenciaFieldChange('f-categoria');
-  _transAplicarClassificacaoCategoriaOutros();
-  _transAplicarClassificacaoLazerAlimentacao();
-  _transAplicarClassificacaoBares();
+  _transExecutarSugestao(() => {
+    _transAplicarClassificacaoCategoriaOutros();
+    _transAplicarClassificacaoLazerAlimentacao();
+    _transAplicarClassificacaoBares();
+  });
 }
 
 function onTransSubcategoriaChange() {
   onTransTransferenciaFieldChange('f-subcategoria');
-  _transAplicarClassificacaoLazerAlimentacao();
-  _transAplicarClassificacaoBares();
+  _transExecutarSugestao(() => {
+    _transAplicarClassificacaoLazerAlimentacao();
+    _transAplicarClassificacaoBares();
+  });
 }
 
 function _transTipoNomeNorm(t) {
