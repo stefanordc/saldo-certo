@@ -6242,6 +6242,13 @@ function _dbRerenderActivePage() {
 function _dbReplaceId(colecao, localId, dbId) {
   if (!localId || !dbId || String(localId) === String(dbId)) return;
   _dbRememberIdAlias(colecao, localId, dbId);
+  const syncState = window._dbSyncSaveState?.[colecao];
+  if (Array.isArray(syncState?.snapshot)) {
+    syncState.snapshot = _dbDedupPorId(syncState.snapshot.map(item =>
+      _dbSameId(item.id, localId) ? { ...item, id: dbId } : item
+    ));
+    if (syncState.running) syncState.dirty = true;
+  }
   const atual = _dbDedupPorId(dbLoad(colecao).map(item =>
     _dbSameId(item.id, localId) ? { ...item, id: dbId } : item
   ));
@@ -6507,6 +6514,10 @@ async function _sbSyncSave(colecao, dados) {
   const sb = _getSB();
   if (!sb || !window._authUser || !dados.length) return;
   const tbl = _sbTable(colecao);
+  dados = dados.map(item => {
+    const idResolvido = _dbResolveId(colecao, item.id);
+    return _dbSameId(idResolvido, item.id) ? item : { ...item, id: idResolvido };
+  });
 
   // Separar registros: novos (_local_) vs existentes (id numérico do banco)
   const novos     = dados.filter(r => String(r.id || '').startsWith('_local_'));
@@ -10273,6 +10284,10 @@ function saveTransacao() {
 }
 
 function _saveTransacaoExecutar() {
+  // A duplicata pode receber o ID remoto enquanto ainda está aberta no modal.
+  if (editandoTransId && typeof _dbResolveId === 'function') {
+    editandoTransId = _dbResolveId('transacoes', editandoTransId);
+  }
   limparErros();
   // O save deve preservar exatamente as escolhas manuais do formulário.
   const isNovaTransacao = !editandoTransId;
