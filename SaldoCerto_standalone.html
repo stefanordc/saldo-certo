@@ -19048,6 +19048,20 @@ function _transValorExportacaoConta(t, contaReferenciaId) {
   return _transValorAssinadoOperacional(t);
 }
 
+// Excel armazena datas como números sequenciais. Assim a planilha pode
+// ordenar e calcular pelas datas, sem depender da interpretação de texto.
+function _transDataSerialExcel(dataIso) {
+  if (!_transDataIsoValida(dataIso)) return null;
+  const [ano, mes, dia] = dataIso.split('-').map(Number);
+  let serial = (Date.UTC(ano, mes - 1, dia) - Date.UTC(1899, 11, 31)) / 86400000;
+  // Mantém a compatibilidade com o calendário histórico do Excel (inclui 1900-02-29).
+  if (serial >= 60) serial += 1;
+  return serial;
+}
+
+const TRANS_FORMATO_DATA_XLSX = 'dd/mm/yyyy';
+const TRANS_FORMATO_CONTABIL_XLSX = '_-[$R$-416]* #,##0.00_-;\\-[$R$-416]* #,##0.00_-;_-[$R$-416]* "-"??_-;_-@_-';
+
 function exportarTransacoes() {
   // Criar mini-modal de escolha de formato
   const contasOptions = _transContaExportacaoOptions();
@@ -19101,26 +19115,32 @@ function exportarTransacoesFormato(formato, contaReferenciaId = '') {
     return false;
   }
 
-  const linhas = trans.map(t => ({
-    'Data Contábil':     fmtDateStr(_transDataContabil(t)),
-    'Data Competência':  fmtDateStr(_transDataCompetencia(t)),
-    'Descrição':         t.descricao          || '',
-    'Descrição Tratada': t.descricao_tratada  || '',
-    'Tipo':              t.tipo_pagamento || '',
-    'Conta':             t.cartao || '',
-    'Conta destino':     _transContaDestinoNome(t) || '',
-    'Forma de Pagamento':t.forma_pagamento || '',
-    'Perfil':            t.perfil_despesa || '',
-    'Natureza':          t.natureza || '',
-    'Decisão':           t.decisao || '',
-    'Categoria':         t.categoria || '',
-    'Subcategoria':      t.subcategoria || '',
-    'Status':            t.status_compra || '',
-    'Parcelado':         t.parcelado === 'Sim' ? 'Sim' : 'Não',
-    'Parcela':           t.parcelado === 'Sim' ? `${t.parcela_atual||1}/${t.parcela_maxima||1}` : '',
-    'Valor (R$)':        _transValorExportacaoConta(t, contaReferenciaId).toFixed(2).replace('.',','),
-    'Observações':       _transObservacoesTexto(t),
-  }));
+  const exportarComoXlsx = formato === 'xlsx';
+  const linhas = trans.map(t => {
+    const dataContabil = _transDataContabil(t);
+    const dataCompetencia = _transDataCompetencia(t);
+    const valor = _transValorExportacaoConta(t, contaReferenciaId);
+    return {
+      'Data Contábil':     exportarComoXlsx ? _transDataSerialExcel(dataContabil) : fmtDateStr(dataContabil),
+      'Data Competência':  exportarComoXlsx ? _transDataSerialExcel(dataCompetencia) : fmtDateStr(dataCompetencia),
+      'Descrição':         t.descricao          || '',
+      'Descrição Tratada': t.descricao_tratada  || '',
+      'Tipo':              t.tipo_pagamento || '',
+      'Conta':             t.cartao || '',
+      'Conta destino':     _transContaDestinoNome(t) || '',
+      'Forma de Pagamento':t.forma_pagamento || '',
+      'Perfil':            t.perfil_despesa || '',
+      'Natureza':          t.natureza || '',
+      'Decisão':           t.decisao || '',
+      'Categoria':         t.categoria || '',
+      'Subcategoria':      t.subcategoria || '',
+      'Status':            t.status_compra || '',
+      'Parcelado':         t.parcelado === 'Sim' ? 'Sim' : 'Não',
+      'Parcela':           t.parcelado === 'Sim' ? `${t.parcela_atual||1}/${t.parcela_maxima||1}` : '',
+      'Valor (R$)':        exportarComoXlsx ? valor : valor.toFixed(2).replace('.',','),
+      'Observações':       _transObservacoesTexto(t),
+    };
+  });
 
   const nomeArquivo = `SaldoCerto_transacoes_${new Date().toISOString().slice(0,10)}`;
 
@@ -19133,10 +19153,23 @@ function exportarTransacoesFormato(formato, contaReferenciaId = '') {
   } else {
     const ws  = XLSX.utils.json_to_sheet(linhas);
     const wb  = XLSX.utils.book_new();
+    const colunas = Object.keys(linhas[0] || {});
+    const formatos = {
+      'Data Contábil': TRANS_FORMATO_DATA_XLSX,
+      'Data Competência': TRANS_FORMATO_DATA_XLSX,
+      'Valor (R$)': TRANS_FORMATO_CONTABIL_XLSX,
+    };
+    Object.entries(formatos).forEach(([nomeColuna, formatoExcel]) => {
+      const indiceColuna = colunas.indexOf(nomeColuna);
+      for (let indiceLinha = 1; indiceLinha <= linhas.length; indiceLinha++) {
+        const referencia = XLSX.utils.encode_cell({ r: indiceLinha, c: indiceColuna });
+        const celula = ws[referencia];
+        if (celula?.t === 'n') celula.z = formatoExcel;
+      }
+    });
     XLSX.utils.book_append_sheet(wb, ws, 'Transações');
     // Auto-width
-    const cols = Object.keys(linhas[0]||{});
-    ws['!cols'] = cols.map(c => ({ wch: Math.max(c.length, 14) }));
+    ws['!cols'] = colunas.map(c => ({ wch: Math.max(c.length, 14) }));
     XLSX.writeFile(wb, nomeArquivo+'.xlsx');
     toast(`Exportação XLSX concluída: ${linhas.length} registro(s).`);
     return true;
