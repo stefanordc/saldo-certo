@@ -5488,6 +5488,7 @@ main {
         <button class="tab-btn" onclick="switchRelTab('faturas',this)">Faturas</button>
         <button class="tab-btn" onclick="switchRelTab('gasto-dia',this)">Gasto / Dia</button>
         <button class="tab-btn" onclick="switchRelTab('velocidade-despesas',this)">Velocidade das Despesas</button>
+        <button class="tab-btn" onclick="switchRelTab('horas-gastos',this)">Horas x Gastos</button>
         <button class="tab-btn" onclick="switchRelTab('score',this)">Score</button>
       </div>
 
@@ -5859,6 +5860,51 @@ main {
         <div class="rel-table-box" id="tbl-velocidade-despesas"></div>
       </div>
 
+      <!-- -- ABA: HORAS X GASTOS -- -->
+      <div class="rel-tab" id="reltab-horas-gastos">
+        <div class="rel-header">
+          <div class="rel-title">Horas x Gastos</div>
+          <div class="rel-sub">Quantas horas de trabalho foram necessárias para pagar as despesas do período</div>
+        </div>
+        <div class="rel-filtros">
+          <div class="filtro-group">
+            <label class="filtro-label">Data De</label>
+            <input type="date" class="filtro-input" id="rhg-data-de" oninput="renderRelHorasGastos()">
+          </div>
+          <div class="filtro-group">
+            <label class="filtro-label">Data Até</label>
+            <input type="date" class="filtro-input" id="rhg-data-ate" oninput="renderRelHorasGastos()">
+          </div>
+          <div class="filtro-group" style="display:flex;gap:6px;align-items:flex-end;flex-wrap:wrap">
+            <button class="btn-mes-anterior" id="rhg-btn-mes-atual" onclick="_relMesAtual('rhg',renderRelHorasGastos)" style="margin-top:16px">● Mês Atual</button>
+            <button class="btn-mes-anterior" id="rhg-btn-mes" onclick="rhgMesAnterior()" style="margin-top:16px">◀ Mês Anterior</button>
+            <button class="btn-mes-anterior" id="rhg-btn-mes-proximo" onclick="rhgMesProximo()" style="margin-top:16px">Próximo mês ▶</button>
+          </div>
+          <div class="filtro-group">
+            <label class="filtro-label">Categoria</label>
+            <select class="filtro-select" id="rhg-cat" onchange="renderRelHorasGastos()"><option value="">Todas</option></select>
+          </div>
+          <div class="filtro-group">
+            <label class="filtro-label">Subcategoria</label>
+            <select class="filtro-select" id="rhg-subcat" onchange="renderRelHorasGastos()"><option value="">Todas</option></select>
+          </div>
+          <div class="filtro-group" style="align-self:flex-end">
+            <button class="btn btn-ghost btn-sm" onclick="rhgLimpar()">✕ Limpar</button>
+          </div>
+        </div>
+        <div class="rel-kpi-row" id="rhg-kpis"></div>
+        <div id="rhg-alerta"></div>
+        <div class="rel-two-col">
+          <div class="rel-chart-box" style="height:320px"><canvas id="c-horas-cat"></canvas></div>
+          <div class="rel-chart-box" style="height:320px"><canvas id="c-horas-subcat"></canvas></div>
+        </div>
+        <div class="rel-two-col">
+          <div class="rel-chart-box" style="height:320px"><canvas id="c-horas-natureza"></canvas></div>
+          <div class="rel-chart-box" style="height:320px"><canvas id="c-horas-decisao"></canvas></div>
+        </div>
+        <div class="rel-table-box" id="tbl-horas-gastos"></div>
+      </div>
+
       <!-- -- ABA: SCORE -- -->
       <div class="rel-tab" id="reltab-score">
         <div class="rel-header">
@@ -5914,6 +5960,7 @@ main {
         <button class="tab-btn" onclick="switchTab('naturezas',this)">Naturezas</button>
         <button class="tab-btn" onclick="switchTab('decisoes',this)">Decisões</button>
         <button class="tab-btn" onclick="switchTab('status',this)">Status da Compra</button>
+        <button class="tab-btn" onclick="switchTab('trabalhos',this)">Trabalho</button>
         <button class="tab-btn" onclick="switchTab('perfil-usuario',this)">👤 Meu Perfil</button>
       </div>
 
@@ -6309,6 +6356,7 @@ const STORAGE_KEYS = {
   naturezas:     'sc_naturezas',
   decisoes:      'sc_decisoes',
   status:        'sc_status',
+  trabalhos:     'sc_trabalhos',
   transacoes:    'sc_transacoes',
   orcamentos:    'sc_orcamentos',
   metas:         'sc_metas',
@@ -6370,6 +6418,7 @@ const SB_TABLE_MAP = {
   naturezas:      'naturezas',
   decisoes:       'decisoes',
   status:         'status_compra',
+  trabalhos:      'trabalhos',
   transacoes:     'transacoes',
   orcamentos:     'orcamentos',
   metas:          'metas',
@@ -6901,6 +6950,10 @@ const _SB_COLS = {
   naturezas:      ['id','nome','user_id'],
   decisoes:       ['id','nome','user_id'],
   status_compra:      ['id','nome','user_id'],
+  trabalhos: [
+    'id','user_id','empresa','data_admissao','data_demissao','emprego_atual',
+    'hora_inicio','hora_inicio_almoco','hora_fim_almoco','hora_fim_trabalho'
+  ],
   corretoras:      ['id','nome','user_id'],
   modalidades_inv:      ['id','nome','user_id'],
   transacoes: [
@@ -6943,7 +6996,7 @@ function _sbNormalizeRow(obj, tabela) {
   if ('link' in r && !('url' in r)) r.url = r.link;
 
   // Converter datas vazias para null (antes do filtro)
-  ['data_contabil','data_competencia','data_insercao','vencimento','data_limite','data_nascimento','data','data_fim','data_liquidacao'].forEach(k => {
+  ['data_contabil','data_competencia','data_insercao','vencimento','data_limite','data_nascimento','data','data_fim','data_liquidacao','data_admissao','data_demissao'].forEach(k => {
     if (k in r && (r[k] === '' || r[k] === undefined)) r[k] = null;
   });
   // Converter valores numéricos — sempre positivos (tipo determina entrada/saída)
@@ -7155,6 +7208,7 @@ const CONFIG_LABELS = {
   naturezas:     'Natureza',
   decisoes:      'Decisão',
   status:        'Status da Compra',
+  trabalhos:     'Trabalho',
 };
 
 const CONFIG_PADRAO = {
@@ -7508,6 +7562,10 @@ function switchTab(chave, botao) {
    RENDERIZA A ABA ATIVA
 -------------------------------------------- */
 function renderizarAba(chave) {
+  if (chave === 'trabalhos') {
+    renderizarAbaTrabalhos();
+    return;
+  }
   garantirConfigPadrao(chave);
   const container = document.getElementById('tabContent');
 
@@ -7619,6 +7677,163 @@ function renderizarTabelaConfig(chave) {
         </div>
       </td>
     </tr>`).join('');
+}
+
+/* --------------------------------------------
+   ABA TRABALHO
+-------------------------------------------- */
+function _trabValor(id) {
+  return (document.getElementById(id)?.value || '').trim();
+}
+
+function _trabAtualMarcado() {
+  return !!document.getElementById('trab-atual')?.checked;
+}
+
+function _trabMinutos(hora) {
+  const m = String(hora || '').match(/^(\d{2}):(\d{2})/);
+  if (!m) return NaN;
+  return Number(m[1]) * 60 + Number(m[2]);
+}
+
+function _trabHorasDia(trab) {
+  const ini = _trabMinutos(trab.hora_inicio);
+  const almIni = _trabMinutos(trab.hora_inicio_almoco);
+  const almFim = _trabMinutos(trab.hora_fim_almoco);
+  const fim = _trabMinutos(trab.hora_fim_trabalho);
+  if (![ini, almIni, almFim, fim].every(Number.isFinite)) return 0;
+  const minutos = (almIni - ini) + (fim - almFim);
+  return minutos > 0 ? minutos / 60 : 0;
+}
+
+function toggleTrabalhoAtual() {
+  const atual = _trabAtualMarcado();
+  const demissao = document.getElementById('trab-demissao');
+  if (!demissao) return;
+  demissao.disabled = atual;
+  if (atual) demissao.value = '';
+}
+
+function _trabValidarForm() {
+  const empresa = _trabValor('trab-empresa');
+  const admissao = _trabValor('trab-admissao');
+  const atual = _trabAtualMarcado();
+  const demissao = _trabValor('trab-demissao');
+  const horarios = [
+    _trabValor('trab-hora-inicio'),
+    _trabValor('trab-almoco-inicio'),
+    _trabValor('trab-almoco-fim'),
+    _trabValor('trab-hora-fim')
+  ];
+
+  if (!empresa) return 'Informe o nome da empresa.';
+  if (!admissao) return 'Informe a data de admissão.';
+  if (!atual && !demissao) return 'Informe a data de demissão ou marque como emprego atual.';
+  if (demissao && demissao < admissao) return 'A data de demissão não pode ser anterior à admissão.';
+  if (horarios.some(h => !h)) return 'Informe todos os horários da jornada.';
+
+  const mins = horarios.map(_trabMinutos);
+  if (!mins.every(Number.isFinite) || !(mins[0] < mins[1] && mins[1] < mins[2] && mins[2] < mins[3])) {
+    return 'Os horários devem seguir: início < início do almoço < fim do almoço < fim do trabalho.';
+  }
+  return '';
+}
+
+function _trabRegistroDoForm() {
+  const atual = _trabAtualMarcado();
+  return {
+    empresa: _trabValor('trab-empresa'),
+    data_admissao: _trabValor('trab-admissao'),
+    data_demissao: atual ? '' : _trabValor('trab-demissao'),
+    emprego_atual: atual,
+    hora_inicio: _trabValor('trab-hora-inicio'),
+    hora_inicio_almoco: _trabValor('trab-almoco-inicio'),
+    hora_fim_almoco: _trabValor('trab-almoco-fim'),
+    hora_fim_trabalho: _trabValor('trab-hora-fim'),
+  };
+}
+
+function salvarTrabalhoConfig() {
+  const erro = _trabValidarForm();
+  if (erro) { toast(erro, 'warn'); return; }
+  const id = _trabValor('trab-id');
+  const registro = _trabRegistroDoForm();
+  if (id) {
+    dbUpdate('trabalhos', id, registro);
+    toast('Vínculo de trabalho atualizado!');
+  } else {
+    dbInsert('trabalhos', registro);
+    toast('Vínculo de trabalho cadastrado!');
+  }
+  renderizarAbaTrabalhos();
+}
+
+function editarTrabalhoConfig(id) {
+  renderizarAbaTrabalhos(id);
+}
+
+function cancelarEdicaoTrabalho() {
+  renderizarAbaTrabalhos();
+}
+
+function excluirTrabalhoConfig(id) {
+  const item = dbLoad('trabalhos').find(x => _dbSameId(x.id, id));
+  openConfirm('Excluir vínculo com "' + (item?.empresa || 'esta empresa') + '"?', () => {
+    dbDelete('trabalhos', id);
+    renderizarAbaTrabalhos();
+    toast('Vínculo de trabalho excluído.', 'warn');
+  });
+}
+
+function renderizarAbaTrabalhos(editId = '') {
+  const container = document.getElementById('tabContent');
+  const dados = dbLoad('trabalhos').sort((a,b) => (b.data_admissao || '').localeCompare(a.data_admissao || ''));
+  const edit = editId ? dados.find(x => _dbSameId(x.id, editId)) : null;
+  const atualChecked = edit ? !!edit.emprego_atual : true;
+  const linhas = dados.length ? dados.map(t => {
+    const demissao = t.emprego_atual ? 'Atual' : fmtDate(t.data_demissao || '');
+    const jornada = escHtml(t.hora_inicio || '') + ' – ' + escHtml(t.hora_inicio_almoco || '') + ' / ' + escHtml(t.hora_fim_almoco || '') + ' – ' + escHtml(t.hora_fim_trabalho || '');
+    const status = t.emprego_atual ? '<span class="status-badge status-ok">Atual</span>' : '<span class="status-badge">Encerrado</span>';
+    const idSeguro = escHtml(t.id || '');
+    return [
+      '<tr>',
+      '<td>' + escHtml(t.empresa || '') + '</td>',
+      '<td>' + fmtDate(t.data_admissao || '') + '</td>',
+      '<td>' + demissao + '</td>',
+      '<td>' + jornada + '</td>',
+      '<td style="font-family:var(--font-mono)">' + _trabHorasDia(t).toFixed(2).replace('.', ',') + 'h</td>',
+      '<td>' + status + '</td>',
+      '<td class="actions"><div class="actions-cell">',
+      '<button class="btn btn-icon btn-sm edit" title="Editar" onclick="editarTrabalhoConfig(\'' + idSeguro + '\')">✎</button>',
+      '<button class="btn btn-icon btn-sm del" title="Excluir" onclick="excluirTrabalhoConfig(\'' + idSeguro + '\')">🗑</button>',
+      '</div></td>',
+      '</tr>'
+    ].join('');
+  }).join('') : '<tr class="empty-row"><td colspan="7">Nenhum vínculo de trabalho cadastrado.</td></tr>';
+
+  container.innerHTML = [
+    '<div class="tab-content">',
+    '<div class="section-header"><span class="section-title">Trabalho</span></div>',
+    '<div class="inline-add" style="align-items:flex-end;gap:12px;flex-wrap:wrap">',
+    '<input type="hidden" id="trab-id" value="' + escHtml(edit?.id || '') + '">',
+    '<div class="form-group" style="flex:1;min-width:220px"><label class="form-label">Nome da empresa</label><input type="text" class="form-input" id="trab-empresa" value="' + escHtml(edit?.empresa || '') + '" placeholder="Ex.: Minha Empresa"></div>',
+    '<div class="form-group" style="width:160px"><label class="form-label">Data de admissão</label><input type="date" class="form-input" id="trab-admissao" value="' + escHtml(edit?.data_admissao || '') + '"></div>',
+    '<div class="form-group" style="width:160px"><label class="form-label">Data de demissão</label><input type="date" class="form-input" id="trab-demissao" value="' + escHtml(edit?.data_demissao || '') + '"' + (atualChecked ? ' disabled' : '') + '></div>',
+    '<label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;margin-bottom:10px;white-space:nowrap"><input type="checkbox" id="trab-atual" ' + (atualChecked ? 'checked' : '') + ' onchange="toggleTrabalhoAtual()"> Emprego atual</label>',
+    '<div class="form-group" style="width:130px"><label class="form-label">Início</label><input type="time" class="form-input" id="trab-hora-inicio" value="' + escHtml(edit?.hora_inicio || '08:00') + '"></div>',
+    '<div class="form-group" style="width:130px"><label class="form-label">Início almoço</label><input type="time" class="form-input" id="trab-almoco-inicio" value="' + escHtml(edit?.hora_inicio_almoco || '12:00') + '"></div>',
+    '<div class="form-group" style="width:130px"><label class="form-label">Fim almoço</label><input type="time" class="form-input" id="trab-almoco-fim" value="' + escHtml(edit?.hora_fim_almoco || '13:00') + '"></div>',
+    '<div class="form-group" style="width:130px"><label class="form-label">Fim</label><input type="time" class="form-input" id="trab-hora-fim" value="' + escHtml(edit?.hora_fim_trabalho || '17:00') + '"></div>',
+    '<button class="btn btn-primary" onclick="salvarTrabalhoConfig()">' + (edit ? 'Salvar' : 'Adicionar') + '</button>',
+    edit ? '<button class="btn btn-ghost" onclick="cancelarEdicaoTrabalho()">Cancelar</button>' : '',
+    '</div>',
+    '<div style="font-size:12px;color:var(--text-muted);margin:4px 0 14px">O relatório considera dias úteis de segunda a sexta, sem feriados, dentro do período entre admissão e demissão.</div>',
+    '<div class="table-wrap"><table class="config-table" style="width:100%;min-width:980px">',
+    '<thead><tr><th>Empresa</th><th>Admissão</th><th>Demissão</th><th>Jornada</th><th>Horas/dia</th><th>Status</th><th style="width:100px;text-align:right">Ações</th></tr></thead>',
+    '<tbody>' + linhas + '</tbody>',
+    '</table></div>',
+    '</div>'
+  ].join('');
 }
 
 /* --------------------------------------------
@@ -7738,7 +7953,6 @@ function saveEditConfig() {
   closeEditConfig();
   toast('Registro atualizado!');
 }
-
 
 // -- transacoes.js --
 /* ============================================================
@@ -12119,8 +12333,17 @@ function _relPopularSelects(pfx, renderFn) {
   });
 }
 
+function _relPeriodoPadrao(pfx = '') {
+  if (pfx === 'rhg') {
+    const hoje = new Date();
+    const anoMes = hoje.getFullYear() + '-' + String(hoje.getMonth() + 1).padStart(2, '0');
+    return _transPeriodoMes(anoMes);
+  }
+  return _transPeriodoMes(_transMesReferenciaAtual());
+}
+
 function _relMesAtual(pfx, renderFn) {
-  const periodo = _transPeriodoMes(_transMesReferenciaAtual());
+  const periodo = _relPeriodoPadrao(pfx);
   document.getElementById(pfx+'-data-de').value  = periodo.de;
   document.getElementById(pfx+'-data-ate').value = periodo.ate;
   // Desativar botão mês anterior se ativo
@@ -13177,6 +13400,298 @@ function renderRelVelocidadeDespesas() {
     </div>`;
 }
 
+/* --- ABA: HORAS X GASTOS ------------------------------- */
+function rhgMesAnterior() { _relMesAnterior('rhg', renderRelHorasGastos); }
+function rhgMesProximo() { _relMesProximo('rhg', renderRelHorasGastos); }
+function rhgLimpar() {
+  ['rhg-data-de','rhg-data-ate','rhg-cat','rhg-subcat'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  ['rhg-btn-mes','rhg-btn-mes-atual','rhg-btn-mes-proximo']
+    .forEach(id => document.getElementById(id)?.classList.remove('ativo'));
+  renderRelHorasGastos();
+}
+
+function _rhgGetFiltros() {
+  return {
+    dataDe: document.getElementById('rhg-data-de')?.value || '',
+    dataAte: document.getElementById('rhg-data-ate')?.value || '',
+    cat: document.getElementById('rhg-cat')?.value || '',
+    subcat: document.getElementById('rhg-subcat')?.value || '',
+  };
+}
+
+function _rhgPopularSelects() {
+  const mapa = { 'rhg-cat':'categorias', 'rhg-subcat':'subcategorias' };
+  const labels = { 'rhg-cat':'Todas', 'rhg-subcat':'Todas' };
+  Object.entries(mapa).forEach(([selId, colecao]) => {
+    const sel = document.getElementById(selId);
+    if (!sel) return;
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">' + labels[selId] + '</option>';
+    dbLoad(colecao).sort((a,b)=>(a.nome || '').localeCompare(b.nome || '', 'pt'))
+      .forEach(it => sel.innerHTML += '<option value="' + it.id + '">' + escHtml(it.nome || '') + '</option>');
+    if (cur) sel.value = cur;
+  });
+}
+
+function _rhgMinutosHora(valor) {
+  const m = String(valor || '').match(/^(\d{2}):(\d{2})/);
+  if (!m) return NaN;
+  return parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
+}
+
+function _rhgHorasDia(trab) {
+  const hi = _rhgMinutosHora(trab.hora_inicio);
+  const ia = _rhgMinutosHora(trab.hora_inicio_almoco);
+  const fa = _rhgMinutosHora(trab.hora_fim_almoco);
+  const hf = _rhgMinutosHora(trab.hora_fim_trabalho);
+  if (![hi, ia, fa, hf].every(Number.isFinite)) return 0;
+  if (!(hi < ia && ia < fa && fa < hf)) return 0;
+  return ((ia - hi) + (hf - fa)) / 60;
+}
+
+function _rhgDateLocal(iso) {
+  if (!iso) return null;
+  const s = String(iso).slice(0, 10);
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return null;
+  return new Date(parseInt(m[1],10), parseInt(m[2],10) - 1, parseInt(m[3],10));
+}
+
+function _rhgAddDias(date, dias) {
+  const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  d.setDate(d.getDate() + dias);
+  return d;
+}
+
+function _rhgUltimoDiaMes(anoMes) {
+  const ano = parseInt(anoMes.slice(0,4), 10);
+  const mes = parseInt(anoMes.slice(5,7), 10);
+  return new Date(ano, mes, 0).getDate();
+}
+
+function _rhgHorasTrabalhadasMes(anoMes) {
+  const mesDe = anoMes + '-01';
+  const mesAte = anoMes + '-' + String(_rhgUltimoDiaMes(anoMes)).padStart(2, '0');
+  let total = 0;
+  dbLoad('trabalhos').forEach(trab => {
+    const horasDia = _rhgHorasDia(trab);
+    if (horasDia <= 0 || !trab.data_admissao) return;
+    const iniIso = trab.data_admissao > mesDe ? trab.data_admissao : mesDe;
+    const demissao = trab.emprego_atual ? '' : (trab.data_demissao || '');
+    const fimIso = demissao && demissao < mesAte ? demissao : mesAte;
+    if (fimIso < iniIso) return;
+    let d = _rhgDateLocal(iniIso);
+    const fim = _rhgDateLocal(fimIso);
+    while (d && fim && d <= fim) {
+      const dow = d.getDay();
+      if (dow >= 1 && dow <= 5) total += horasDia;
+      d = _rhgAddDias(d, 1);
+    }
+  });
+  return total;
+}
+
+function _rhgStatusEhNeutro(t) {
+  const s = _relNomeStatus(t);
+  return s === 'neutro' || s === '30';
+}
+
+function _rhgReceitaFixaMes(anoMes) {
+  return dbLoad('transacoes')
+    .filter(t => (_transDataCompetencia(t) || '').startsWith(anoMes))
+    .filter(t => _transIsEntradaOperacional(t))
+    .filter(t => {
+      const perfil = _transPerfilNomeNorm(t);
+      return perfil === 'receita fixa' || (perfil.includes('receita') && perfil.includes('fixa'));
+    })
+    .filter(t => !_rhgStatusEhNeutro(t))
+    .reduce((s,t) => s + Math.abs(parseFloat(t.valor) || 0), 0);
+}
+
+function _rhgEhDespesaConsiderada(t) {
+  const fatura = _transLancamentoEhFatura(t);
+  if (!_relIsSaida(t)) return false;
+  if (_rhgStatusEhNeutro(t)) return false;
+  if (fatura) return true;
+  if (_transPerfilEhTransferencia(t) || _transIsTransferenciaLancamento(t)) return false;
+  return true;
+}
+
+function _rhgNome(colecao, id, fallback, sem) {
+  return _transNomeColecao(colecao, id) || fallback || sem;
+}
+
+function _rhgBasePorMes(anoMes, cache) {
+  if (cache[anoMes]) return cache[anoMes];
+  const horas = _rhgHorasTrabalhadasMes(anoMes);
+  const receita = _rhgReceitaFixaMes(anoMes);
+  const valorHora = horas > 0 ? receita / horas : 0;
+  cache[anoMes] = { anoMes, horas, receita, valorHora };
+  return cache[anoMes];
+}
+
+function _rhgDados() {
+  const f = _rhgGetFiltros();
+  const cacheMes = {};
+  const despesas = dbLoad('transacoes')
+    .filter(_rhgEhDespesaConsiderada)
+    .filter(t => {
+      const d = _transDataCompetencia(t);
+      if (!d) return false;
+      if (f.dataDe && d < f.dataDe) return false;
+      if (f.dataAte && d > f.dataAte) return false;
+      if (f.cat && !_dbSameId(t.categoria_id, f.cat)) return false;
+      if (f.subcat && !_dbSameId(t.subcategoria_id, f.subcat)) return false;
+      return true;
+    });
+
+  const linhas = despesas.map(t => {
+    const data = _transDataCompetencia(t);
+    const base = _rhgBasePorMes(data.slice(0,7), cacheMes);
+    const valor = Math.abs(parseFloat(t.valor) || 0);
+    const horas = base.valorHora > 0 ? valor / base.valorHora : 0;
+    return {
+      t,
+      data,
+      descricao: t.descricao_tratada || t.descricao || '(Sem descrição)',
+      valor,
+      horas,
+      categoria: _rhgNome('categorias', t.categoria_id, t.categoria, '(Sem categoria)'),
+      subcategoria: _rhgNome('subcategorias', t.subcategoria_id, t.subcategoria, '(Sem subcategoria)'),
+      natureza: _rhgNome('naturezas', t.natureza_id, t.natureza, '(Sem natureza)'),
+      decisao: _rhgNome('decisoes', t.decisao_id, t.decisao, '(Sem decisão)'),
+      valorHora: base.valorHora,
+    };
+  }).sort((a,b) => b.horas - a.horas);
+
+  return { filtros: f, linhas, meses: Object.values(cacheMes) };
+}
+
+function _rhgAgrupar(linhas, campo) {
+  const mapa = new Map();
+  linhas.forEach(l => {
+    const nome = l[campo] || '(Sem informação)';
+    const atual = mapa.get(nome) || { nome, horas:0, valor:0, count:0 };
+    atual.horas += l.horas;
+    atual.valor += l.valor;
+    atual.count += 1;
+    mapa.set(nome, atual);
+  });
+  return [...mapa.values()].sort((a,b) => b.horas - a.horas)
+    .map((r,i) => ({ ...r, cor: REL_CORES[i % REL_CORES.length] }));
+}
+
+function _rhgFmtHoras(horas) {
+  if (!Number.isFinite(horas) || horas <= 0) return '0h';
+  const h = Math.floor(horas);
+  const m = Math.round((horas - h) * 60);
+  if (h <= 0) return m + 'min';
+  return h + 'h' + (m ? ' ' + m + 'min' : '');
+}
+
+function _rhgRenderGrafico(id, titulo, rows) {
+  _rc(id, {
+    type: 'bar',
+    data: {
+      labels: rows.map(r => r.nome),
+      datasets: [{
+        label: titulo,
+        data: rows.map(r => r.horas),
+        backgroundColor: rows.map(r => r.cor),
+      }]
+    },
+    options: {
+      responsive:true,
+      maintainAspectRatio:false,
+      indexAxis:'y',
+      plugins:{
+        legend:{ display:false },
+        tooltip:{ callbacks:{
+          label: ctx => ' ' + _rhgFmtHoras(ctx.parsed.x || 0),
+          afterLabel: ctx => {
+            const r = rows[ctx.dataIndex];
+            return r ? 'Valor: R$ ' + fmtValor(r.valor) + ' | ' + r.count + ' despesa(s)' : '';
+          }
+        }}
+      },
+      scales:{
+        x:{ min:0, grid:{color:'#EAEEF3'}, ticks:{callback:v=>_rhgFmtHoras(v), font:{size:11}} },
+        y:{ grid:{display:false}, ticks:{font:{size:12}} }
+      }
+    }
+  });
+}
+
+function _rhgDestroyCharts() {
+  ['c-horas-cat','c-horas-subcat','c-horas-natureza','c-horas-decisao'].forEach(id => {
+    if (_relCharts[id]) {
+      _relCharts[id].destroy();
+      delete _relCharts[id];
+    }
+  });
+}
+
+function _rhgMensagemBase(dados) {
+  if (!dbLoad('trabalhos').length) return 'Cadastre seu horário de trabalho em Configurações > Trabalho.';
+  if (!dados.linhas.length) return 'Nenhuma despesa encontrada para os filtros selecionados.';
+  if (!dados.meses.some(m => m.horas > 0)) return 'Não há horas trabalhadas válidas no período. Confira admissão, demissão e horários em Configurações > Trabalho.';
+  if (!dados.meses.some(m => m.receita > 0)) return 'Não há Receita Fixa no mês das despesas filtradas.';
+  if (!dados.linhas.some(l => l.horas > 0)) return 'As despesas filtradas estão em mês sem valor/hora calculável. Confira Receita Fixa e jornada do mês.';
+  return '';
+}
+
+function renderRelHorasGastos() {
+  _rhgPopularSelects();
+  const dados = _rhgDados();
+  const totalValor = dados.linhas.reduce((s,l) => s + l.valor, 0);
+  const totalHoras = dados.linhas.reduce((s,l) => s + l.horas, 0);
+  const mesesComValorHora = dados.meses.filter(m => m.valorHora > 0);
+  const mediaValorHora = mesesComValorHora.length
+    ? mesesComValorHora.reduce((s,m) => s + (m.valorHora || 0), 0) / mesesComValorHora.length
+    : 0;
+
+  const kpis = document.getElementById('rhg-kpis');
+  if (kpis) {
+    kpis.innerHTML =
+      '<div class="rel-kpi-card"><div class="rel-kpi-label">Total gasto</div><div class="rel-kpi-value" style="color:var(--danger)">R$ ' + fmtValor(totalValor) + '</div><div class="rel-kpi-sub">' + dados.linhas.length + ' despesa(s)</div></div>' +
+      '<div class="rel-kpi-card"><div class="rel-kpi-label">Horas necessárias</div><div class="rel-kpi-value" style="color:#FF857D">' + _rhgFmtHoras(totalHoras) + '</div><div class="rel-kpi-sub">Com base na receita fixa mensal</div></div>' +
+      '<div class="rel-kpi-card"><div class="rel-kpi-label">Valor/hora médio</div><div class="rel-kpi-value" style="color:var(--primary)">R$ ' + fmtValor(mediaValorHora) + '</div><div class="rel-kpi-sub">Média dos meses com base válida</div></div>' +
+      '<div class="rel-kpi-card"><div class="rel-kpi-label">Meses analisados</div><div class="rel-kpi-value" style="color:#00875A">' + dados.meses.length + '</div><div class="rel-kpi-sub">Por data de competência</div></div>';
+  }
+
+  const alerta = document.getElementById('rhg-alerta');
+  const msg = _rhgMensagemBase(dados);
+  if (alerta) {
+    alerta.innerHTML = msg
+      ? '<div class="empty-row" style="padding:16px 18px;margin-bottom:16px;border-radius:12px;background:rgba(255,209,102,0.14);color:var(--text-muted)">' + escHtml(msg) + '</div>'
+      : '';
+  }
+  if (msg) {
+    _rhgDestroyCharts();
+  } else {
+    _rhgRenderGrafico('c-horas-cat', 'Horas por categoria', _rhgAgrupar(dados.linhas, 'categoria'));
+    _rhgRenderGrafico('c-horas-subcat', 'Horas por subcategoria', _rhgAgrupar(dados.linhas, 'subcategoria'));
+    _rhgRenderGrafico('c-horas-natureza', 'Horas por natureza', _rhgAgrupar(dados.linhas, 'natureza'));
+    _rhgRenderGrafico('c-horas-decisao', 'Horas por decisão', _rhgAgrupar(dados.linhas, 'decisao'));
+  }
+
+  const tbl = document.getElementById('tbl-horas-gastos');
+  if (!tbl) return;
+  tbl.innerHTML = '<div class="table-wrap"><table class="rel-summary-table"><thead><tr>' +
+    '<th>Data</th><th>Descrição tratada</th><th>Valor</th><th>Horas trabalhadas para a despesa</th>' +
+    '</tr></thead><tbody>' +
+    (dados.linhas.length ? dados.linhas.map(l =>
+      '<tr><td>' + fmtDateStr(l.data) + '</td>' +
+      '<td>' + escHtml(l.descricao) + '</td>' +
+      '<td style="font-family:var(--font-mono);font-weight:700;color:var(--danger)">R$ ' + fmtValor(l.valor) + '</td>' +
+      '<td style="font-family:var(--font-mono);font-weight:800;color:#FF857D">' + _rhgFmtHoras(l.horas) + '</td></tr>'
+    ).join('') : '<tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:28px">Nenhuma despesa encontrada.</td></tr>') +
+    '</tbody></table></div>';
+}
+
 /* --- ABA: SCORE --------------------------------------- */
 let _relScoreAnoSelecionado = new Date().getFullYear();
 const SCORE_MESES_LABELS = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
@@ -13366,12 +13881,13 @@ const _relRenders = {
   faturas: () => { _relFaturasPopularContas(); renderRelFaturas(); },
   'gasto-dia': () => { renderRelGastoDia(); },
   'velocidade-despesas': () => { renderRelVelocidadeDespesas(); },
+  'horas-gastos': () => { _rhgPopularSelects(); renderRelHorasGastos(); },
   score:  () => { renderRelScore(); },
 };
 let _relTabAtiva = 'cat';
 
 /* Mapeamento de aba → prefixo de filtros */
-const _REL_PFX = { cat:'rc', subcat:'rsc', semana:'rs', perfil:'rp', status:'rst', faturas:'rfat' };
+const _REL_PFX = { cat:'rc', subcat:'rsc', semana:'rs', perfil:'rp', status:'rst', faturas:'rfat', 'horas-gastos':'rhg' };
 
 function switchRelTab(chave, btn) {
   _relTabAtiva = chave;
@@ -13386,7 +13902,7 @@ function switchRelTab(chave, btn) {
     const deEl  = document.getElementById(pfx+'-data-de');
     const ateEl = document.getElementById(pfx+'-data-ate');
     if (deEl && !deEl.value) {
-      const periodo = _transPeriodoMes(_transMesReferenciaAtual());
+      const periodo = _relPeriodoPadrao(pfx);
       deEl.value  = periodo.de;
       ateEl.value = periodo.ate;
       document.getElementById(pfx+'-btn-mes-atual')?.classList.add('ativo');
@@ -13402,7 +13918,7 @@ function renderRelatorios() {
   if (pfxAtivo) {
     const deEl = document.getElementById(pfxAtivo+'-data-de');
     if (deEl && !deEl.value) {
-      const periodo = _transPeriodoMes(_transMesReferenciaAtual());
+      const periodo = _relPeriodoPadrao(pfxAtivo);
       deEl.value = periodo.de;
       const ateEl = document.getElementById(pfxAtivo+'-data-ate');
       if (ateEl) ateEl.value = periodo.ate;
@@ -19928,6 +20444,7 @@ async function limparTodosDadosSupabase() {
     'inv_movimentos',
     'orcamentos',
     'metas',
+    'trabalhos',
     'transacoes',
     'subcategorias',
     'categorias',

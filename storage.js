@@ -13,6 +13,7 @@ const STORAGE_KEYS = {
   tipos:         'sc_tipos',
   perfis:        'sc_perfis',
   status:        'sc_status',
+  trabalhos:     'sc_trabalhos',
   transacoes:    'sc_transacoes',
 };
 

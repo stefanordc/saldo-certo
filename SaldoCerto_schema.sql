@@ -67,6 +67,28 @@ create table if not exists status_compra (
   created_at  timestamptz default now()
 );
 
+create table if not exists trabalhos (
+  id                  uuid primary key default uuid_generate_v4(),
+  user_id             uuid references auth.users(id) on delete cascade,
+  empresa             text not null,
+  data_admissao       date not null,
+  data_demissao       date,
+  emprego_atual       boolean not null default false,
+  hora_inicio         time not null,
+  hora_inicio_almoco  time not null,
+  hora_fim_almoco     time not null,
+  hora_fim_trabalho   time not null,
+  created_at          timestamptz default now(),
+  constraint trabalhos_periodo_valido check (data_demissao is null or data_demissao >= data_admissao),
+  constraint trabalhos_horarios_validos check (
+    hora_inicio < hora_inicio_almoco
+    and hora_inicio_almoco < hora_fim_almoco
+    and hora_fim_almoco < hora_fim_trabalho
+  )
+);
+
+create index if not exists idx_trabalhos_user_periodo on trabalhos(user_id, data_admissao, data_demissao);
+
 -- ──────────────────────────────────────────
 -- TRANSAÇÕES
 -- ──────────────────────────────────────────
@@ -266,6 +288,7 @@ alter table perfis_despesa    enable row level security;
 alter table naturezas         enable row level security;
 alter table decisoes          enable row level security;
 alter table status_compra     enable row level security;
+alter table trabalhos         enable row level security;
 alter table transacoes        enable row level security;
 alter table orcamentos        enable row level security;
 alter table metas             enable row level security;
@@ -284,7 +307,7 @@ do $$ declare t text;
 begin
   foreach t in array array[
     'cartoes','categorias','subcategorias','formas_pagamento','tipos_pagamento',
-    'perfis_despesa','naturezas','decisoes','status_compra','transacoes','orcamentos','metas',
+    'perfis_despesa','naturezas','decisoes','status_compra','trabalhos','transacoes','orcamentos','metas',
     'contas_receber','contas_pagar','lista_desejos',
     'inv_corretoras','inv_modalidades','inv_movimentos','inv_dividendos'
   ] loop
