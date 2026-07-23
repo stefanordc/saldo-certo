@@ -5628,6 +5628,10 @@ body.theme-dark #page-relatorios .rel-summary-table tbody tr:hover {
             <label class="filtro-label">Subcategoria</label>
             <select class="filtro-select" id="rhg-subcat" onchange="renderRelHorasGastos()"><option value="">Todas</option></select>
           </div>
+          <div class="filtro-group">
+            <label class="filtro-label">Tipo de despesa</label>
+            <select class="filtro-select" id="rhg-perfil" onchange="renderRelHorasGastos()"><option value="">Todos</option></select>
+          </div>
           <div class="filtro-group" style="align-self:flex-end">
             <button class="btn btn-ghost btn-sm" onclick="rhgLimpar()">✕ Limpar</button>
           </div>
@@ -13017,7 +13021,7 @@ function renderRelVelocidadeDespesas() {
 function rhgMesAnterior() { _relMesAnterior('rhg', renderRelHorasGastos); }
 function rhgMesProximo() { _relMesProximo('rhg', renderRelHorasGastos); }
 function rhgLimpar() {
-  ['rhg-data-de','rhg-data-ate','rhg-cat','rhg-subcat'].forEach(id => {
+  ['rhg-data-de','rhg-data-ate','rhg-cat','rhg-subcat','rhg-perfil'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.value = '';
   });
@@ -13032,18 +13036,26 @@ function _rhgGetFiltros() {
     dataAte: document.getElementById('rhg-data-ate')?.value || '',
     cat: document.getElementById('rhg-cat')?.value || '',
     subcat: document.getElementById('rhg-subcat')?.value || '',
+    perfil: document.getElementById('rhg-perfil')?.value || '',
   };
 }
 
 function _rhgPopularSelects() {
-  const mapa = { 'rhg-cat':'categorias', 'rhg-subcat':'subcategorias' };
-  const labels = { 'rhg-cat':'Todas', 'rhg-subcat':'Todas' };
+  const mapa = { 'rhg-cat':'categorias', 'rhg-subcat':'subcategorias', 'rhg-perfil':'perfis' };
+  const labels = { 'rhg-cat':'Todas', 'rhg-subcat':'Todas', 'rhg-perfil':'Todos' };
   Object.entries(mapa).forEach(([selId, colecao]) => {
     const sel = document.getElementById(selId);
     if (!sel) return;
     const cur = sel.value;
     sel.innerHTML = '<option value="">' + labels[selId] + '</option>';
-    dbLoad(colecao).sort((a,b)=>(a.nome || '').localeCompare(b.nome || '', 'pt'))
+    let itens = dbLoad(colecao);
+    if (selId === 'rhg-perfil') {
+      itens = itens.filter(it => {
+        const nome = _configNorm(it.nome || '');
+        return nome === 'despesa fixa' || nome === 'despesa variavel';
+      });
+    }
+    itens.sort((a,b)=>(a.nome || '').localeCompare(b.nome || '', 'pt'))
       .forEach(it => sel.innerHTML += '<option value="' + it.id + '">' + escHtml(it.nome || '') + '</option>');
     if (cur) sel.value = cur;
   });
@@ -13128,7 +13140,10 @@ function _rhgEhDespesaConsiderada(t) {
   const fatura = _transLancamentoEhFatura(t);
   if (!_relIsSaida(t)) return false;
   if (_rhgStatusEhNeutro(t)) return false;
-  if (_configNorm(_rhgNome('categorias', t.categoria_id, t.categoria, '')) === 'financeiro') return false;
+  if (_configNorm(_rhgNome('categorias', t.categoria_id, t.categoria, '')) === 'financeiro') {
+    const perfil = _transPerfilNomeNorm(t);
+    if (perfil !== 'despesa fixa' && perfil !== 'despesa variavel') return false;
+  }
   if (fatura) return true;
   if (_transPerfilEhTransferencia(t) || _transIsTransferenciaLancamento(t)) return false;
   return true;
@@ -13159,6 +13174,7 @@ function _rhgDados() {
       if (f.dataAte && d > f.dataAte) return false;
       if (f.cat && !_dbSameId(t.categoria_id, f.cat)) return false;
       if (f.subcat && !_dbSameId(t.subcategoria_id, f.subcat)) return false;
+      if (f.perfil && !_dbSameId(t.perfil_despesa_id, f.perfil)) return false;
       return true;
     });
 
