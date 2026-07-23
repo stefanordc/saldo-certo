@@ -13515,6 +13515,7 @@ function _rhgEhDespesaConsiderada(t) {
   const fatura = _transLancamentoEhFatura(t);
   if (!_relIsSaida(t)) return false;
   if (_rhgStatusEhNeutro(t)) return false;
+  if (_configNorm(_rhgNome('categorias', t.categoria_id, t.categoria, '')) === 'financeiro') return false;
   if (fatura) return true;
   if (_transPerfilEhTransferencia(t) || _transIsTransferenciaLancamento(t)) return false;
   return true;
@@ -13592,9 +13593,37 @@ function _rhgFmtHoras(horas) {
   return h + 'h' + (m ? ' ' + m + 'min' : '');
 }
 
+function _rhgFmtDias(horas) {
+  if (!Number.isFinite(horas) || horas <= 0 || horas <= 24) return '-';
+  const dias = Math.ceil(horas / 24);
+  return dias + ' dia' + (dias === 1 ? '' : 's');
+}
+
+const REL_HORAS_LABEL_PLUGIN = {
+  id: 'relHorasLabels',
+  afterDatasetsDraw(chart) {
+    const { ctx, chartArea } = chart;
+    const dataset = chart.data.datasets?.[0];
+    if (!dataset) return;
+    ctx.save();
+    ctx.font = '700 11px Inter, system-ui, sans-serif';
+    ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--text') || '#E5EDF7';
+    ctx.textBaseline = 'middle';
+    chart.getDatasetMeta(0).data.forEach((bar, i) => {
+      const raw = dataset.data[i] || 0;
+      if (!raw) return;
+      const label = _rhgFmtHoras(raw);
+      const x = Math.min(bar.x + 8, chartArea.right - ctx.measureText(label).width - 4);
+      ctx.fillText(label, x, bar.y);
+    });
+    ctx.restore();
+  }
+};
+
 function _rhgRenderGrafico(id, titulo, rows) {
   _rc(id, {
     type: 'bar',
+    plugins: [REL_HORAS_LABEL_PLUGIN],
     data: {
       labels: rows.map(r => r.nome),
       datasets: [{
@@ -13681,14 +13710,15 @@ function renderRelHorasGastos() {
   const tbl = document.getElementById('tbl-horas-gastos');
   if (!tbl) return;
   tbl.innerHTML = '<div class="table-wrap"><table class="rel-summary-table"><thead><tr>' +
-    '<th>Data</th><th>Descrição tratada</th><th>Valor</th><th>Horas trabalhadas para a despesa</th>' +
+    '<th>Data</th><th>Descrição tratada</th><th>Valor</th><th>Horas trabalhadas para a despesa</th><th>Dias</th>' +
     '</tr></thead><tbody>' +
     (dados.linhas.length ? dados.linhas.map(l =>
       '<tr><td>' + fmtDateStr(l.data) + '</td>' +
       '<td>' + escHtml(l.descricao) + '</td>' +
       '<td style="font-family:var(--font-mono);font-weight:700;color:var(--danger)">R$ ' + fmtValor(l.valor) + '</td>' +
-      '<td style="font-family:var(--font-mono);font-weight:800;color:#FF857D">' + _rhgFmtHoras(l.horas) + '</td></tr>'
-    ).join('') : '<tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:28px">Nenhuma despesa encontrada.</td></tr>') +
+      '<td style="font-family:var(--font-mono);font-weight:800;color:#FF857D">' + _rhgFmtHoras(l.horas) + '</td>' +
+      '<td style="font-family:var(--font-mono);font-weight:800;color:var(--primary)">' + _rhgFmtDias(l.horas) + '</td></tr>'
+    ).join('') : '<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:28px">Nenhuma despesa encontrada.</td></tr>') +
     '</tbody></table></div>';
 }
 
