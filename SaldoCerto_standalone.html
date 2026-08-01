@@ -5696,6 +5696,7 @@ body.theme-dark #page-relatorios .rel-summary-table tbody tr:hover {
       <!-- Abas -->
       <div class="tabs-bar">
         <button class="tab-btn active" onclick="switchTab('cartoes',this)">Contas</button>
+        <button class="tab-btn" onclick="switchTab('saldo-atual',this)">Saldo Atual</button>
         <button class="tab-btn" onclick="switchTab('categorias',this)">Categorias</button>
         <button class="tab-btn" onclick="switchTab('subcategorias',this)">Subcategorias</button>
         <button class="tab-btn" onclick="switchTab('formas',this)">Formas de Pagamento</button>
@@ -7173,6 +7174,80 @@ function garantirConfigPadrao(chave = null) {
   _configConsolidarConfigsDuplicados(chave);
 }
 
+const SALDO_ATUAL_CONTAS_EXCLUIDAS_KEY = 'sc_saldo_atual_contas_excluidas';
+
+function _saldoAtualIdsExcluidos() {
+  try {
+    const raw = localStorage.getItem(SALDO_ATUAL_CONTAS_EXCLUIDAS_KEY);
+    const ids = raw ? JSON.parse(raw) : [];
+    return Array.isArray(ids) ? ids.map(id => String(id || '')).filter(Boolean) : [];
+  } catch (_) {
+    return [];
+  }
+}
+
+function _saldoAtualSalvarIdsExcluidos(ids) {
+  const limpos = [...new Set((ids || []).map(id => String(id || '')).filter(Boolean))];
+  localStorage.setItem(SALDO_ATUAL_CONTAS_EXCLUIDAS_KEY, JSON.stringify(limpos));
+  return limpos;
+}
+
+function _saldoAtualContasExcluidasSet() {
+  return new Set(_saldoAtualIdsExcluidos());
+}
+
+function _saldoAtualTransacaoTemContaExcluida(t, idsExcluidos) {
+  const ids = idsExcluidos instanceof Set ? [...idsExcluidos] : (idsExcluidos || []);
+  if (!ids.length) return false;
+  return ids.some(contaId =>
+    _transContaOrigemEhConta(t, contaId) ||
+    _transContaDestinoEhConta(t, contaId)
+  );
+}
+
+function _saldoAtualToggleConta(contaId, marcado) {
+  const set = _saldoAtualContasExcluidasSet();
+  if (marcado) set.add(String(contaId));
+  else set.delete(String(contaId));
+  _saldoAtualSalvarIdsExcluidos([...set]);
+  renderizarAbaSaldoAtualConfig();
+  if (typeof renderTransacoes === 'function') renderTransacoes();
+  toast(marcado ? 'Conta removida do saldo atual.' : 'Conta voltou ao saldo atual.');
+}
+
+function renderizarAbaSaldoAtualConfig() {
+  const container = document.getElementById('tabContent');
+  if (!container) return;
+  const contas = dbLoad('cartoes').sort((a, b) => (a.nome || '').localeCompare(b.nome || '', 'pt'));
+  const idsValidos = new Set(contas.map(c => String(c.id || '')).filter(Boolean));
+  const idsSelecionados = _saldoAtualSalvarIdsExcluidos(_saldoAtualIdsExcluidos().filter(id => idsValidos.has(String(id))));
+  const selecionadosSet = new Set(idsSelecionados);
+  const linhas = contas.length ? contas.map(conta => {
+    const id = String(conta.id || '');
+    const checked = selecionadosSet.has(id) ? ' checked' : '';
+    return [
+      '<label style="display:flex;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid var(--border);cursor:pointer">',
+      '<input type="checkbox" value="' + escHtml(id) + '" ' + checked + ' onchange="_saldoAtualToggleConta(this.value, this.checked)">',
+      '<span style="font-weight:700;color:var(--text)">' + escHtml(conta.nome || 'Conta sem nome') + '</span>',
+      '<span style="font-size:12px;color:var(--text-muted);margin-left:auto">' + (checked ? 'Ignorada no saldo atual' : 'Considerada no saldo atual') + '</span>',
+      '</label>'
+    ].join('');
+  }).join('') : '<div style="font-size:13px;color:var(--text-muted);padding:10px 0">Nenhuma conta cadastrada. Crie uma conta na aba Contas e ela aparecera aqui automaticamente.</div>';
+
+  container.innerHTML = [
+    '<div class="tab-content">',
+    '<div class="section-header"><span class="section-title">Saldo Atual</span></div>',
+    '<div style="font-size:13px;color:var(--text-muted);line-height:1.5;margin-bottom:14px">',
+    'Marque as contas que nao devem entrar no card <strong>Saldo no Mes Atual</strong>. ',
+    'Isso evita que resgates, transferencias ou movimentacoes de contas fora do seu saldo operacional distorcam o numero.',
+    '</div>',
+    '<div style="border:1px solid var(--border);border-radius:12px;padding:4px 14px;background:var(--bg-secondary)">',
+    linhas,
+    '</div>',
+    '</div>'
+  ].join('');
+}
+
 /* --------------------------------------------
    TROCA DE ABA
 -------------------------------------------- */
@@ -7183,6 +7258,8 @@ function switchTab(chave, botao) {
 
   if (chave === 'perfil-usuario') {
     renderizarAbaPerfil();
+  } else if (chave === 'saldo-atual') {
+    renderizarAbaSaldoAtualConfig();
   } else {
     renderizarAba(chave);
   }
@@ -8233,11 +8310,16 @@ function renderTransacoes(opcoes = {}) {
   const anoMes     = _transMesReferenciaAtual(todasTrans);
   const [anoRef, mesRef] = anoMes.split('-').map(Number);
   const transMe    = todasTrans.filter(t => _transDataReferencia(t).startsWith(anoMes));
+  const contasExcluidasSaldoAtual = _saldoAtualContasExcluidasSet();
+  const transMeSaldo = transMe.filter(t => !_saldoAtualTransacaoTemContaExcluida(t, contasExcluidasSaldoAtual));
   // Card saldo: apenas Entradas no mês atual (excluindo Neutro e Saída)
-  const somaEntradaMes = transMe
+  const somaEntradaMes = transMeSaldo
     .filter(t => isEntrada(t) && !isNeutro(t))
     .reduce((s, t) => s + (parseFloat(t.valor) || 0), 0);
   const saldoMes = somaEntradaMes;
+  const saldoMesSub = contasExcluidasSaldoAtual.size
+    ? _transMesLabel(anoMes) + ' · ' + contasExcluidasSaldoAtual.size + ' conta(s) ignorada(s)'
+    : _transMesLabel(anoMes);
 
   // 2) Patrimônio total — saldo acumulado de todas as transações da categoria Investimento
   const transInvest  = todasTrans.filter(t => isInvest(t));
@@ -8291,7 +8373,7 @@ function renderTransacoes(opcoes = {}) {
     <div class="stat-card">
       <div class="stat-label">Saldo no Mês Atual</div>
       <div class="stat-value ${saldoMes < 0 ? 'danger' : 'green'}">R$ ${fmtValor(saldoMes)}</div>
-      <div class="stat-sub">${_transMesLabel(anoMes)}</div>
+      <div class="stat-sub">${saldoMesSub}</div>
     </div>
     <div class="stat-card">
       <div class="stat-label">Patrimônio — Investimentos</div>
