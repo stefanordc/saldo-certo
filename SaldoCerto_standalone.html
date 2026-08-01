@@ -8847,6 +8847,10 @@ function _transDescricaoEhStreamingAssinatura(valor) {
     .includes(_transNormDescricaoChave(valor));
 }
 
+function _transDescricaoEhChatGPT(valor) {
+  return _transNormDescricaoChave(valor) === 'chatgpt';
+}
+
 function _transDescricaoEhRecargaTim(valor) {
   return _transNormTexto(valor) === 'recarga tim';
 }
@@ -8924,6 +8928,10 @@ function _transFormDescricaoEhStreamingAssinatura() {
   return _transDescricoesDoForm().some(_transDescricaoEhStreamingAssinatura);
 }
 
+function _transFormDescricaoTratadaEhChatGPT() {
+  return _transDescricaoEhChatGPT(document.getElementById('f-descricao-tratada')?.value || '');
+}
+
 function _transFormDescricaoEhRecargaTim() {
   return _transDescricoesDoForm().some(_transDescricaoEhRecargaTim);
 }
@@ -8991,6 +8999,10 @@ function _transAplicarPixPorDescricao() {
     _transAplicarClassificacaoStreamingAssinatura();
     return true;
   }
+  if (_transFormDescricaoTratadaEhChatGPT()) {
+    _transAplicarClassificacaoChatGPT();
+    return true;
+  }
   if (_transFormDescricaoEhRecargaTim()) {
     _transAplicarClassificacaoRecargaTim();
     return true;
@@ -9052,6 +9064,10 @@ function _transCategoriaFinanceiroId() {
 
 function _transContaInterId() {
   return _transResolverContaId('Inter');
+}
+
+function _transContaBtgId() {
+  return _transResolverContaId('BTG');
 }
 
 function _transPerfilDespesaFixaId() {
@@ -9177,6 +9193,10 @@ function _transSubcategoriaInternetMovelId(categoriaId) {
 
 function _transSubcategoriaStreamingId(categoriaId) {
   return _transEnsureSubcategoriaPorNome('Streaming', categoriaId);
+}
+
+function _transSubcategoriaInteligenciaArtificialId(categoriaId) {
+  return _transEnsureSubcategoriaPorNome('Inteligência artificial', categoriaId, ['Inteligencia artificial']);
 }
 
 function _transCategoriaOutrosId() {
@@ -9530,6 +9550,33 @@ function _transAplicarClassificacaoStreamingAssinatura() {
   if (!_transFormDescricaoEhStreamingAssinatura()) return false;
   const ids = _transClassificacaoStreamingAssinaturaIds();
   _transSetSelectValue('f-perfil-despesa', 'perfis', ids.perfilId);
+  _transSetSelectValue('f-categoria', 'categorias', ids.categoriaId);
+  _transSetSelectValue('f-subcategoria', 'subcategorias', ids.subcategoriaId);
+  _transSetSelectValue('f-natureza', 'naturezas', ids.naturezaId);
+  _transSetSelectValue('f-decisao', 'decisoes', ids.decisaoId);
+  toggleContaDestinoTransacao(_transFormExigeContaDestino());
+  return true;
+}
+
+function _transClassificacaoChatGPTIds() {
+  const categoriaId = _transCategoriaAssinaturaId();
+  return {
+    formaPagamentoId: _transFormaIdPix(),
+    perfilId: _transPerfilDespesaFixaId(),
+    contaId: _transContaBtgId(),
+    categoriaId,
+    subcategoriaId: _transSubcategoriaInteligenciaArtificialId(categoriaId),
+    naturezaId: _transNaturezaEssencialId(),
+    decisaoId: _transDecisaoRecorrenteId(),
+  };
+}
+
+function _transAplicarClassificacaoChatGPT() {
+  if (!_transFormDescricaoTratadaEhChatGPT()) return false;
+  const ids = _transClassificacaoChatGPTIds();
+  _transSetSelectValue('f-forma-pagamento', 'formas', ids.formaPagamentoId);
+  _transSetSelectValue('f-perfil-despesa', 'perfis', ids.perfilId);
+  if (ids.contaId) _transSetSelectValue('f-cartao', 'cartoes', ids.contaId);
   _transSetSelectValue('f-categoria', 'categorias', ids.categoriaId);
   _transSetSelectValue('f-subcategoria', 'subcategorias', ids.subcategoriaId);
   _transSetSelectValue('f-natureza', 'naturezas', ids.naturezaId);
@@ -19339,6 +19386,7 @@ function impExecutar() {
       const descricaoImportadaEhDrogariaSaude = _transDescricaoEhDrogariaSaude(descricao) || _transDescricaoEhDrogariaSaude(descricaoTratada);
       const descricaoImportadaEhIfood = _transDescricaoEhIfood(descricao) || _transDescricaoEhIfood(descricaoTratada);
       const descricaoImportadaEhStreamingAssinatura = _transDescricaoEhStreamingAssinatura(descricao) || _transDescricaoEhStreamingAssinatura(descricaoTratada);
+      const descricaoImportadaEhChatGPT = _transDescricaoEhChatGPT(descricaoTratada);
       const descricaoImportadaEhRecargaTim = _transDescricaoEhRecargaTim(descricao) || _transDescricaoEhRecargaTim(descricaoTratada);
       const descricaoImportadaComecaComPadaria = _transDescricaoComecaComPadaria(descricao) || _transDescricaoComecaComPadaria(descricaoTratada);
       const descricaoImportadaContemBarbearia = _transDescricaoContemBarbearia(descricao) || _transDescricaoContemBarbearia(descricaoTratada);
@@ -19459,6 +19507,16 @@ function impExecutar() {
         decisaoId = classificacaoStreaming.decisaoId;
         subcategoriaId = classificacaoStreaming.subcategoriaId;
         subcategoriaNome = 'Streaming';
+      } else if (!transferenciaImportada && descricaoImportadaEhChatGPT) {
+        const classificacaoChatGPT = _transClassificacaoChatGPTIds();
+        categoriaId = classificacaoChatGPT.categoriaId;
+        categoriaNome = 'Assinatura';
+        perfilId = classificacaoChatGPT.perfilId;
+        naturezaId = classificacaoChatGPT.naturezaId;
+        decisaoId = classificacaoChatGPT.decisaoId;
+        subcategoriaId = classificacaoChatGPT.subcategoriaId;
+        subcategoriaNome = 'Inteligência artificial';
+        if (!contaOrigemId && classificacaoChatGPT.contaId) contaOrigemId = classificacaoChatGPT.contaId;
       } else if (!transferenciaImportada && descricaoImportadaEhRecargaTim) {
         const classificacaoRecargaTim = _transClassificacaoRecargaTimIds();
         categoriaId = classificacaoRecargaTim.categoriaId;
@@ -19518,6 +19576,8 @@ function impExecutar() {
         ? _transFormaIdDebito()
         : descricaoImportadaEhCashbackCartaoCredito
           ? _transFormaIdDebito()
+        : descricaoImportadaEhChatGPT
+          ? _transFormaIdPix()
         : (perfilImportadoEhTransferencia || descricaoImportadaEhPix)
           ? pixFormaId
           : findId(formas, get('forma'));
