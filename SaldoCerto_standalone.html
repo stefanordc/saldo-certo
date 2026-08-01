@@ -7927,13 +7927,9 @@ function _transDesempateInsercaoRecente(a, b, ordemInsercao = new Map()) {
   return (ordemInsercao.get(b.id) ?? 0) - (ordemInsercao.get(a.id) ?? 0);
 }
 
-function _transMesReferenciaAtual(transacoes = dbLoad('transacoes')) {
-  const meses = [...new Set((transacoes || [])
-    .map(t => _transDataReferencia(t).slice(0, 7))
-    .filter(m => /^\d{4}-\d{2}$/.test(m)))].sort();
+function _transMesReferenciaAtual() {
   const hoje = new Date();
-  const mesSistema = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}`;
-  return meses.includes(mesSistema) ? mesSistema : (meses[meses.length - 1] || mesSistema);
+  return `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}`;
 }
 
 function _transPeriodoMes(anoMes) {
