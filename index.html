@@ -8301,8 +8301,8 @@ function _transDesempateInsercaoRecente(a, b, ordemInsercao = new Map()) {
   return (ordemInsercao.get(b.id) ?? 0) - (ordemInsercao.get(a.id) ?? 0);
 }
 
-function _transMesCalendarioAtual() {
-  const hoje = new Date();
+function _transMesCalendarioAtual(base = new Date()) {
+  const hoje = base instanceof Date ? base : new Date(base);
   return `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}`;
 }
 
