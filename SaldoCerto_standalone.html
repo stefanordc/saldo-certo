@@ -7927,9 +7927,13 @@ function _transDesempateInsercaoRecente(a, b, ordemInsercao = new Map()) {
   return (ordemInsercao.get(b.id) ?? 0) - (ordemInsercao.get(a.id) ?? 0);
 }
 
-function _transMesReferenciaAtual() {
+function _transMesCalendarioAtual() {
   const hoje = new Date();
   return `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function _transMesReferenciaAtual() {
+  return _transMesCalendarioAtual();
 }
 
 function _transPeriodoMes(anoMes) {
@@ -18505,12 +18509,12 @@ function verificarSaudeFinanceira() {
   // Mostrar apenas uma vez por dia + uma vez por sessão
   if (window._saudeJaVerificou) return;
   window._saudeJaVerificou = true;
-  const hojeISO   = new Date().toISOString().slice(0, 10);
+  const hojeISO   = _transHojeIsoLocal();
   const ultimaVez = localStorage.getItem('sc_saude_ultimo_aviso');
   if (ultimaVez === hojeISO) return;
 
   const todasTrans = dbLoad('transacoes');
-  const anoMes    = _transMesReferenciaAtual(todasTrans);
+  const anoMes    = _transMesCalendarioAtual();
   const periodoMes = _transPeriodoMes(anoMes);
   const transMes  = todasTrans.filter(t=>_transDataReferencia(t).startsWith(anoMes));
   if (!transMes.length) return; // sem dados, não exibe
