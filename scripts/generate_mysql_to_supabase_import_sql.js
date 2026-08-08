@@ -406,6 +406,7 @@ async function main() {
       deterministicUuid('status_compra', statusKey),
       criadoEm,
       criadoEm,
+      criadoEm,
       USER_ID,
     ];
   });
@@ -495,6 +496,7 @@ async function main() {
       'subcategoria_id',
       'status_compra_id',
       'data_insercao',
+      'criado_em',
       'created_at',
       'user_id',
     ], transacaoRows),
@@ -585,6 +587,7 @@ async function main() {
         'subcategoria_id',
         'status_compra_id',
         'data_insercao',
+        'criado_em',
         'created_at',
         'user_id',
       ],

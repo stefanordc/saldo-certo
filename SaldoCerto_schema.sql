@@ -98,6 +98,7 @@ create table if not exists transacoes (
   data_contabil       date not null,
   data_competencia    date not null,
   data_insercao       timestamptz not null default now(),
+  criado_em           timestamptz not null default now(),
   descricao           text not null,
   descricao_tratada   text,
   valor               numeric(15,2) not null check (valor >= 0),

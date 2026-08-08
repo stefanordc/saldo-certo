@@ -34,7 +34,12 @@ function dbSave(colecao, dados) {
 /* ── INSERE um registro ── */
 function dbInsert(colecao, registro) {
   const dados = dbLoad(colecao);
-  dados.push({ ...registro, id: uid(), createdAt: new Date().toISOString() });
+  const now = new Date().toISOString();
+  const timestamps = colecao === 'transacoes' ? {
+    data_insercao: registro.data_insercao || registro.criado_em || now,
+    criado_em: registro.criado_em || registro.data_insercao || now,
+  } : {};
+  dados.push({ ...registro, ...timestamps, id: uid(), createdAt: now });
   dbSave(colecao, dados);
   return dados;
 }

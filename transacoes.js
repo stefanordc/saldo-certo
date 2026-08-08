@@ -284,7 +284,28 @@ function toggleParcelas() {
 /* ────────────────────────────────────────────
    SALVA A TRANSAÇÃO
 ──────────────────────────────────────────── */
-function saveTransacao() {
+function _transValorParecidoKey(valor) {
+  const n = Math.abs(parseFloat(valor));
+  return Number.isFinite(n) ? n.toFixed(2) : '';
+}
+
+function _transCampoParecidoKey(valor) {
+  return valor === null || valor === undefined ? '' : String(valor);
+}
+
+function _transEncontrarTransacaoParecida(transacao, dados) {
+  return (dados || []).find(item => {
+    if (!item || item.id === transacao.id) return false;
+    return _transCampoParecidoKey(item.data_contabil) === _transCampoParecidoKey(transacao.data_contabil)
+      && _transCampoParecidoKey(item.data_competencia) === _transCampoParecidoKey(transacao.data_competencia)
+      && _transCampoParecidoKey(item.cartao_id) === _transCampoParecidoKey(transacao.cartao_id)
+      && _transCampoParecidoKey(item.categoria_id) === _transCampoParecidoKey(transacao.categoria_id)
+      && _transCampoParecidoKey(item.subcategoria_id) === _transCampoParecidoKey(transacao.subcategoria_id)
+      && _transValorParecidoKey(item.valor) === _transValorParecidoKey(transacao.valor);
+  });
+}
+
+function saveTransacao(opts = {}) {
   limparErros();
 
   // Campos obrigatórios
@@ -361,6 +382,14 @@ function saveTransacao() {
     dbSave('transacoes', dados);
     toast('Movimentação atualizada com sucesso!');
   } else {
+    if (!opts.ignorarAvisoParecida && _transEncontrarTransacaoParecida(transacao, dados)) {
+      openConfirm(
+        'Ja existe outra transacao muito parecida (mesma data, conta, categoria, subcategoria e valor).\nDeseja inserir a nova transacao mesmo assim?',
+        () => saveTransacao({ ignorarAvisoParecida: true }),
+        { label: 'Inserir mesmo assim', color: 'var(--primary)', icon: '⚠️' }
+      );
+      return;
+    }
     transacao.createdAt = new Date().toISOString();
     dados.push(transacao);
     dbSave('transacoes', dados);

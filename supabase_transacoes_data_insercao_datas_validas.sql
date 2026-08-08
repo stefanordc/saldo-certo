@@ -1,18 +1,24 @@
--- Saldo Certo - transacoes insertion timestamp and date range guard
+-- Saldo Certo - transacoes insertion timestamps and date range guard
 -- Run this in Supabase SQL Editor for the existing database.
 
 begin;
 
 alter table public.transacoes
-  add column if not exists data_insercao timestamptz;
+  add column if not exists data_insercao timestamptz,
+  add column if not exists criado_em timestamptz;
 
 update public.transacoes
-set data_insercao = coalesce(data_insercao, created_at, now())
-where data_insercao is null;
+set
+  data_insercao = coalesce(data_insercao, created_at, now()),
+  criado_em = coalesce(criado_em, data_insercao, created_at, now())
+where data_insercao is null
+   or criado_em is null;
 
 alter table public.transacoes
   alter column data_insercao set default now(),
-  alter column data_insercao set not null;
+  alter column data_insercao set not null,
+  alter column criado_em set default now(),
+  alter column criado_em set not null;
 
 alter table public.transacoes
   drop constraint if exists transacoes_data_contabil_range,

@@ -6513,7 +6513,11 @@ function dbSave(colecao, dados) {
 function dbInsert(colecao, registro) {
   const id  = _dbNewUuid();
   const now    = new Date().toISOString();
-  const novo   = { ...registro, id, createdAt: now };
+  const timestamps = colecao === 'transacoes' ? {
+    data_insercao: registro.data_insercao || registro.criado_em || now,
+    criado_em: registro.criado_em || registro.data_insercao || now,
+  } : {};
+  const novo   = { ...registro, ...timestamps, id, createdAt: now };
   const dados  = dbLoad(colecao);
   dados.push(novo);
   DB_CACHE[colecao] = dados.map(item => ({ ...item }));
@@ -6716,7 +6720,7 @@ function _dbWriteFailed(colecao, message) {
 }
 
 const SB_OPTIONAL_COLS = {
-  transacoes: ['conta_destino_id', 'natureza_id', 'decisao_id', 'data_insercao'],
+  transacoes: ['conta_destino_id', 'natureza_id', 'decisao_id', 'data_insercao', 'criado_em'],
 };
 
 function _sbMissingOptionalCols(error, tableName) {
@@ -6930,7 +6934,7 @@ const _SB_COLS = {
   modalidades_inv:      ['id','nome','user_id'],
   transacoes: [
     'id','user_id','descricao','descricao_tratada','valor',
-    'data_contabil','data_competencia','data_insercao','cartao_id','conta_destino_id','tipo_pagamento_id',
+    'data_contabil','data_competencia','data_insercao','criado_em','cartao_id','conta_destino_id','tipo_pagamento_id',
     'forma_pagamento_id','perfil_despesa_id','natureza_id','decisao_id','categoria_id','subcategoria_id',
     'status_compra_id','parcelado','parcela_atual','parcela_maxima','observacoes',
     'importado'
@@ -6968,7 +6972,7 @@ function _sbNormalizeRow(obj, tabela) {
   if ('link' in r && !('url' in r)) r.url = r.link;
 
   // Converter datas vazias para null (antes do filtro)
-  ['data_contabil','data_competencia','data_insercao','vencimento','data_limite','data_nascimento','data','data_fim','data_liquidacao','data_admissao','data_demissao'].forEach(k => {
+  ['data_contabil','data_competencia','data_insercao','criado_em','vencimento','data_limite','data_nascimento','data','data_fim','data_liquidacao','data_admissao','data_demissao'].forEach(k => {
     if (k in r && (r[k] === '' || r[k] === undefined)) r[k] = null;
   });
   // Converter valores numéricos — sempre positivos (tipo determina entrada/saída)
@@ -7070,6 +7074,7 @@ function _sbToLocalRow(colecao, row) {
 
   if (colecao === 'transacoes') {
     local.data_insercao = row.data_insercao || row.created_at || row.createdAt || local.createdAt || '';
+    local.criado_em = row.criado_em || local.data_insercao || '';
   }
 
   if (colecao === 'desejos') {
@@ -8915,7 +8920,7 @@ function _transFindById(id) {
 }
 
 function _transCriarDuplicata(t, createdAt) {
-  const copia = { ...t, id: uid(), data_insercao: createdAt, createdAt };
+  const copia = { ...t, id: uid(), data_insercao: createdAt, criado_em: createdAt, createdAt };
   delete copia.created_at;
   delete copia.updatedAt;
   delete copia.updated_at;
@@ -11122,7 +11127,56 @@ function saveTransacao() {
   }
 }
 
-function _saveTransacaoExecutar() {
+function _transValorParecidoKey(valor) {
+  const n = Math.abs(parseFloat(valor));
+  return Number.isFinite(n) ? n.toFixed(2) : '';
+}
+
+function _transCampoParecidoKey(valor) {
+  return valor === null || valor === undefined ? '' : String(valor);
+}
+
+function _transEncontrarTransacaoParecida(transacao, dados) {
+  const chave = {
+    dataContabil: _transCampoParecidoKey(transacao.data_contabil),
+    dataCompetencia: _transCampoParecidoKey(transacao.data_competencia),
+    cartaoId: _transCampoParecidoKey(transacao.cartao_id),
+    categoriaId: _transCampoParecidoKey(transacao.categoria_id),
+    subcategoriaId: _transCampoParecidoKey(transacao.subcategoria_id),
+    valor: _transValorParecidoKey(transacao.valor),
+  };
+
+  return (dados || []).find(item => {
+    if (!item || _dbSameId(item.id, transacao.id)) return false;
+    return _transCampoParecidoKey(item.data_contabil) === chave.dataContabil
+      && _transCampoParecidoKey(item.data_competencia) === chave.dataCompetencia
+      && _transCampoParecidoKey(item.cartao_id) === chave.cartaoId
+      && _transCampoParecidoKey(item.categoria_id) === chave.categoriaId
+      && _transCampoParecidoKey(item.subcategoria_id) === chave.subcategoriaId
+      && _transValorParecidoKey(item.valor) === chave.valor;
+  });
+}
+
+function _transAvisarTransacaoParecida(transacao, dados) {
+  const parecida = _transEncontrarTransacaoParecida(transacao, dados);
+  if (!parecida) return false;
+
+  openConfirm(
+    'Ja existe outra transacao muito parecida (mesma data, conta, categoria, subcategoria e valor).\nDeseja inserir a nova transacao mesmo assim?',
+    () => {
+      _transSetSaveLock(true);
+      try {
+        _saveTransacaoExecutar({ ignorarAvisoParecida: true });
+      } finally {
+        _transSetSaveLock(false);
+      }
+    },
+    { label: 'Inserir mesmo assim', color: 'var(--primary)', icon: '⚠️' }
+  );
+  return true;
+}
+
+function _saveTransacaoExecutar(opts = {}) {
   // A duplicata pode receber o ID remoto enquanto ainda está aberta no modal.
   if (editandoTransId && typeof _dbResolveId === 'function') {
     editandoTransId = _dbResolveId('transacoes', editandoTransId);
@@ -11227,12 +11281,13 @@ function _saveTransacaoExecutar() {
   const formaPagamentoId = document.getElementById('f-forma-pagamento').value;
   let dados = dbLoad('transacoes');
   const transacaoOriginal = editandoTransId ? dados.find(x => _dbSameId(x.id, editandoTransId)) : null;
-  const dataInsercaoBase = transacaoOriginal?.data_insercao || transacaoOriginal?.created_at || transacaoOriginal?.createdAt || new Date().toISOString();
+  const dataInsercaoBase = transacaoOriginal?.data_insercao || transacaoOriginal?.criado_em || transacaoOriginal?.created_at || transacaoOriginal?.createdAt || new Date().toISOString();
   const transacao = {
     id:                editandoTransId || uid(),
     data_contabil:     dataCompetenciaBase,
     data_competencia:  dataContabilBase,
     data_insercao:     dataInsercaoBase,
+    criado_em:         dataInsercaoBase,
     cartao_id:         contaOrigemId,
     conta_destino_id:  exigeContaDestino ? contaDestinoId : null,
     tipo_pagamento_id: tipoOperacionalId,
@@ -11251,6 +11306,10 @@ function _saveTransacaoExecutar() {
     parcela_maxima:    parcelado === 'Sim' ? parseInt(document.getElementById('f-parcela-maxima').value, 10) : null,
     observacoes:       document.getElementById('f-obs').value.trim(),
   };
+
+  if (isNovaTransacao && !opts.ignorarAvisoParecida && _transAvisarTransacaoParecida(transacao, dados)) {
+    return;
+  }
 
   // Insere ou atualiza
   if (editandoTransId) {
@@ -11329,6 +11388,7 @@ function _saveTransacaoExecutar() {
         data_contabil: competencia,
         data_competencia: contabeis[i],
         data_insercao: createdAt,
+        criado_em: createdAt,
         status_compra_id: competencia > hoje ? statusPendenteId : statusPagoId,
         createdAt,
       };
@@ -11353,11 +11413,13 @@ function _saveTransacaoExecutar() {
         tipo_pagamento_id: _transTipoSaidaId(),
         status_compra_id: statusPagoId,
         data_insercao: createdAt,
+        criado_em: createdAt,
         createdAt,
       });
     } else {
       transacao.createdAt = dataInsercaoBase;
       transacao.data_insercao = dataInsercaoBase;
+      transacao.criado_em = dataInsercaoBase;
       transacao.status_compra_id = statusPagoId;
       dados.push(transacao);
     }
@@ -15439,6 +15501,7 @@ function ctaAcao(id, modo) {
       data_contabil:     conta.vencimento || hoje,
       data_competencia:  hoje,
       data_insercao:     dataInsercao,
+      criado_em:         dataInsercao,
       cartao_id:         conta.cartao_id  || '',
       tipo_pagamento_id: tipoObj?.id || '',
       forma_pagamento_id:conta.forma_id   || '',
@@ -20004,6 +20067,7 @@ function impExecutar() {
         data_contabil:      dataCompetencia,
         data_competencia:   dataContabil,
         data_insercao:      dataInsercao,
+        criado_em:          dataInsercao,
         cartao_id:          contaOrigemId,
         conta_destino_id:   perfilImportadoExigeContaDestino && contaDestinoId && contaDestinoId !== contaOrigemId
           ? contaDestinoId
