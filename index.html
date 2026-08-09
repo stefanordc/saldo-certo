@@ -14494,6 +14494,13 @@ function _orcIsNeutro(t)  { const s=_orcNomeStatus(t); return s==='neutro'||s===
 function _orcIsEntrada(t) { return _transIsEntradaOperacional(t); }
 function _orcIsSaida(t)   { return _transIsSaidaOperacional(t); }
 
+function _orcIntTransacaoParcelada(t) {
+  const txt = String(t?.parcelado || '').trim().toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const maxParcelas = parseInt(t?.parcela_maxima || t?.parcelas || t?.total_parcelas || 0, 10);
+  return ['sim', 's', 'true', '1'].includes(txt) || maxParcelas > 1;
+}
+
 /* -- RENDER PRINCIPAL -- */
 function renderOrcamentos() {
   _orcPopularFiltros();
@@ -14699,6 +14706,7 @@ function _orcIntGerarDados(anoMes = _orcIntMesSelecionado()) {
           meses: Object.fromEntries(periodo.meses.map(m => [m, 0])),
           total: 0,
           count: 0,
+          parceladoCount: 0,
         });
       }
 
@@ -14706,9 +14714,11 @@ function _orcIntGerarDados(anoMes = _orcIntMesSelecionado()) {
       item.meses[mes] += valor;
       item.total += valor;
       item.count += 1;
+      if (_orcIntTransacaoParcelada(t)) item.parceladoCount += 1;
     });
 
-  const linhas = [...mapa.values()].map(item => {
+  const grupos = [...mapa.values()];
+  const linhas = grupos.filter(item => !(item.count === 1 && item.parceladoCount === 0)).map(item => {
     const valores = periodo.meses.map(m => item.meses[m] || 0);
     const media = item.total / periodo.meses.length;
     return {
@@ -14726,6 +14736,7 @@ function _orcIntGerarDados(anoMes = _orcIntMesSelecionado()) {
     totalPeriodo: linhas.reduce((s,l) => s + l.total, 0),
     totalMensal: linhas.reduce((s,l) => s + l.media, 0),
     totalCategorias: new Set(linhas.map(l => l.categoriaId)).size,
+    totalPontuaisIgnorados: grupos.length - linhas.length,
   };
 }
 
@@ -14761,11 +14772,15 @@ function renderOrcamentoInteligente() {
           <span class="orc-row-label">Subcategorias:</span>
           <span class="orc-row-val">${dados.linhas.length}</span>
         </div>
+        <div class="orc-row">
+          <span class="orc-row-label">Pontuais fora:</span>
+          <span class="orc-row-val">${dados.totalPontuaisIgnorados || 0}</span>
+        </div>
       </div>
       <div class="orc-saldo-card">
         <div class="orc-saldo-title">Mês de Referência</div>
         <div class="orc-saldo-value" style="color:#1558B0;font-size:28px">${_orcMesLabelCurto(dados.anoMes)}</div>
-        <div class="orc-saldo-sub">${dados.linhas.length ? 'Pronto para salvar' : 'Sem despesas na base'}</div>
+        <div class="orc-saldo-sub">${dados.linhas.length ? 'Pronto para salvar' : 'Sem despesas recorrentes na base'}</div>
       </div>`;
   }
 
@@ -14778,7 +14793,7 @@ function renderOrcamentoInteligente() {
   if (!dados.linhas.length) {
     listaEl.innerHTML = `<div class="orc-empty-state">
       <div>◎</div>
-      <div>Nenhuma despesa classificada nos 3 meses anteriores.</div>
+      <div>Nenhuma despesa recorrente ou parcelada nos 3 meses anteriores.</div>
     </div>`;
     return;
   }
@@ -14810,7 +14825,7 @@ function salvarOrcamentoInteligente() {
   _orcIntInitMes();
   const dadosInteligentes = _orcIntGerarDados(_orcIntMesSelecionado());
   if (!dadosInteligentes.linhas.length) {
-    toast('Não há despesas nos 3 meses anteriores para criar o orçamento.', 'warn');
+    toast('Não há despesas recorrentes ou parceladas nos 3 meses anteriores para criar o orçamento.', 'warn');
     return;
   }
 
