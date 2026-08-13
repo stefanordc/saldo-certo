@@ -6975,6 +6975,20 @@ function _sbNormalizeRow(obj, tabela) {
   ['data_contabil','data_competencia','data_insercao','criado_em','vencimento','data_limite','data_nascimento','data','data_fim','data_liquidacao','data_admissao','data_demissao'].forEach(k => {
     if (k in r && (r[k] === '' || r[k] === undefined)) r[k] = null;
   });
+
+  // Converter UUIDs e chaves estrangeiras vazias ou invalidas para null
+  Object.keys(r).forEach(k => {
+    if (k === 'id' || k.endsWith('_id') || k.endsWith('Id')) {
+      const val = r[k];
+      if (val === '' || val === undefined || val === null || val === 'null' || val === 'undefined') {
+        r[k] = null;
+      } else if (k !== 'id' && typeof val === 'string') {
+        const colFK = k.replace(/_id$/, '');
+        const resolvido = typeof _dbResolveId === 'function' ? _dbResolveId(colFK, val) : val;
+        r[k] = (typeof _dbIsUuid === 'function' && !_dbIsUuid(resolvido)) ? null : resolvido;
+      }
+    }
+  });
   // Converter valores numéricos — sempre positivos (tipo determina entrada/saída)
   ['valor','quantidade','preco_unitario','valor_total','valor_atual','valor_objetivo'].forEach(k => {
     if (k in r && r[k] !== null && r[k] !== '') {
