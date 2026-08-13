@@ -6410,6 +6410,14 @@ const SB_OPTIONAL_COLS = {
   transacoes: ['conta_destino_id', 'natureza_id', 'decisao_id', 'data_insercao', 'criado_em'],
 };
 
+const SB_KNOWN_MISSING_COLS = {};
+
+function _sbRegisterMissingCol(tableName, col) {
+  if (!tableName || !col) return;
+  SB_KNOWN_MISSING_COLS[tableName] = SB_KNOWN_MISSING_COLS[tableName] || new Set();
+  SB_KNOWN_MISSING_COLS[tableName].add(col);
+}
+
 function _sbMissingOptionalCols(error, tableName) {
   const textoErro = [
     error?.message,
@@ -6417,7 +6425,15 @@ function _sbMissingOptionalCols(error, tableName) {
     error?.hint,
     error?.code,
   ].filter(Boolean).join(' ');
-  return (SB_OPTIONAL_COLS[tableName] || []).filter(col => textoErro.includes(col));
+  const encontradas = (SB_OPTIONAL_COLS[tableName] || []).filter(col => textoErro.includes(col));
+  const m1 = textoErro.match(/Could not find the ['"]([^'"]+)['"] column/i);
+  if (m1 && m1[1]) encontradas.push(m1[1]);
+  const m2 = textoErro.match(/column ['"]([^'"]+)['"] of relation/i);
+  if (m2 && m2[1]) encontradas.push(m2[1]);
+  const unicas = [...new Set(encontradas)];
+  unicas.forEach(col => _sbRegisterMissingCol(tableName, col));
+  const conhecidas = Array.from(SB_KNOWN_MISSING_COLS[tableName] || []);
+  return [...new Set([...unicas, ...conhecidas])];
 }
 
 function _sbWithoutCols(row, cols) {
@@ -6603,6 +6619,12 @@ async function _sbSyncSave(colecao, dados) {
           const retryRows = lote.map(row => _sbWithoutCols(row, colsAusentes));
           const { error: retryError } = await sb.from(tbl).upsert(retryRows, { onConflict: 'id,user_id' });
           if (!retryError) continue;
+          const novasCols = _sbMissingOptionalCols(retryError, tbl);
+          if (novasCols.length > colsAusentes.length) {
+            const retryRows2 = lote.map(row => _sbWithoutCols(row, novasCols));
+            const { error: retryError2 } = await sb.from(tbl).upsert(retryRows2, { onConflict: 'id,user_id' });
+            if (!retryError2) continue;
+          }
           console.warn('[SB syncSave retry erro]', colecao, retryError.message, retryError.code);
         }
         console.warn('[SB syncSave upsert erro]', colecao, error.message);
@@ -6670,6 +6692,13 @@ function _sbNormalizeRow(obj, tabela) {
       }
     }
   });
+
+  // Remover colunas conhecidas como ausentes no schema Supabase
+  const ausentesConhecidas = SB_KNOWN_MISSING_COLS[tabela];
+  if (ausentesConhecidas && ausentesConhecidas.size > 0) {
+    ausentesConhecidas.forEach(col => { delete r[col]; });
+  }
+
   // Converter valores numéricos — sempre positivos (tipo determina entrada/saída)
   ['valor','quantidade','preco_unitario','valor_total','valor_atual','valor_objetivo'].forEach(k => {
     if (k in r && r[k] !== null && r[k] !== '') {
