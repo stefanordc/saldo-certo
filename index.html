@@ -12588,7 +12588,7 @@ function renderRelCalendarioGastos() {
   _relCalendarioPopularPerfis();
   const mes = _relCalendarioMesSelecionado();
   const incluirTransferencias = !!document.getElementById('rcg-incluir-transferencias')?.checked;
-  const perfilId = document.getElementById('rcg-perfil')?.value || '';
+  const perfilSelecionadoId = document.getElementById('rcg-perfil')?.value || '';
   const lancamentos = dbLoad('transacoes')
     .filter(t => _relIsSaida(t))
     .map(t => ({
@@ -12597,7 +12597,10 @@ function renderRelCalendarioGastos() {
       transfer: _transIsTransferenciaLancamento(t),
       profileId: t.perfil_despesa_id,
     }));
-  const linhas = CalendarGastos.selectRows(lancamentos, { includeTransfers: incluirTransferencias, profileId });
+  const linhas = CalendarGastos.selectForCalendar(lancamentos, {
+    includeTransfers: incluirTransferencias,
+    selectedProfileId: perfilSelecionadoId,
+  });
   const calendario = CalendarGastos.buildMonthGrid(mes, linhas);
   const [ano, mesNumero] = mes.split('-').map(Number);
   const grid = document.getElementById('rcg-calendar-grid');

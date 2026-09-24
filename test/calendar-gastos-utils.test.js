@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { buildMonthGrid, selectRows } = require('../js/calendar-gastos-utils.js');
+const { buildMonthGrid, selectRows, selectForCalendar } = require('../js/calendar-gastos-utils.js');
 
 test('sums entries by day and reports only days with spending', () => {
   const result = buildMonthGrid('2026-09', [
@@ -44,4 +44,16 @@ test('calendar aggregation filters by the selected expense profile', () => {
   const filtered = selectRows(rows, { profileId: 'essencial' });
 
   assert.deepEqual(filtered, [rows[0]]);
+});
+
+test('calendar filter forwards the selected profile to the row selector', () => {
+  const rows = [
+    { date: '2026-09-11', value: 30, transfer: false, profileId: 'essencial' },
+    { date: '2026-09-12', value: 70, transfer: false, profileId: 'lazer' },
+  ];
+
+  assert.deepEqual(
+    selectForCalendar(rows, { includeTransfers: false, selectedProfileId: 'essencial' }),
+    [rows[0]]
+  );
 });

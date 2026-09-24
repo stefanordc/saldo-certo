@@ -48,5 +48,9 @@
     );
   }
 
-  return { buildMonthGrid, selectRows };
+  function selectForCalendar(rows, { includeTransfers = false, selectedProfileId = '' } = {}) {
+    return selectRows(rows, { includeTransfers, profileId: selectedProfileId });
+  }
+
+  return { buildMonthGrid, selectRows, selectForCalendar };
 });
