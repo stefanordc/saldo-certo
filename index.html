@@ -2451,6 +2451,37 @@ body.theme-dark #page-relatorios .tab-btn.active::after {
 .rel-filtros .filtro-group { min-width: 160px; flex: 1 1 170px; }
 #page-relatorios .rel-filtros .filtro-group:nth-child(3) { min-width: 190px; }
 
+/* Calendário de gastos */
+.rcg-summary { display:flex; align-items:end; gap:14px; flex-wrap:wrap; margin-bottom:22px; }
+.rcg-total { font-size:31px; line-height:1; font-weight:800; letter-spacing:-1px; color:var(--text); }
+.rcg-days { font-size:13px; color:var(--text-muted); padding-bottom:3px; }
+.rcg-weekdays, .rcg-calendar-grid { display:grid; grid-template-columns:repeat(7, minmax(92px, 1fr)); gap:8px; }
+.rcg-weekdays { margin-bottom:8px; }
+.rcg-weekday { font-size:11px; font-weight:800; color:var(--text-muted); text-align:center; text-transform:uppercase; letter-spacing:.45px; }
+.rcg-day { min-height:92px; border:1px solid var(--border); border-radius:10px; padding:10px; display:flex; flex-direction:column; justify-content:space-between; background:var(--card); transition:transform .16s ease, box-shadow .16s ease; }
+.rcg-day:not(.level-0):hover { transform:translateY(-2px); box-shadow:0 10px 20px rgba(21,88,176,.16); }
+.rcg-day.blank { border-color:transparent; background:transparent; }
+.rcg-day-number { font-size:13px; font-weight:800; color:var(--text-muted); }
+.rcg-day-value { font-size:12px; font-family:var(--font-mono); font-weight:800; color:var(--text); }
+.rcg-day-value.empty { color:var(--text-light); }
+.rcg-day.level-0 { background:var(--bg-secondary); }
+.rcg-day.level-1 { background:rgba(21,88,176,.12); border-color:rgba(21,88,176,.18); }
+.rcg-day.level-2 { background:rgba(21,88,176,.24); border-color:rgba(21,88,176,.28); }
+.rcg-day.level-3 { background:rgba(21,88,176,.42); border-color:rgba(21,88,176,.46); }
+.rcg-day.level-4 { background:var(--primary); border-color:var(--primary); }
+.rcg-day.level-3 .rcg-day-number, .rcg-day.level-3 .rcg-day-value, .rcg-day.level-4 .rcg-day-number, .rcg-day.level-4 .rcg-day-value { color:#fff; }
+body.theme-dark .rcg-day { background:#151E28; border-color:rgba(205,225,246,.18); }
+body.theme-dark .rcg-day.level-0 { background:#111820; }
+body.theme-dark .rcg-day.level-1 { background:rgba(93,168,255,.16); border-color:rgba(93,168,255,.25); }
+body.theme-dark .rcg-day.level-2 { background:rgba(93,168,255,.30); border-color:rgba(93,168,255,.35); }
+body.theme-dark .rcg-day.level-3 { background:rgba(42,126,221,.62); border-color:rgba(93,168,255,.58); }
+body.theme-dark .rcg-day.level-4 { background:#2A7EDD; border-color:#5DA8FF; }
+@media (max-width:760px) {
+  .rcg-weekdays, .rcg-calendar-grid { grid-template-columns:repeat(7, minmax(68px, 1fr)); gap:5px; overflow-x:auto; }
+  .rcg-day { min-height:76px; padding:7px; }
+  .rcg-day-value { font-size:10px; }
+}
+
 /* summary table inside relatorio */
 .rel-summary-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 8px; }
 .rel-summary-table thead tr { background: #F8FAFD; border-bottom: 2px solid var(--border); }
@@ -3561,6 +3592,8 @@ main {
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<script src="js/calendar-gastos-utils.js"></script>
+<script src="js/default-account-utils.js"></script>
 </head>
 <body class="theme-dark">
 
@@ -5487,6 +5520,7 @@ main {
         <button class="tab-btn" onclick="switchRelTab('status',this)">Por Status</button>
         <button class="tab-btn" onclick="switchRelTab('faturas',this)">Faturas</button>
         <button class="tab-btn" onclick="switchRelTab('gasto-dia',this)">Gasto / Dia</button>
+        <button class="tab-btn" onclick="switchRelTab('calendario-gastos',this)">Calendários de Gastos</button>
         <button class="tab-btn" onclick="switchRelTab('velocidade-despesas',this)">Velocidade das Despesas</button>
         <button class="tab-btn" onclick="switchRelTab('horas-gastos',this)">Horas x Gastos</button>
         <button class="tab-btn" onclick="switchRelTab('score',this)">Score</button>
@@ -5801,6 +5835,44 @@ main {
           <div class="rel-chart-box" style="height:320px"><canvas id="c-gasto-dia-total"></canvas></div>
         </div>
         <div class="rel-table-box" id="tbl-gasto-dia"></div>
+      </div>
+
+      <!-- -- ABA: CALENDÁRIOS DE GASTOS -- -->
+      <div class="rel-tab" id="reltab-calendario-gastos">
+        <div class="rel-header">
+          <div class="rel-title">Calendários de Gastos</div>
+          <div class="rel-sub">Quanto saiu em cada dia do mês selecionado</div>
+        </div>
+        <div class="rel-filtros">
+          <div class="filtro-group">
+            <label class="filtro-label">Mês de referência</label>
+            <input type="month" class="filtro-input" id="rcg-mes" onchange="renderRelCalendarioGastos()">
+          </div>
+          <div class="filtro-group" style="display:flex;gap:6px;align-items:flex-end">
+            <button class="btn-mes-anterior" onclick="relCalendarioMoverMes(-1)">◀ Mês anterior</button>
+            <button class="btn-mes-anterior" onclick="relCalendarioMesAtual()">● Mês atual</button>
+            <button class="btn-mes-anterior" onclick="relCalendarioMoverMes(1)">Próximo mês ▶</button>
+          </div>
+          <div class="filtro-group">
+            <label class="filtro-label">Tipo de despesa</label>
+            <select class="filtro-select" id="rcg-perfil" onchange="renderRelCalendarioGastos()"><option value="">Todos</option></select>
+          </div>
+          <label class="checkbox-row" style="align-self:flex-end;margin:0 0 7px">
+            <input type="checkbox" id="rcg-incluir-transferencias" onchange="renderRelCalendarioGastos()">
+            <span>Incluir transferências</span>
+          </label>
+        </div>
+        <div class="rcg-summary">
+          <div>
+            <div class="rel-sub" id="rcg-month-label"></div>
+            <div class="rcg-total" id="rcg-total">R$ 0,00</div>
+          </div>
+          <div class="rcg-days" id="rcg-days">0 dias com saída</div>
+        </div>
+        <div class="rcg-weekdays" aria-hidden="true">
+          <div class="rcg-weekday">Dom</div><div class="rcg-weekday">Seg</div><div class="rcg-weekday">Ter</div><div class="rcg-weekday">Qua</div><div class="rcg-weekday">Qui</div><div class="rcg-weekday">Sex</div><div class="rcg-weekday">Sáb</div>
+        </div>
+        <div class="rcg-calendar-grid" id="rcg-calendar-grid"></div>
       </div>
 
       <!-- -- ABA: VELOCIDADE DAS DESPESAS -- -->
@@ -7718,6 +7790,7 @@ function renderizarTabelaConfig(chave) {
     { chave: 'nome',      label: 'Nome' },
     { chave: 'createdAt', label: 'Criado em' },
   ];
+  if (chave === 'cartoes') colunas.push({ chave: 'padrao', label: 'Conta padrão' });
 
   // Cabeçalho
   const th = document.getElementById('th-' + chave);
@@ -7755,7 +7828,7 @@ function renderizarTabelaConfig(chave) {
 
   if (ordenados.length === 0) {
     tb.innerHTML = `<tr class="empty-row">
-      <td colspan="3">Nenhum registro cadastrado. Adicione acima.</td>
+      <td colspan="${colunas.length + 1}">Nenhum registro cadastrado. Adicione acima.</td>
     </tr>`;
     return;
   }
@@ -7764,6 +7837,7 @@ function renderizarTabelaConfig(chave) {
     <tr>
       <td>${escHtml(item.nome || '')}</td>
       <td>${fmtDate(item.createdAt || item.created_at || '')}</td>
+      ${chave === 'cartoes' ? `<td style="text-align:center"><input type="checkbox" aria-label="Definir ${escHtml(item.nome || 'conta')} como conta padrão" ${item.padrao ? 'checked' : ''} onchange="_contaPadraoAlternar('${item.id}', this.checked)"></td>` : ''}
       <td class="actions">
         <div class="actions-cell">
           <button class="btn btn-icon btn-sm edit" title="Editar"
@@ -8235,6 +8309,13 @@ function _transRenderTabelaTransacoes(dados) {
         </div>
       </td>
     </tr>`).join('');
+}
+
+function _contaPadraoAlternar(contaId, checked) {
+  const contas = DefaultAccount.select(dbLoad('cartoes'), contaId, checked);
+  dbSave('cartoes', contas);
+  renderizarTabelaConfig('cartoes');
+  toast(checked ? 'Conta padrão atualizada.' : 'Conta padrão removida.');
 }
 
 function _transAgendarRenderCompletoTransacoes() {
@@ -10608,6 +10689,16 @@ function _transAplicarTransferenciaNoForm() {
   _transSetSelectValue('f-decisao', 'decisoes', decisaoId);
   _transSetSelectValue('f-tipo-pagamento', 'tipos', _transTipoSaidaId());
   _transSetSelectValue('f-forma-pagamento', 'formas', _transFormaIdPix());
+  _transAplicarContaPadraoTransferencia();
+}
+
+function _transAplicarContaPadraoTransferencia() {
+  if (editandoTransId || document.getElementById('f-cartao')?.value) return;
+  const contaId = DefaultAccount.getId(dbLoad('cartoes'));
+  if (!contaId) return;
+  _transSetSelectValue('f-cartao', 'cartoes', contaId);
+  _transAtualizarOpcoesContaDestino();
+  transRefreshSearchableSelect('f-cartao');
 }
 
 function _transCategoriaSelecionadaEhTransferencia() {
@@ -12450,6 +12541,83 @@ function _relSaidasCalculo() {
   return dbLoad('transacoes').filter(t => _relIsSaida(t) && _relIncluirNosCalculos(t));
 }
 
+const RCG_MESES = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+
+function _relCalendarioMesSelecionado() {
+  const input = document.getElementById('rcg-mes');
+  const fallback = _transMesReferenciaAtual();
+  if (!input) return fallback;
+  if (!/^\d{4}-\d{2}$/.test(input.value)) input.value = fallback;
+  return input.value;
+}
+
+function _relCalendarioPopularPerfis() {
+  const select = document.getElementById('rcg-perfil');
+  if (!select) return;
+  const atual = select.value;
+  select.innerHTML = '<option value="">Todos</option>';
+  dbLoad('perfis')
+    .sort((a, b) => (a.nome || '').localeCompare(b.nome || '', 'pt'))
+    .forEach(perfil => { select.innerHTML += `<option value="${perfil.id}">${escHtml(perfil.nome || 'Sem nome')}</option>`; });
+  select.value = atual;
+}
+
+function relCalendarioMesAtual() {
+  const input = document.getElementById('rcg-mes');
+  if (input) input.value = _transMesReferenciaAtual();
+  renderRelCalendarioGastos();
+}
+
+function relCalendarioMoverMes(delta) {
+  const [ano, mes] = _relCalendarioMesSelecionado().split('-').map(Number);
+  const data = new Date(ano, mes - 1 + delta, 1);
+  const input = document.getElementById('rcg-mes');
+  if (input) input.value = `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, '0')}`;
+  renderRelCalendarioGastos();
+}
+
+function _relCalendarioNivel(day) {
+  if (!day.total) return 0;
+  if (day.intensity <= 0.25) return 1;
+  if (day.intensity <= 0.5) return 2;
+  if (day.intensity <= 0.75) return 3;
+  return 4;
+}
+
+function renderRelCalendarioGastos() {
+  _relCalendarioPopularPerfis();
+  const mes = _relCalendarioMesSelecionado();
+  const incluirTransferencias = !!document.getElementById('rcg-incluir-transferencias')?.checked;
+  const perfilId = document.getElementById('rcg-perfil')?.value || '';
+  const lancamentos = dbLoad('transacoes')
+    .filter(t => _relIsSaida(t))
+    .map(t => ({
+      date: _transDataCompetencia(t),
+      value: Math.abs(parseFloat(t.valor) || 0),
+      transfer: _transIsTransferenciaLancamento(t),
+      profileId: t.perfil_despesa_id,
+    }));
+  const linhas = CalendarGastos.selectRows(lancamentos, { includeTransfers: incluirTransferencias, profileId });
+  const calendario = CalendarGastos.buildMonthGrid(mes, linhas);
+  const [ano, mesNumero] = mes.split('-').map(Number);
+  const grid = document.getElementById('rcg-calendar-grid');
+  const label = document.getElementById('rcg-month-label');
+  const total = document.getElementById('rcg-total');
+  const dias = document.getElementById('rcg-days');
+
+  if (label) label.textContent = `${RCG_MESES[mesNumero - 1]} ${ano} · quanto saiu em cada dia`;
+  if (total) total.textContent = `R$ ${fmtValor(calendario.total)}`;
+  if (dias) dias.textContent = `${calendario.spendingDays} ${calendario.spendingDays === 1 ? 'dia com saída' : 'dias com saída'}`;
+  if (grid) {
+    grid.innerHTML = calendario.days.map(day => {
+      if (!day) return '<div class="rcg-day blank" aria-hidden="true"></div>';
+      const vazio = day.total === 0;
+      const valor = vazio ? '—' : `R$ ${fmtValor(day.total)}`;
+      return `<div class="rcg-day level-${_relCalendarioNivel(day)}" title="${fmtDateStr(day.date)}: ${valor}"><span class="rcg-day-number">${day.day}</span><span class="rcg-day-value${vazio ? ' empty' : ''}">${valor}</span></div>`;
+    }).join('');
+  }
+}
+
 /* Agrupa despesas por campo de lookup */
 function _agrupar(transacoes, colecao, id_field) {
   const itens = dbLoad(colecao);
@@ -14127,6 +14295,7 @@ const _relRenders = {
   status: () => { _relPopularSelects('rst', renderRelStatus); renderRelStatus(); },
   faturas: () => { _relFaturasPopularContas(); renderRelFaturas(); },
   'gasto-dia': () => { renderRelGastoDia(); },
+  'calendario-gastos': () => { renderRelCalendarioGastos(); },
   'velocidade-despesas': () => { renderRelVelocidadeDespesas(); },
   'horas-gastos': () => { _rhgPopularSelects(); renderRelHorasGastos(); },
   score:  () => { renderRelScore(); },

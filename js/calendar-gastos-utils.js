@@ -41,5 +41,12 @@
     };
   }
 
-  return { buildMonthGrid };
+  function selectRows(rows, { includeTransfers = false, profileId = '' } = {}) {
+    return (rows || []).filter(row =>
+      (includeTransfers || !row.transfer) &&
+      (!profileId || String(row.profileId) === String(profileId))
+    );
+  }
+
+  return { buildMonthGrid, selectRows };
 });
