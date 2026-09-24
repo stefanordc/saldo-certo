@@ -13,6 +13,8 @@ create extension if not exists "uuid-ossp";
 create table if not exists cartoes (
   id          uuid primary key default uuid_generate_v4(),
   nome        text not null,
+  user_id     uuid references auth.users(id) on delete cascade,
+  padrao      boolean not null default false,
   created_at  timestamptz default now()
 );
 
@@ -127,6 +129,9 @@ create table if not exists transacoes (
 create index if not exists idx_transacoes_data_competencia on transacoes(data_competencia);
 create index if not exists idx_transacoes_cartao_id        on transacoes(cartao_id);
 create index if not exists idx_transacoes_categoria_id     on transacoes(categoria_id);
+create unique index if not exists cartoes_um_padrao_por_usuario_idx
+  on cartoes(user_id)
+  where padrao;
 
 -- ──────────────────────────────────────────
 -- ORÇAMENTOS
