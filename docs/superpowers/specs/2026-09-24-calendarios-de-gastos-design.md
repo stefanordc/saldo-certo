@@ -18,7 +18,7 @@ Também deve permitir definir uma única conta padrão em Configurações > Cont
 - Disponibilizar o filtro **Tipo de despesa**, alimentado pelos registros de `perfis`. O valor inicial é todos os perfis.
 - Disponibilizar o checkbox **Incluir transferências**, inicialmente desmarcado.
 
-O cálculo considera somente lançamentos de saída que passam pelas regras atuais de cálculo do relatório. Transferências são identificadas pelos helpers já existentes para esse tipo de lançamento, não por comparação frágil de texto. Quando o checkbox estiver marcado, transferências de saída também entram na soma diária, no total e na contagem de dias.
+O cálculo considera lançamentos de saída e exclui somente transferências por padrão, conforme a solicitação. Transferências são identificadas pelos helpers já existentes para esse tipo de lançamento, não por comparação frágil de texto. Quando o checkbox estiver marcado, transferências de saída também entram na soma diária, no total e na contagem de dias.
 
 ### Conta padrão
 

@@ -19,5 +19,9 @@
     return String((accounts || []).find(account => account.padrao)?.id || '');
   }
 
-  return { select, getId };
+  function pendingDefaultSelection(account) {
+    return { ...account, padrao: false };
+  }
+
+  return { select, getId, pendingDefaultSelection };
 });

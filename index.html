@@ -2465,17 +2465,17 @@ body.theme-dark #page-relatorios .tab-btn.active::after {
 .rcg-day-value { font-size:12px; font-family:var(--font-mono); font-weight:800; color:var(--text); }
 .rcg-day-value.empty { color:var(--text-light); }
 .rcg-day.level-0 { background:var(--bg-secondary); }
-.rcg-day.level-1 { background:rgba(21,88,176,.12); border-color:rgba(21,88,176,.18); }
-.rcg-day.level-2 { background:rgba(21,88,176,.24); border-color:rgba(21,88,176,.28); }
-.rcg-day.level-3 { background:rgba(21,88,176,.42); border-color:rgba(21,88,176,.46); }
-.rcg-day.level-4 { background:var(--primary); border-color:var(--primary); }
+.rcg-day.level-1 { background:rgba(21,88,176,.10); border-color:rgba(21,88,176,.15); }
+.rcg-day.level-2 { background:rgba(21,88,176,.25); border-color:rgba(21,88,176,.30); }
+.rcg-day.level-3 { background:rgba(21,88,176,.48); border-color:rgba(21,88,176,.52); }
+.rcg-day.level-4 { background:var(--primary-dark); border-color:var(--primary-dark); }
 .rcg-day.level-3 .rcg-day-number, .rcg-day.level-3 .rcg-day-value, .rcg-day.level-4 .rcg-day-number, .rcg-day.level-4 .rcg-day-value { color:#fff; }
 body.theme-dark .rcg-day { background:#151E28; border-color:rgba(205,225,246,.18); }
 body.theme-dark .rcg-day.level-0 { background:#111820; }
-body.theme-dark .rcg-day.level-1 { background:rgba(93,168,255,.16); border-color:rgba(93,168,255,.25); }
-body.theme-dark .rcg-day.level-2 { background:rgba(93,168,255,.30); border-color:rgba(93,168,255,.35); }
-body.theme-dark .rcg-day.level-3 { background:rgba(42,126,221,.62); border-color:rgba(93,168,255,.58); }
-body.theme-dark .rcg-day.level-4 { background:#2A7EDD; border-color:#5DA8FF; }
+body.theme-dark .rcg-day.level-1 { background:rgba(93,168,255,.12); border-color:rgba(93,168,255,.20); }
+body.theme-dark .rcg-day.level-2 { background:rgba(93,168,255,.26); border-color:rgba(93,168,255,.32); }
+body.theme-dark .rcg-day.level-3 { background:rgba(21,88,176,.68); border-color:rgba(93,168,255,.52); }
+body.theme-dark .rcg-day.level-4 { background:#0D3F80; border-color:#2A7EDD; }
 @media (max-width:760px) {
   .rcg-weekdays, .rcg-calendar-grid { grid-template-columns:repeat(7, minmax(68px, 1fr)); gap:5px; overflow-x:auto; }
   .rcg-day { min-height:76px; padding:7px; }
@@ -6912,6 +6912,46 @@ async function _sbUpdate(colecao, id, dados) {
   }
 }
 
+/* Define a conta padrão em uma transação no banco, preservando o índice único. */
+async function _sbDefinirContaPadrao(contaId, padrao) {
+  const sb = _getSB();
+  if (!sb || !window._authUser) return false;
+  const { error } = await sb.rpc('definir_conta_padrao', {
+    p_cartao_id: contaId || null,
+    p_padrao: !!padrao,
+  });
+  if (error) {
+    console.warn('[SB conta padrão erro]', error.message, error.code);
+    _dbWriteFailed('cartoes', error.message);
+    return false;
+  }
+  return true;
+}
+
+/* Garante a existência da conta sem alterar qual delas é a padrão. */
+async function _sbGarantirContaParaPadrao(conta) {
+  const sb = _getSB();
+  if (!sb || !window._authUser || !conta?.id) return true;
+  const linha = _sbInjectUser(_sbNormalizeRow(DefaultAccount.pendingDefaultSelection(conta), 'cartoes'));
+  const { error } = await sb.from('cartoes').upsert(linha, {
+    onConflict: 'id',
+    ignoreDuplicates: true,
+  });
+  if (error) {
+    console.warn('[SB conta padrão garantir erro]', error.message, error.code);
+    _dbWriteFailed('cartoes', error.message);
+    return false;
+  }
+  return true;
+}
+
+function _sbRowForSync(colecao, row, tabela) {
+  const normalizada = _sbInjectUser(_sbNormalizeRow(row, tabela));
+  if (colecao !== 'cartoes') return normalizada;
+  const { padrao, ...semPadrao } = normalizada;
+  return semPadrao;
+}
+
 /* DELETE de um único registro */
 async function _sbDelete(colecao, id) {
   const sb = _getSB();
@@ -6934,7 +6974,8 @@ async function _sbDelete(colecao, id) {
 /* SAVE completo (upsert de toda a coleção) — usado pelo dbSave legado */
 async function _sbSyncSave(colecao, dados) {
   const sb = _getSB();
-  if (!sb || !window._authUser || !dados.length) return;
+  if (!sb || !window._authUser || !dados.length) return true;
+  let syncFalhou = false;
   const tbl = _sbTable(colecao);
   dados = dados.map(item => {
     const idResolvido = _dbResolveId(colecao, item.id);
@@ -6949,7 +6990,7 @@ async function _sbSyncSave(colecao, dados) {
   for (const r of novos) {
     const localIdOriginal = r.id;
     if (!_dbSameId(_dbResolveId(colecao, localIdOriginal), localIdOriginal)) continue;
-    const row = _sbInjectUser(_sbNormalizeRow(r, tbl));
+    const row = _sbRowForSync(colecao, r, tbl);
     const localId = row.id;
     const existenteId = await _sbFindExistingLocalInsert(colecao, row);
     if (existenteId) {
@@ -6976,6 +7017,7 @@ async function _sbSyncSave(colecao, dados) {
       }
       console.warn('[SB syncSave insert erro]', colecao, error.message, row);
       _dbWriteFailed(colecao, error.message);
+      syncFalhou = true;
     } else if (inserted?.id) {
       _dbReplaceId(colecao, localId, inserted.id);
     }
@@ -6983,7 +7025,7 @@ async function _sbSyncSave(colecao, dados) {
 
   // UPDATE dos existentes (em lotes)
   if (existentes.length) {
-    const rows = existentes.map(r => _sbInjectUser(_sbNormalizeRow(r, tbl)));
+    const rows = existentes.map(r => _sbRowForSync(colecao, r, tbl));
     for (let i = 0; i < rows.length; i += 100) {
       const lote = rows.slice(i, i+100);
       const { error } = await sb.from(tbl).upsert(lote, { onConflict: 'id' });
@@ -7004,9 +7046,12 @@ async function _sbSyncSave(colecao, dados) {
         }
         console.warn('[SB syncSave upsert erro]', colecao, error.message);
         _dbWriteFailed(colecao, error.message);
+        syncFalhou = true;
       }
     }
   }
+
+  return !syncFalhou;
 }
 
 /* Colunas permitidas por tabela — evita enviar campos inexistentes */
@@ -8311,11 +8356,57 @@ function _transRenderTabelaTransacoes(dados) {
     </tr>`).join('');
 }
 
+let _contaPadraoVersao = 0;
+let _contaPadraoFila = Promise.resolve();
+let _contaPadraoRetryTimer = null;
+let _contaPadraoPendente = null;
+
+function _contaPadraoAgendarTentativa() {
+  if (_contaPadraoRetryTimer) clearTimeout(_contaPadraoRetryTimer);
+  _contaPadraoRetryTimer = setTimeout(() => {
+    _contaPadraoRetryTimer = null;
+    const pendente = _contaPadraoPendente;
+    if (pendente) _contaPadraoAlternar(pendente.contaId || '', pendente.padrao);
+  }, 30000);
+}
+
 function _contaPadraoAlternar(contaId, checked) {
-  const contas = DefaultAccount.select(dbLoad('cartoes'), contaId, checked);
-  dbSave('cartoes', contas);
+  const anteriores = dbLoad('cartoes');
+  const contas = DefaultAccount.select(anteriores, contaId, checked);
+  const versao = ++_contaPadraoVersao;
+  _contaPadraoPendente = { contaId: DefaultAccount.getId(contas), padrao: !!DefaultAccount.getId(contas), versao };
+  if (_contaPadraoRetryTimer) {
+    clearTimeout(_contaPadraoRetryTimer);
+    _contaPadraoRetryTimer = null;
+  }
+  DB_CACHE.cartoes = contas.map(conta => ({ ...conta }));
+  _dbPersistCache('cartoes');
   renderizarTabelaConfig('cartoes');
-  toast(checked ? 'Conta padrão atualizada.' : 'Conta padrão removida.');
+
+  const executar = async () => {
+    if (versao !== _contaPadraoVersao) return;
+    let persistida = true;
+    const contaPadraoId = DefaultAccount.getId(DB_CACHE.cartoes);
+    const contaPadrao = DB_CACHE.cartoes.find(item => _dbSameId(item.id, contaPadraoId));
+    if (window._authUser && _getSB()) {
+      if (contaPadraoId) persistida = await _sbGarantirContaParaPadrao(contaPadrao);
+      if (persistida) persistida = await _sbDefinirContaPadrao(contaPadraoId, !!contaPadraoId);
+    }
+    if (!persistida) {
+      if (versao === _contaPadraoVersao) {
+        _contaPadraoAgendarTentativa();
+        toast('Não foi possível sincronizar a conta padrão. Tentaremos novamente.', 'warn');
+      }
+      return;
+    }
+    if (versao === _contaPadraoVersao) {
+      _contaPadraoPendente = null;
+      toast(contaPadraoId ? 'Conta padrão atualizada.' : 'Conta padrão removida.');
+    }
+  };
+
+  _contaPadraoFila = _contaPadraoFila.then(executar, executar);
+  return _contaPadraoFila;
 }
 
 function _transAgendarRenderCompletoTransacoes() {
