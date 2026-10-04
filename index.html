@@ -10780,10 +10780,10 @@ function _transAplicarTransferenciaNoForm() {
   _transSetSelectValue('f-decisao', 'decisoes', decisaoId);
   _transSetSelectValue('f-tipo-pagamento', 'tipos', _transTipoSaidaId());
   _transSetSelectValue('f-forma-pagamento', 'formas', _transFormaIdPix());
-  _transAplicarContaPadraoTransferencia();
+  _transAplicarContaPadrao();
 }
 
-function _transAplicarContaPadraoTransferencia() {
+function _transAplicarContaPadrao() {
   if (editandoTransId || document.getElementById('f-cartao')?.value) return;
   const contaId = DefaultAccount.getId(dbLoad('cartoes'));
   if (!contaId) return;
@@ -11157,6 +11157,7 @@ function limparFormTransacao() {
     _transSetSelectValue('f-tipo-pagamento', 'tipos', _transTipoSaidaId());
     _transSetSelectValue('f-forma-pagamento', 'formas', _transFormaIdDebito());
     _transSetSelectValue('f-perfil-despesa', 'perfis', _transPerfilDespesaVariavelId());
+    _transAplicarContaPadrao();
   }
   transRefreshSearchableSelects();
 }
